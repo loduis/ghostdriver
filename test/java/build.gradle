@@ -11,7 +11,7 @@ repositories {
     mavenCentral()
 }
 
-ext.seleniumVersion = "2.28.0"
+ext.seleniumVersion = "2.31.0"
 ext.junitVersion = "4.8+"
 ext.jettyVersion = "6.1.21"
 
@@ -21,7 +21,7 @@ dependencies {
     }
     testCompile "junit:junit-dep:$junitVersion"
 	testCompile "org.mortbay.jetty:jetty:$jettyVersion"
-    testCompile files("../../binding/java/jars/phantomjsdriver-1.0.3-dev.jar")
+    testCompile files("../../binding/java/jars/phantomjsdriver-1.0.3.jar")
 }
 
 tasks.withType(JavaExec) {

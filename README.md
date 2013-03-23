@@ -8,9 +8,9 @@ It's a Remote WebDriver that uses PhantomJS as back-end.
 GhostDriver is designed to be integral part of PhantomJS itself, but it's developed in isolation and progress is tracked
 by this Repository.
 
-* Current _GhostDriver_ stable version is `"1.0.2"`
-* Current _PhantomJS-integrated_ version is `"1.0.2"`: contained in PhantomJS `"1.8.x"`
-* Current _PhantomJSDriver_ (Java binding) stable version is `"1.0.1"`
+* Current _GhostDriver_ stable version is `"1.0.3"`
+* Current _PhantomJS-integrated_ version is `"1.0.3"`: contained in PhantomJS `"1.9.x"`
+* Current _PhantomJSDriver_ (Java binding) stable version is `"1.0.3"`
 
 For more info, please take a look at the [changelog](https://github.com/detro/ghostdriver/blob/master/CHANGELOG.md).
 
@@ -29,6 +29,16 @@ The project was created and is lead by [Ivan De Marino](https://github.com/detro
 4. Build: `./build.sh`
 5. Go make some coffee (this might take a while...)
 6. `phantomjs --webdriver=8080` to **launch PhantomJS in Remote WebDriver mode**
+
+**NOTE:** Type `phantomjs -h` for more options.
+
+## (Java) Bindings
+
+This project provides WebDriver bindings for Java under the name _PhantomJSDriver_.
+[Here is the JavaDoc](http://cdn.ivandemarino.me/phantomjsdriver-javadoc/index.html).
+
+Bindings for other languages (C#, Python, Ruby, ...) are developed and maintained
+under the same name within the [Selenium project](http://docs.seleniumhq.org/docs/) itself.
 
 ## How to use it
 
@@ -69,8 +79,20 @@ Just add the following to your `pom.xml`:
 <dependency>
     <groupId>com.github.detro.ghostdriver</groupId>
     <artifactId>phantomjsdriver</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.3</version>
 </dependency>
+```
+
+### Include Java Bindings in your Gradle project
+
+Just add the following to your `build.gradle`:
+
+```gradle
+dependencies {
+    ...
+    testCompile "com.github.detro.ghostdriver:phantomjsdriver:1.0.3"
+    ...
+}
 ```
 
 ## Project Directory Structure
@@ -117,7 +139,7 @@ GhostDriver (or any WebDriver, as a matter of fact).
 
 One thing it's important to mention, is that CrazyFunBuild relies on the content of `build.desc` file to understand
 what and how to build it. Those files define what exactly is built and what it depends on. In the case of the Atoms,
-the word "build" means "run Google Clojure Compiler over a set of files and compress functions into Atoms".
+the word "build" means "run Google Closure Compiler over a set of files and compress functions into Atoms".
 The definition of the Atoms that GhostDriver uses lives at `/tools/atoms_build_dir/build.desc`.
 
 Let's take this small portion of our `build.desc`:
@@ -153,11 +175,12 @@ If you reached this stage in understanding the Atoms, you are ready to go furthe
 
 ## Presentation and Slides (old)
 
-In April 2012 I (Ivan De Marino) presented GhostDriver at the
-[Selenium Conference](http://www.seleniumconf.org/speakers/#IDM):
+* _April 2012_ - Presented GhostDriver at [Selenium Conference 2012](http://www.seleniumconf.org/speakers/#IDM):
 [slides](http://cdn.ivandemarino.me/slides/speed_up_selenium_with_phantomjs/index.html)
-and
-[video](http://blog.ivandemarino.me/2012/05/01/Me-the-Selenium-Conference-2012).
+and [video](http://blog.ivandemarino.me/2012/05/01/Me-the-Selenium-Conference-2012).
+* _March 2013_ - Updates about GhostDriver at [Selenium Camp 2013](http://seleniumcamp.com/materials/ghost-driver/):
+[slides](https://speakerdeck.com/detronizator/getting-started-with-ghostdriver)
+and [personal blog post](http://blog.ivandemarino.me/2013/03/03/Me-Selenium-Camp-2013).
 
 ## Contributions and/or Bug Report
 
