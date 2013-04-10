@@ -5,14 +5,10 @@ module.exports = function (window, session, request, response) {
   } else if(params.args === undefined) {
     response.error.missingCommandParameter('args', request);
   } else {
-    console.log(JSON.stringify(request));
-
     window.on('callback', function(result) {
-      console.log(result);
       response.basedOnResult(result, session, request);
     });
-    window.eval(
-      'execute_async_script',
+    window.executeAsyncScript(
       params.script,
       params.args,
       session.getAsyncScriptTimeout()

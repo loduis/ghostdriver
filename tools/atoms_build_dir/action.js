@@ -58,6 +58,11 @@ phantomjs.atoms.inject.action.moveMouse = function(element, opt_coords) {
     return bot.inject.executeScript(bot.action.moveMouse, [element, opt_coords], true);
 };
 
+phantomjs.atoms.inject.action.click = function(element, opt_coords) {
+    console.log(opt_coords);
+    return bot.inject.executeScript(bot.action.click, [element, opt_coords], true);
+};
+
 /**
  * Right-clicks on the given {@code element} with a virtual mouse.
  *

@@ -9,7 +9,7 @@ module.exports = function (window, session, request, response) {
     }
     var now = new Date().getTime();
     if ((cookie.expiry && cookie.expiry <= now) ||
-                                            window.addCookie(cookie)) {
+                                            window.cookie.add(cookie)) {
       response.success(session.getId());
     } else if (window.url.indexOf(cookie.domain) === -1) {
       response.error.invalidCookieDomain(

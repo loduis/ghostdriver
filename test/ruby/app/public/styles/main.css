@@ -406,6 +406,7 @@ table {
 body {
   line-height: 1;
   font: 400 12px Arial;
+  background: green
 }
 
 
@@ -433,4 +434,7 @@ html, body {
 #html {
   width: 200px;
   height: 50px;
+}
+.element {
+  height: 15px;
 }

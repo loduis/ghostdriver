@@ -1,7 +1,6 @@
 var ghostdriver = {
       version: '2.0',
-      Session: require('./session'),
-      Element: require('./element')
+      Session: require('./session')
     },
     router = require('./router');
 

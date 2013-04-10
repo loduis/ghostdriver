@@ -112,7 +112,7 @@ var error = function () {
     var error = new Error();
     error.message = message + ', Request: ' +
                     JSON.stringify(request);
-    this.response.failure(status, error.message);
+    this.response.writeAndClose(500, 'text/plain', error.message);
     return error;
   }
 
@@ -177,8 +177,7 @@ var error = function () {
     };
 
     // Send it
-    this.response.statusCode = 500; //< 500 Internal Server Error
-    this.response.writeJSONAndClose(body);
+    this.response.writeAndClose(500, 'application/json;charset=UTF-8', body);
     return error;
   };
 

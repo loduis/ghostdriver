@@ -17,18 +17,12 @@ module.exports = function (window, session, request, response) {
         );
       }, wait);
 
-    var result = window.eval(
-      'execute_script',
-      params.script,
-      params.args,
-      true
-    );
+    var result = window.executeScript(params.script, params.args);
 
     clearTimeout(timeId);
 
     if (!timeout) {
-      console.log(result);
-      response.basedOnResult(result, session, request);
+      return result;
     }
   }
 };

@@ -1,14 +1,14 @@
 module.exports = function (window, session, request, response) {
-  window.reload().wait(session.getPageLoadTimeout(),
-    function () {
+  var time = session.getPageLoadTimeout();
+  window.reload().wait(time, function (status) {
+    if (status === 'success') {
       response.success(session.getId());
-    },
-    function () {
+    } else {
       response.error.timeout(
-        'Not can reload the url ' + url,
+        'Not can reload the url ' + this.url,
         session,
         request
       );
     }
-  );
+  });
 };

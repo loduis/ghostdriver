@@ -65,6 +65,12 @@ js_fragment(name = "double_click",
   function = "phantomjs.atoms.inject.action.doubleClick",
   deps = [ ":deps" ])
 
+js_fragment(name = "click",
+  module = "phantomjs.atoms.inject.action",
+  function = "phantomjs.atoms.inject.action.click",
+  deps = [ ":deps" ])
+
+
 js_fragment(name = "scroll_mouse",
   module = "phantomjs.atoms.inject.action",
   function = "phantomjs.atoms.inject.action.scrollMouse",
@@ -79,6 +85,27 @@ js_fragment(name = "scroll_into_view",
   module = "phantomjs.atoms.inject.action",
   function = "phantomjs.atoms.inject.action.scrollIntoView",
   deps = [ ":deps" ])
+
+js_fragment(name = "get_location_in_view",
+  module = "phantomjs.atoms.dom",
+  function = "phantomjs.atoms.dom.getLocationInView",
+  deps = [ ":deps" ])
+
+js_fragment(name = "get_location",
+  module = "phantomjs.atoms.dom",
+  function = "phantomjs.atoms.dom.getLocation",
+  deps = [ ":deps" ])
+
+js_fragment(name = "get_tag_name",
+  module = "phantomjs.atoms.dom",
+  function = "phantomjs.atoms.dom.getTagName",
+  deps = [ ":deps" ])
+
+js_fragment(name = "is_same_node",
+  module = "phantomjs.atoms.dom",
+  function = "phantomjs.atoms.dom.isSameNode",
+  deps = [ ":deps" ])
+
 
 js_fragment(name = "tap",
   module = "phantomjs.atoms.inject.action",
@@ -100,6 +127,15 @@ js_fragment(name = "rotate",
   function = "phantomjs.atoms.inject.action.rotate",
   deps = [ ":deps" ])
 
+js_fragment(name = "execute_async_script",
+  module = "phantomjs.atoms.inject",
+  function = "phantomjs.atoms.inject.executeAsyncScript",
+  deps = [ ":deps" ])
+
+
+# "//javascript/webdriver/atoms:get_location_in_view",
+# "//javascript/webdriver/atoms:get_location",
+
 # List of Atoms that will be compiled for GhostDriver
 js_deps(name = "build_atoms",
   deps = [
@@ -109,19 +145,22 @@ js_deps(name = "build_atoms",
     ":move_mouse",
     ":right_click",
     ":double_click",
+    ":click",
     ":scroll_mouse",
     ":drag",
     ":scroll_into_view",
+    ":get_location_in_view",
+    ":execute_async_script",
+    ":get_location",
+    ":get_tag_name",
     ":tap",
     ":swipe",
     ":pinch",
     ":rotate",
+    ":is_same_node",
 
     "//javascript/webdriver/atoms:execute_script",
-    "//javascript/webdriver/atoms:execute_async_script",
     "//javascript/webdriver/atoms:get_attribute",
-    "//javascript/webdriver/atoms:get_location",
-    "//javascript/webdriver/atoms:get_location_in_view",
     "//javascript/webdriver/atoms:get_in_view_location",
     "//javascript/webdriver/atoms:get_window_size",
     "//javascript/webdriver/atoms:set_window_size",

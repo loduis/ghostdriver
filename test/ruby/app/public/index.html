@@ -11,8 +11,7 @@
     <div id="html">This my innerHTML</div>
     <div class="element">TWO</div>
     <div class="element">THREE</div>
-    <a href="javascript: alert('This is an test');">Open alert</a>
-    <form id="form">
+    <form id="form" method="post" action="/submit">
       <input type="text" name="q" value="this an test">
 
       <input type="radio" name="p" id="radio_checked" value="on" checked>
@@ -26,7 +25,12 @@
       </select>
 
       <input type="text" id="disabled" style="display: none" disabled>
+      <input type="submit" id="send" value="Send">
+      <div id="show_in_right_click" style="display: none">FROM RIGHT CLICK</div>
+      <a id="alert">Open alert</span>
+        <a id="popup">Open new popup</span>
     </form>
   </div>
+  <script type="text/javascript" src="/js/index.js"></script>
 </body>
 </html>

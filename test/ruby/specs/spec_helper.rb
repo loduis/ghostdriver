@@ -1,9 +1,29 @@
 require 'selenium-webdriver'
+require 'Win32API' if Selenium::WebDriver::Platform.windows?
 
 RSpec.configure {|c|
   c.fail_fast = true
   c.formatter  = :documentation
 }
+
+def get_screen_size
+  if Selenium::WebDriver::Platform.linux?
+    width, height = `xrandr`.scan(/current (\d+) x (\d+)/).flatten
+    # bug phantomjs
+    #width = 1024
+    #height = 768
+
+    Selenium::WebDriver::Dimension.new width.to_i, height.to_i
+  elsif Selenium::WebDriver::Platform.windows?
+    getSystemMetrics = Win32API.new("user32",     "GetSystemMetrics", ['I'], 'I')
+    width  = getSystemMetrics.call(0)
+    height = getSystemMetrics.call(1)
+    Selenium::WebDriver::Dimension.new width, height
+  else
+    raise "Implement this method in this Platform"
+  end
+
+end
 
 module Selenium
   module WebDriver
@@ -23,9 +43,27 @@ module Selenium
   end
 end
 
+module Selenium
+  module WebDriver
+    module Chrome
+      class Bridge
+        def driver_extensions
+          [
+            DriverExtensions::TakesScreenshot,
+            DriverExtensions::HasInputDevices,
+            DriverExtensions::HasWebStorage # support for local storage
+          ]
+        end
+      end
+
+    end
+  end
+end
+
+
 # support for run code with
 
-
+=begin
 $main = File.join(File.dirname(File.dirname(__FILE__)), 'src', 'main.js');
 
 module Selenium
@@ -48,3 +86,4 @@ module Selenium
     end
   end
 end
+=end

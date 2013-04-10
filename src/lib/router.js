@@ -2,12 +2,6 @@ var router = {},
     WebServerResponse = require('./response'),
     WebServerRequest = require('./request');
 
-function argumentCount(functionName) {
-  var names = functionName.toString().
-      match(/^[\s\(]*function[^(]*\(([^)]*)\)/)[1].split(',');
-  return names.length;
-}
-
 router.dispatch = function (request, response) {
     response = WebServerResponse.extend(response);
     request  = WebServerRequest.extend(request);
@@ -21,8 +15,9 @@ router.dispatch = function (request, response) {
         session = ghostdriver.Session.get(sessionId);
         if (session === null) {
           response.error.variableResourceNotFound(request);
-        } else if (argumentCount(callback) === 4) {
-          var window = session.getWindow();
+        } else if (callback.numArguments === 4) {
+          var handle = request.getWindowHandle(),
+              window = session.getWindow(handle);
           if (window === null) {
             response.error.noSuchWindow(
               'the currently selected window has been closed',
@@ -30,13 +25,23 @@ router.dispatch = function (request, response) {
               request
             );
           } else {
-            var result = callback.call(
-              ghostdriver,
-              window,
-              session,
-              request,
-              response
-            );
+            var id = request.getElementId(),
+                element = window;
+            if (id !== undefined) {
+              element = new window.Element(id);
+            }
+            var result;
+            try {
+              result = callback.call(
+                ghostdriver,
+                element,
+                session,
+                request,
+                response
+              );
+            } catch (e) {
+              result = e.result;
+            }
             if (result !== undefined) {
               response.basedOnResult(result, session, request);
             }

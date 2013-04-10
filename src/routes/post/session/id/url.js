@@ -3,17 +3,17 @@ module.exports = function(window, session, request, response) {
   if (url === undefined) {
     response.error.missingCommandParameter('url', request);
   } else {
-    window.open(url).wait(session.getPageLoadTimeout(),
-      function () {
+    var time = session.getPageLoadTimeout();
+    window.open(url).wait(time, function (status) {
+      if (status === 'success') {
         response.success(session.getId());
-      },
-      function () {
+      } else {
         response.error.timeout(
           'Not can load the url ' + url,
           session,
           request
         );
       }
-    );
+    });
   }
 };

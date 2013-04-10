@@ -1,4 +1,4 @@
 module.exports = function (window, session, request, response) {
-  window.clearCookies();
+  window.cookie.clear();
   response.success(session.getId());
 };
