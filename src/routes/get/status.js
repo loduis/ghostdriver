@@ -1,12 +1,12 @@
 module.exports = function (request, response) {
   response.success(null, {
     build : {
-      version   : ghostdriver.version
+      version   : this.version
     },
     os : {
-      name      : ghostdriver.os.name,
-      version   : ghostdriver.os.version,
-      arch      : ghostdriver.os.architecture
+      name      : this.os.name,
+      version   : this.os.version,
+      arch      : this.os.architecture
     }
   })
 };

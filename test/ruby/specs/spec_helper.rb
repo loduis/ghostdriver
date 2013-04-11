@@ -1,3 +1,4 @@
+require 'rspec/core'
 require 'selenium-webdriver'
 require 'Win32API' if Selenium::WebDriver::Platform.windows?
 
@@ -47,11 +48,32 @@ module Selenium
           execute :getAppCacheStatus
         end
 
+        def getStatus
+          execute :getStatus
+        end
+
       end
     end
   end
 end
 
+module Selenium
+  module WebDriver
+    class Driver
+      def __get_app_cache_status__
+        data = bridge.getAppCacheStatus
+        data['value']
+      end
+
+      def __status__
+        bridge.getStatus
+      end
+    end
+  end
+end
+
+
+=begin
 module Selenium
   module WebDriver
     module Chrome
@@ -68,17 +90,8 @@ module Selenium
     end
   end
 end
+=end
 
-module Selenium
-  module WebDriver
-    class Driver
-      def get_app_cache_status
-        data = bridge.getAppCacheStatus
-        data['value']
-      end
-    end
-  end
-end
 
 # support for run code with
 

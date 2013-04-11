@@ -14,6 +14,12 @@ describe 'Ghostdriver' do
 
 
   describe 'Basic' do
+
+    it "should Query the server's current status." do
+      status = $driver1.__status__
+      status['build'].should_not be_nil
+    end
+
     it 'should navigate to a new URL' do
       $driver1.get($url)
     end
@@ -90,7 +96,8 @@ describe 'Ghostdriver' do
     end
 
     it 'should get the status of the html5 application cache.' do
-      $driver1.get_app_cache_status.should eq 0
+      # this method need implementation in this library
+      $driver1.__get_app_cache_status__.should eq 0
     end
 
   end # Basic
