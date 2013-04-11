@@ -1,6 +1,16 @@
-var
+const
   _uuid = require('./uuid'),
   _Window = require('./window'),
+  _capsPageSettingsPref = "phantomjs.page.settings.",
+  _TIMEOUT_NAMES = {
+      SCRIPT          : "script",
+      ASYNC_SCRIPT    : "async script",
+      IMPLICIT        : "implicit",
+      PAGE_LOAD       : "page load"
+  },
+  _max32bitInt = Math.pow(2, 31) -1;
+
+var
   _sessions = {},
   _system = require('system'),
   _defaultCapabilities = {    // TODO - Actually try to match the 'desiredCapabilities' instead of ignoring them
@@ -25,15 +35,8 @@ var
     'proxy' : {                         //< TODO Support more proxy options - PhantomJS does allow setting from command line
         'proxyType' : 'direct'
     }
-  },
-  _capsPageSettingsPref = "phantomjs.page.settings.",
-  _TIMEOUT_NAMES = {
-      SCRIPT          : "script",
-      ASYNC_SCRIPT    : "async script",
-      IMPLICIT        : "implicit",
-      PAGE_LOAD       : "page load"
-  },
-  _max32bitInt = Math.pow(2, 31) -1;
+  };
+
 
 function _getCap(desiredCapabilities, property) {
   return typeof(desiredCapabilities[property]) === 'undefined' ?
@@ -41,65 +44,58 @@ function _getCap(desiredCapabilities, property) {
           desiredCapabilities[property];
 }
 
-function _setTimeout(timeouts, type, ms) {
-  // In case the chosen timeout is less than 0, we reset it to `_max32bitInt`
-  if (ms < 0) {
-      timeouts[type] = _max32bitInt;
-  } else {
-      timeouts[type] = ms;
-  }
-}
-
 function Session(desiredCapabilities) {
-  // ghostdriver is active here
   _defaultCapabilities['driverVersion'] = ghostdriver.version;
-  var id = _uuid(),
-      negotiatedCapabilities = {
-        'browserName'               : _defaultCapabilities.browserName,
-        'version'                   : _defaultCapabilities.version,
-        'platform'                  : _defaultCapabilities.platform,
-        'javascriptEnabled'         : _getCap(desiredCapabilities, 'javascriptEnabled'),
-        'takesScreenshot'           : _getCap(desiredCapabilities, 'takesScreenshot'),
-        'handlesAlerts'             : _defaultCapabilities.handlesAlerts,
-        'databaseEnabled'           : _defaultCapabilities.databaseEnabled,
-        'locationContextEnabled'    : _defaultCapabilities.locationContextEnabled,
-        'applicationCacheEnabled'   : _defaultCapabilities.applicationCacheEnabled,
-        'browserConnectionEnabled'  : _defaultCapabilities.browserConnectionEnabled,
-        'cssSelectorsEnabled'       : _defaultCapabilities.cssSelectorsEnabled,
-        'webStorageEnabled'         : _defaultCapabilities.webStorageEnabled,
-        'rotatable'                 : _defaultCapabilities.rotatable,
-        'acceptSslCerts'            : _defaultCapabilities.acceptSslCerts,
-        'nativeEvents'              : _defaultCapabilities.nativeEvents,
-        'proxy'                     : _getCap(desiredCapabilities, 'proxy')
-      },
-      pageSettings = {},
-      windows = {},
-      timeouts = {};
+  this._id = _uuid();
+  this._windows = {};
+  this._timeouts = {};
+  this._negotiatedCapabilities = {
+    'browserName'               : _defaultCapabilities.browserName,
+    'version'                   : _defaultCapabilities.version,
+    'platform'                  : _defaultCapabilities.platform,
+    'javascriptEnabled'         : _getCap(desiredCapabilities, 'javascriptEnabled'),
+    'takesScreenshot'           : _getCap(desiredCapabilities, 'takesScreenshot'),
+    'handlesAlerts'             : _defaultCapabilities.handlesAlerts,
+    'databaseEnabled'           : _defaultCapabilities.databaseEnabled,
+    'locationContextEnabled'    : _defaultCapabilities.locationContextEnabled,
+    'applicationCacheEnabled'   : _defaultCapabilities.applicationCacheEnabled,
+    'browserConnectionEnabled'  : _defaultCapabilities.browserConnectionEnabled,
+    'cssSelectorsEnabled'       : _defaultCapabilities.cssSelectorsEnabled,
+    'webStorageEnabled'         : _defaultCapabilities.webStorageEnabled,
+    'rotatable'                 : _defaultCapabilities.rotatable,
+    'acceptSslCerts'            : _defaultCapabilities.acceptSslCerts,
+    'nativeEvents'              : _defaultCapabilities.nativeEvents,
+    'proxy'                     : _getCap(desiredCapabilities, 'proxy')
+  };
+
+  var pageSettings = {};
 
   for (var k in desiredCapabilities) {
       if (k.indexOf(_capsPageSettingsPref) === 0) {
           settingKey = k.substring(_capsPageSettingsPref.length);
           if (settingKey.length > 0) {
-              negotiatedCapabilities[k] = desiredCapabilities[k];
+              this._negotiatedCapabilities[k] = desiredCapabilities[k];
               pageSettings[settingKey] = desiredCapabilities[k];
           }
       }
   }
+
   // set time outs
-  for (k in _TIMEOUT_NAMES) {
-    timeouts[_TIMEOUT_NAMES[k]] = _max32bitInt;
+  for (var k in _TIMEOUT_NAMES) {
+    this._timeouts[_TIMEOUT_NAMES[k]] = _max32bitInt;
   }
-  timeouts[_TIMEOUT_NAMES.IMPLICIT] = 5;
 
-  var currentWindowHandle = _uuid(),
-      window = new _Window(currentWindowHandle, pageSettings);
+  this._timeouts[_TIMEOUT_NAMES.IMPLICIT] = 5;
 
-  windows[currentWindowHandle] = window;
+  this._currentWindowHandle = _uuid();
+
+  var window = new _Window(this._currentWindowHandle, pageSettings),
+     self = this;
 
   window.on('closing', function () {
     var handle = this.handle;
-    if (windows.hasOwnProperty(handle)) {
-      delete windows[this.handle];
+    if (self._windows.hasOwnProperty(handle)) {
+      delete self._windows[this.handle];
     }
   });
 
@@ -107,29 +103,39 @@ function Session(desiredCapabilities) {
   window.on('pageCreated', function (page) {
     var handle = _uuid();
         window = new _Window(handle, pageSettings, page);
-    windows[handle] = window;
+    self._windows[handle] = window;
   });
 
+  this._windows[this._currentWindowHandle] = window;
 
-  this.getId = function () {
-    return id;
+}
+
+//=================== INSTANCE METHOD ===================//
+
+(function (session) {
+
+  session.getId = function () {
+    return this._id;
   };
 
-  this.getCapabilities = function () {
-    return negotiatedCapabilities;
-  };
-  this.getCurrentWindowHandle = function() {
-    return currentWindowHandle;
+  session.getCapabilities = function () {
+    return this._negotiatedCapabilities;
   };
 
-  this.getWindowHandles = function() {
-    return Object.keys(windows);
+  session.getCurrentWindowHandle = function() {
+    return this._currentWindowHandle;
   };
 
-  this.getWindow = function (handle) {
+  session.getWindowHandles = function() {
+    return Object.keys(this._windows);
+  };
+
+  session.getWindow = function (handle) {
     handle = handle === undefined || handle === 'current' ?
               this.getCurrentWindowHandle() : handle;
-    var window = windows.hasOwnProperty(handle) ? windows[handle] : null;
+    var windows = this._windows,
+        window = windows.hasOwnProperty(handle) ?
+                 windows[handle] : null;
     if (window === null) {
       for(var key in windows) {
         if (windows[key].name === handle) {
@@ -141,60 +147,67 @@ function Session(desiredCapabilities) {
     return window;
   };
 
-  this.switchToWindow = function(handle) {
+  session.switchToWindow = function(handle) {
     var window = this.getWindow(handle), change = false;
     if (window !== null) {
-      currentWindowHandle = window.handle;
+      this._currentWindowHandle = window.handle;
       window.focus();
       change = true;
     }
     return change;
   };
 
-
-  this.setPageLoadTimeout = function (ms) {
-    _setTimeout(timeouts, _TIMEOUT_NAMES.PAGE_LOAD, ms);
+  session.setPageLoadTimeout = function (ms) {
+    this._setTimeout(_TIMEOUT_NAMES.PAGE_LOAD, ms);
   };
 
-  this.setImplicitTimeout = function(ms) {
-    _setTimeout(timeouts, _TIMEOUT_NAMES.IMPLICIT, ms);
+  session.setImplicitTimeout = function(ms) {
+    this._setTimeout(_TIMEOUT_NAMES.IMPLICIT, ms);
   };
 
-  this.setScriptTimeout = function(ms) {
-    _setTimeout(timeouts, _TIMEOUT_NAMES.SCRIPT, ms);
+  session.setScriptTimeout = function(ms) {
+    this._setTimeout(_TIMEOUT_NAMES.SCRIPT, ms);
   };
 
-  this.setAsyncScriptTimeout = function(ms) {
-    _setTimeout(timeouts, _TIMEOUT_NAMES.ASYNC_SCRIPT, ms);
+  session.setAsyncScriptTimeout = function(ms) {
+    this._setTimeout(_TIMEOUT_NAMES.ASYNC_SCRIPT, ms);
   };
 
-  this.getPageLoadTimeout = function () {
-    return timeouts[_TIMEOUT_NAMES.PAGE_LOAD];
+  session.getPageLoadTimeout = function () {
+    return this._timeouts[_TIMEOUT_NAMES.PAGE_LOAD];
   };
 
-  this.getImplicitTimeout = function() {
-    return timeouts[_TIMEOUT_NAMES.IMPLICIT];
+  session.getImplicitTimeout = function() {
+    return this._timeouts[_TIMEOUT_NAMES.IMPLICIT];
   };
 
-  this.getScriptTimeout = function() {
-    return timeouts[_TIMEOUT_NAMES.SCRIPT];
+  session.getScriptTimeout = function() {
+    return this._timeouts[_TIMEOUT_NAMES.SCRIPT];
   };
 
-  this.getAsyncScriptTimeout = function() {
-    return timeouts[_TIMEOUT_NAMES.ASYNC_SCRIPT];
+  session.getAsyncScriptTimeout = function() {
+    return this._timeouts[_TIMEOUT_NAMES.ASYNC_SCRIPT];
   };
 
-  this.close = function () {
+  session.close = function () {
     var id = this.getId();
-    for (var handle in windows) {
-      windows[handle].close();
+    for (var handle in this._windows) {
+      this._windows[handle].close();
     }
     delete _sessions[this.getId()];
     return id;
   };
 
+  session._setTimeout = function(type, ms) {
+    // In case the chosen timeout is less than 0, we reset it to `_max32bitInt`
+    if (ms < 0) {
+        this._timeouts[type] = _max32bitInt;
+    } else {
+        this._timeouts[type] = ms;
+    }
+  }
 
-}
+})(Session.prototype);
 
 //=================== CLASS METHOD ===================//
 

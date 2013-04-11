@@ -102,11 +102,7 @@ var error = function () {
           }(code);
         }
         return STATUS_CODE_NAMES;
-    }(error, _FAILED_CMD_STATUS_CODES),
-    // atoms error code 12 is an invalid selector
-    _TRANSLATE_DOM_ERROR_CODES = {
-      12: error.INVALID_SELECTOR
-    };
+    }(error, _FAILED_CMD_STATUS_CODES);
 
   function _createError(status, message, request) {
     var error = new Error();
@@ -143,11 +139,6 @@ var error = function () {
     );
   };
 
-  error.translateDomErrorCode = function (code) {
-    return _TRANSLATE_DOM_ERROR_CODES.hasOwnProperty(code) ?
-              _TRANSLATE_DOM_ERROR_CODES[code] : code;
-  };
-
   error.failedCommand = function (code, message, session, request, className) {
     var error = new Error(),
         name = _FAILED_CMD_STATUS_CODES_NAMES[code];
@@ -177,7 +168,7 @@ var error = function () {
     };
 
     // Send it
-    this.response.writeAndClose(500, 'application/json;charset=UTF-8', body);
+    this.response.writeAndClose(500, 'application/json', body);
     return error;
   };
 

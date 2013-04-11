@@ -92,9 +92,10 @@ function Element(window, element) {
     return wait;
   };
 
+  /*
   element.isInValidLocator = function(locator) {
     return this._window.isInValidLocator(locator);
-  };
+  };*/
 
   element.find = function (locator) {
     return this._window.find(locator, this._id);

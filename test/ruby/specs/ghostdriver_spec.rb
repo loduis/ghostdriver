@@ -89,6 +89,10 @@ describe 'Ghostdriver' do
       $driver1.action.move_by(- x, - y).perform
     end
 
+    it 'should get the status of the html5 application cache.' do
+      $driver1.get_app_cache_status.should eq 0
+    end
+
   end # Basic
 
   describe 'Alert' do

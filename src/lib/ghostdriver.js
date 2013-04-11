@@ -1,12 +1,14 @@
-var ghostdriver = {
-      version: '2.0',
-      Session: require('./session')
-    },
-    router = require('./router');
+var
+  system = require('system'),
+  ghostdriver = {
+    version: '2.0',
+    os: system.os,
+    Session: require('./session')
+  },
+  router = require('./router');
 
-ghostdriver.args = function () {
+ghostdriver.args = function (args) {
   var
-    args = require('system').args,
     ip   = '127.0.0.1',
     port = 8910,
     hub  = null;
@@ -32,7 +34,7 @@ ghostdriver.args = function () {
     hub: hub
   };
 
-}();
+}(system.args);
 
 ghostdriver.registerHub = function () {
   if (this.args.hub) {

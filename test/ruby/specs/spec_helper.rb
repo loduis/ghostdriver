@@ -25,10 +25,14 @@ def get_screen_size
 
 end
 
+
 module Selenium
   module WebDriver
     module Remote
       class Bridge
+
+        command :getStatus, :get, "/status"
+
         def driver_extensions
           [
             DriverExtensions::HasInputDevices,
@@ -38,6 +42,11 @@ module Selenium
             DriverExtensions::HasWebStorage # support for local storage
           ]
         end
+
+        def getAppCacheStatus
+          execute :getAppCacheStatus
+        end
+
       end
     end
   end
@@ -60,6 +69,16 @@ module Selenium
   end
 end
 
+module Selenium
+  module WebDriver
+    class Driver
+      def get_app_cache_status
+        data = bridge.getAppCacheStatus
+        data['value']
+      end
+    end
+  end
+end
 
 # support for run code with
 

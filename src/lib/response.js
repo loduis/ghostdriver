@@ -13,7 +13,7 @@ var WebServerResponse = function() {
     if (arguments.length > 0) {
         this.writeAndClose(
           200,
-          'application/json;charset=UTF-8',
+          'application/json',
           body(sessionId, value)
         );
     } else {
@@ -54,7 +54,7 @@ var WebServerResponse = function() {
         body = JSON.stringify(body);
         this.setHeader('Cache', 'no-cache');
       }
-      this.setHeader('Content-Type', contentType);
+      this.setHeader('Content-Type', contentType  + ';charset=UTF-8');
       this.setHeader('Content-Length', unescape(encodeURIComponent(body)).length);
       this.write(body);
       this.close();

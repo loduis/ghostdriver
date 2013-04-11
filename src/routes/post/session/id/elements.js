@@ -4,17 +4,12 @@ module.exports = function (window, session, request, response) {
     response.error.missingCommandParameter('using', request);
   } else if (locator.value === undefined) {
     response.error.missingCommandParameter('value', request);
-  } else if (window.isInValidLocator(locator)) {
-    response.error.unknownError(
-      'Invalid locator received',
-      session,
-      request
-    );
   } else {
     var time    = session.getImplicitTimeout();
     window.findAll(locator).wait(time, function (result) {
-      if (result.status !== 0) {
-        result.status = response.error.translateDomErrorCode(result.status);
+      if (result.status !== 0 &&
+          result.value.message.indexOf('SYNTAX_ERR: DOM Exception 12') !== -1) {
+        result.status = response.error.INVALID_SELECTOR;
       }
       response.basedOnResult(result, session, request);
     });
