@@ -2,8 +2,7 @@ var
   system = require('system'),
   ghostdriver = {
     version: '2.0',
-    os: system.os,
-    Session: require('./session')
+    os: system.os
   },
   router = require('./router');
 

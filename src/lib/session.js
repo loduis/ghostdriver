@@ -8,34 +8,35 @@ const
       IMPLICIT        : "implicit",
       PAGE_LOAD       : "page load"
   },
-  _max32bitInt = Math.pow(2, 31) -1;
-
-var
-  _sessions = {},
-  _system = require('system'),
+  _max32bitInt = Math.pow(2, 31) -1,
   _defaultCapabilities = {    // TODO - Actually try to match the 'desiredCapabilities' instead of ignoring them
-    'browserName' : 'phantomjs',
-    'version' : phantom.version.major + '.' + phantom.version.minor + '.' +
-                phantom.version.patch,
-    'driverName' : 'ghostdriver',
-    'platform' : _system.os.name + '-' + _system.os.version + '-' +
-                 _system.os.architecture,
-    'javascriptEnabled' : true,
-    'takesScreenshot' : true,
-    'handlesAlerts' : false,            //< TODO
-    'databaseEnabled' : false,          //< TODO
-    'locationContextEnabled' : false,   //< TODO Target is 1.1
-    'applicationCacheEnabled' : false,  //< TODO Support for AppCache (?)
-    'browserConnectionEnabled' : false, //< TODO
-    'cssSelectorsEnabled' : true,
-    'webStorageEnabled' : false,        //< TODO support for LocalStorage/SessionStorage
-    'rotatable' : false,                //< TODO Target is 1.1
-    'acceptSslCerts' : false,           //< TODO
-    'nativeEvents' : true,              //< TODO Only some commands are Native Events currently
-    'proxy' : {                         //< TODO Support more proxy options - PhantomJS does allow setting from command line
-        'proxyType' : 'direct'
+    browserName              : 'phantomjs',
+    version                  : phantom.version.major + '.' +
+                               phantom.version.minor + '.' +
+                               phantom.version.patch,
+    driverName               : 'ghostdriver',
+    platform                 : ghostdriver.os.name + '-' +
+                               ghostdriver.os.version + '-' +
+                               ghostdriver.os.architecture,
+    driverVersion            : ghostdriver.driverVersion,
+    javascriptEnabled        : true,
+    takesScreenshot          : true,
+    handlesAlerts            : false,            //< TODO
+    databaseEnabled          : false,          //< TODO
+    locationContextEnabled   : false,   //< TODO Target is 1.1
+    applicationCacheEnabled  : false,  //< TODO Support for AppCache (?)
+    browserConnectionEnabled : false, //< TODO
+    cssSelectorsEnabled      : true,
+    webStorageEnabled        : true,        //< TODO support for LocalStorage/SessionStorage
+    rotatable                : false,                //< TODO Target is 1.1
+    acceptSslCerts           : false,           //< TODO
+    nativeEvents             : true,              //< TODO Only some commands are Native Events currently
+    proxy : {                         //< TODO Support more proxy options - PhantomJS does allow setting from command line
+        proxyType : 'direct'
     }
   };
+
+var _sessions = {};
 
 
 function _getCap(desiredCapabilities, property) {
@@ -50,22 +51,22 @@ function Session(desiredCapabilities) {
   this._windows = {};
   this._timeouts = {};
   this._negotiatedCapabilities = {
-    'browserName'               : _defaultCapabilities.browserName,
-    'version'                   : _defaultCapabilities.version,
-    'platform'                  : _defaultCapabilities.platform,
-    'javascriptEnabled'         : _getCap(desiredCapabilities, 'javascriptEnabled'),
-    'takesScreenshot'           : _getCap(desiredCapabilities, 'takesScreenshot'),
-    'handlesAlerts'             : _defaultCapabilities.handlesAlerts,
-    'databaseEnabled'           : _defaultCapabilities.databaseEnabled,
-    'locationContextEnabled'    : _defaultCapabilities.locationContextEnabled,
-    'applicationCacheEnabled'   : _defaultCapabilities.applicationCacheEnabled,
-    'browserConnectionEnabled'  : _defaultCapabilities.browserConnectionEnabled,
-    'cssSelectorsEnabled'       : _defaultCapabilities.cssSelectorsEnabled,
-    'webStorageEnabled'         : _defaultCapabilities.webStorageEnabled,
-    'rotatable'                 : _defaultCapabilities.rotatable,
-    'acceptSslCerts'            : _defaultCapabilities.acceptSslCerts,
-    'nativeEvents'              : _defaultCapabilities.nativeEvents,
-    'proxy'                     : _getCap(desiredCapabilities, 'proxy')
+    browserName              : _defaultCapabilities.browserName,
+    version                  : _defaultCapabilities.version,
+    platform                 : _defaultCapabilities.platform,
+    javascriptEnabled        : _getCap(desiredCapabilities, 'javascriptEnabled'),
+    takesScreenshot          : _getCap(desiredCapabilities, 'takesScreenshot'),
+    handlesAlerts            : _defaultCapabilities.handlesAlerts,
+    databaseEnabled          : _defaultCapabilities.databaseEnabled,
+    locationContextEnabled   : _defaultCapabilities.locationContextEnabled,
+    applicationCacheEnabled  : _defaultCapabilities.applicationCacheEnabled,
+    browserConnectionEnabled : _defaultCapabilities.browserConnectionEnabled,
+    cssSelectorsEnabled      : _defaultCapabilities.cssSelectorsEnabled,
+    webStorageEnabled        : _defaultCapabilities.webStorageEnabled,
+    rotatable                : _defaultCapabilities.rotatable,
+    acceptSslCerts           : _defaultCapabilities.acceptSslCerts,
+    nativeEvents             : _defaultCapabilities.nativeEvents,
+    proxy                    : _getCap(desiredCapabilities, 'proxy')
   };
 
   var pageSettings = {};
