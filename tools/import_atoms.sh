@@ -89,4 +89,4 @@ popd
 
 # 3. Eject build file from CrazyFunBuild and clear the "/build" directory
 rm "$TEMP_ATOMS_BUILD_DIR_SYMLINK"
-#rm -rf "$SELENIUM_REPO_PATH/build"
+rm -rf "$SELENIUM_REPO_PATH/build"

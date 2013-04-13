@@ -1,5 +1,4 @@
 function Wait(window) {
-  console.log(typeof window.handle);
   this._window = window;
 }
 
@@ -13,7 +12,13 @@ function Wait(window) {
   }
 
   function _resultLoop(execute, retry, stopTime) {
-    var result = execute();
+    var result = { status: 0 }, value
+    value = execute();
+    if (!value.hasOwnProperty('status')) {
+      result.value = value;
+    } else {
+      result = value;
+    }
     if ((result.hasOwnProperty('status') &&
         result.status === 0 &&
         result.hasOwnProperty('value') &&
@@ -77,7 +82,8 @@ function Wait(window) {
     };
   };
 
-  wait.result = function (retry, execute) {
+  wait.result = function (execute, retry) {
+    retry = retry || 50;
     return {
       wait: _result.bind(this._window, retry, execute)
     };

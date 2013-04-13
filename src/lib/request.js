@@ -122,7 +122,6 @@ var WebServerRequest = function () {
       }
       var execute = request.method + ' /' + command, i;
       console.log(execute);
-      //console.log('REQUEST: ' + JSON.stringify(request));
       if ((i = _allCommands.indexOf(execute)) !== -1) {
         _allCommands.remove(i);
       }

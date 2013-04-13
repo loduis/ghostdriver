@@ -1,101 +1,75 @@
 function Element(window, element) {
   if (typeof element === 'string') {
-    this._id = {
+    element = {
       'ELEMENT' : element
     };
-  } else {
-    this._id = element;
   }
+  this._id = element;
   this._window = window;
 }
 
 (function (element) {
 
-  function returnValueOrThrowError(result) {
-    if (result.hasOwnProperty('status')) {
-      if (result.status === 0) {
-        return result.value;
-      }
-    }
-    var error = new Error();
-    error.result = result;
-    throw error;
-  }
-
   element.clearModifiers = true;
 
   element.getTagName = function () {
-    var result = this._window.eval('get_tag_name', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('get_tag_name', this._id);
   };
 
   element.getText = function () {
-    var result = this._window.eval('get_text', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('get_text', this._id);
   };
 
   element.getSize = function () {
-    var result = this._window.eval('get_size', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('get_size', this._id);
   };
 
   element.isSelected = function () {
-    var result = this._window.eval('is_selected', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('is_selected', this._id);
   };
 
   element.isEnabled = function () {
-    var result = this._window.eval('is_enabled', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('is_enabled', this._id);
   };
 
   element.isDisplayed = function () {
-    var result = this._window.eval('is_displayed', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('is_displayed', this._id);
   };
 
   element.getLocation = function () {
-    var result = this._window.eval('get_location', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('get_location', this._id);
   };
 
   element.getLocationInView = function () {
-    var result = this._window.eval('get_location_in_view', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('get_location_in_view', this._id);
   };
 
   element.getStyle = function (property) {
-    var result = this._window.eval(
+    return this._window.eval(
       'get_value_of_css_property',
       this._id,
       property
     );
-    return returnValueOrThrowError(result);
   };
 
   element.getAttribute = function (name) {
-    var result = this._window.eval('get_attribute_value', this._id, name);
-    return returnValueOrThrowError(result);
+    return this._window.eval('get_attribute_value', this._id, name);
   }
 
   element.clear = function () {
-    var result = this._window.eval('clear', this._id);
-    return returnValueOrThrowError(result);
+    return this._window.eval('clear', this._id);
   };
 
   element.submit = function () {
-    var result = this._window.eval('submit', this._id),
-        wait = this._window.wait.load();
-    if (result.status !== 0) {
-      wait.off('load', 'fail', result);
+    var wait = this._window.wait.load();
+    try {
+      var result = this._window.eval('submit', this._id);
+      wait.off('load', 'success');
+    } catch (e) {
+      wait.off('load', 'fail', e.result);
     }
     return wait;
   };
-
-  /*
-  element.isInValidLocator = function(locator) {
-    return this._window.isInValidLocator(locator);
-  };*/
 
   element.find = function (locator) {
     return this._window.find(locator, this._id);
@@ -114,12 +88,12 @@ function Element(window, element) {
   };
 
   element.click = function () {
-    var result = this._window.eval('click', this._id),
-        wait = this._window.wait.load();
-    if (result.status !== 0) {
-      wait.off('load', 'fail', result);
-    } else {
+    var wait = this._window.wait.load();
+    try {
+      var result = this._window.eval('click', this._id);
       wait.off('load', 'success');
+    } catch (e) {
+      wait.off('load', 'fail', e.result);
     }
     return wait;
   };
@@ -140,12 +114,6 @@ function Element(window, element) {
   element.equal = function (other) {
     return this._window.eval('is_same_node', this._id, other);
   }
-
-  /*
-  element.mouseMove = function (coords) {
-    var result = this._window.mouseMove(this._id, coords);
-    return returnValueOrThrowError(result);
-  };*/
 
 })(Element.prototype);
 

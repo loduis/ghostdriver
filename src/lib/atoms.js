@@ -7,7 +7,6 @@ function requireAtoms(atomName) {
       try {
           atomsCache[atomName] = fs.read(atomFileName);
       } catch (e) {
-          console.log('LOAD..');
           throw "Unable to load Atom '" + atomName +
                 "' from file '"+atomFileName+"'";
       }

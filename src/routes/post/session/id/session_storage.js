@@ -5,6 +5,6 @@ module.exports = function (window, session, request, response) {
   } else if(params.value === undefined) {
     response.error.missingCommandParameter('value', request);
   } else {
-    return window.eval('set_session_storage_item', params.key,params.value);
+    return window.sessionStorage.setItem(params.key,params.value);
   }
 };

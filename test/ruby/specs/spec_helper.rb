@@ -1,5 +1,6 @@
 require 'rspec/core'
 require 'selenium-webdriver'
+require 'json'
 require 'Win32API' if Selenium::WebDriver::Platform.windows?
 
 RSpec.configure {|c|
@@ -30,9 +31,8 @@ end
 module Selenium
   module WebDriver
     module Remote
-      class Bridge
 
-        command :getStatus, :get, "/status"
+      class Bridge
 
         def driver_extensions
           [
@@ -48,8 +48,8 @@ module Selenium
           execute :getAppCacheStatus
         end
 
-        def getStatus
-          execute :getStatus
+        def describeElement(element)
+          execute :describeElement, :id => element
         end
 
       end
@@ -60,13 +60,20 @@ end
 module Selenium
   module WebDriver
     class Driver
+
       def __get_app_cache_status__
-        data = bridge.getAppCacheStatus
-        data['value']
+        bridge.getAppCacheStatus
       end
 
-      def __status__
-        bridge.getStatus
+    end
+  end
+end
+
+module Selenium
+  module WebDriver
+    class Element
+      def __describe__
+        bridge.describeElement @id
       end
     end
   end

@@ -43,12 +43,12 @@ function Window(handle, settings, page) {
   });
 
   this.on('callback', function (result) {
-    this.fire('result', result);
+    this.fire('result', JSON.parse(result));
   });
-  /*
+
   this.on('consoleMessage', function (msg) {
     console.log('MESSAGE: ' + msg);
-  });*/
+  });
 }
 
 (function (window){
@@ -64,14 +64,19 @@ function Window(handle, settings, page) {
     return new Wait(this);
   });
 
+  // instance for manage event mouse
+  _defineGetter(window, 'event', function (Event) {
+    return new Event(this._page);
+  });
+
   // instance of keyboard
   _defineGetter(window, 'keyboard', function (Keyboard) {
-    return new Keyboard(this._page);
+    return new Keyboard(this);
   });
 
   // instance for manage event mouse
   _defineGetter(window, 'mouse', function (Mouse) {
-    return new Mouse(this._page, this.keyboard, this.wait);
+    return new Mouse(this);
   });
 
   // instance for manage cookie
@@ -121,26 +126,35 @@ function Window(handle, settings, page) {
   });
 
   window.__defineGetter__('url', function () {
-    var result = this.eval('execute_script', 'return location.toString()');
-    return result.status === 0 ? result.value : result;
+    return this.eval('execute_script', 'return location.toString()');
   });
 
   window.eval = function (name) {
     var args = _slice.call(arguments, 0);
     args[0]  = _requireAtoms(name);
     var result = this._page.evaluate.apply(this._page, args);
-    if (typeof result === 'string') {
-      try {
-        result = JSON.parse(result);
-      } catch (e) {
-        result = {};
+    if (result === null && name == 'execute_async_script') {
+      // for skip asyn command
+      return undefined;
+    }
+    try {
+      result = JSON.parse(result);
+    } catch (e) {
+      result = {
+        status: 13, // OJO THIS IS AN NOT UNKNOW ERROR ATOM EVALAUTION FAIL
+        value: {message: e.message}
+      };
+    }
+    if (result.hasOwnProperty('status')) {
+      if (result.status === 0) {
+        return result.value;
+      }
+    } else {
+      result = {
+        status: 13, // OJO THIS IS AN NOT UNKNOW ERROR ATOM EVALAUTION FAIL
+        value: {message: result}
       }
     }
-
-    if (!result.hasOwnProperty('status')) {
-      result = {};
-    }
-
     return result;
   };
 
@@ -181,10 +195,6 @@ function Window(handle, settings, page) {
     this._page.close();
   };
 
-  /*
-  window.render = function(filename) {
-    this._page.render(filename);
-  };*/
 
   window.getScreenshot = function () {
     return this._page.renderBase64('png');
@@ -217,7 +227,7 @@ function Window(handle, settings, page) {
       locator.value,
       context
     );
-    return this.wait.result(50, execute);
+    return this.wait.result(execute);
   };
 
   window.findAll = function (locator, context) {
@@ -228,7 +238,7 @@ function Window(handle, settings, page) {
       locator.value,
       context
     );
-    return this.wait.result(50, execute);
+    return this.wait.result(execute);
   };
 
   window.getSize = function () {
@@ -258,10 +268,7 @@ function Window(handle, settings, page) {
   };
 
   window.activeElement = function() {
-    var result = this.eval('active_element');
-    if (result.status === 0) {
-      return result.value;
-    }
+    return this.eval('active_element');
   };
 
   window.frames = function (nameOrId) {

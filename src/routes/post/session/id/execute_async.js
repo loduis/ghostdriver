@@ -5,8 +5,9 @@ module.exports = function (window, session, request, response) {
   } else if(params.args === undefined) {
     response.error.missingCommandParameter('args', request);
   } else {
-    window.on('callback', function(result) {
+    window.on('result', function(result) {
       response.basedOnResult(result, session, request);
+      this.off('result');
     });
     window.executeAsyncScript(
       params.script,

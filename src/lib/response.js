@@ -28,6 +28,7 @@ var WebServerResponse = function() {
       result.status = 0;
       result.value = tmp;
     }
+
     if (typeof result !== 'object' ||
         typeof result.status !== 'number' ||
         typeof result.value === 'undefined') {

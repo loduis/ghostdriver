@@ -235,6 +235,17 @@ Session.create = function (desiredCapabilities) {
   return session;
 };
 
+Session.all = function () {
+  var sessions = [];
+  for (var id in _sessions) {
+      sessions.push({
+        id : id,
+        capabilities : _sessions[id].getCapabilities()
+      });
+  }
+  return sessions;
+};
+
 Session.TIMEOUT_NAMES = _TIMEOUT_NAMES;
 
 module.exports = Session;

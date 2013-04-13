@@ -10,7 +10,7 @@ router.dispatch = function (request, response) {
       response.error.invalidCommandMethod(request);
     } else {
       var sessionId = request.getSessionId(),
-        session = null;
+          session   = null;
       if (sessionId !== null) {
         session = ghostdriver.Session.get(sessionId);
         if (session === null) {
@@ -30,18 +30,13 @@ router.dispatch = function (request, response) {
             if (id !== undefined) {
               element = new window.Element(id);
             }
-            var result;
-            try {
-              result = callback.call(
+            var result = callback.call(
                 ghostdriver,
                 element,
                 session,
                 request,
                 response
               );
-            } catch (e) {
-              result = e.result;
-            }
             if (result !== undefined) {
               response.basedOnResult(result, session, request);
             }

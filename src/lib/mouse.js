@@ -1,7 +1,5 @@
-function Mouse(page, keyboard, wait) {
-  this._page = page;
-  this._wait = wait;
-  this._keyboard = keyboard;
+function Mouse(window) {
+  this._window   = window;
 }
 
 (function (mouse) {
@@ -13,7 +11,7 @@ function Mouse(page, keyboard, wait) {
   mouse.move = function(x, y) {
     this.x = x;
     this.y = y;
-    this._page.sendEvent('mousemove', x, y);
+    this._window.event.send('mousemove', x, y);
   };
 
   mouse.click = function (button) {
@@ -33,27 +31,26 @@ function Mouse(page, keyboard, wait) {
   };
 
   mouse._sendEventAndWait = function (type, button) {
-    var wait = this._wait.load();
+    var wait = this._window.wait.load();
     this._sendEvent(type, button);
     wait.off('load', 'success');
     return wait;
   };
 
   mouse._sendEvent = function (type, button) {
-    this._page.sendEvent(
+    this._window.event.send(
       type,
       this.x,
       this.y,
       button === 2 ? 'right' : ( button === 1 ? 'middle' : 'left'),
-      this._keyboard.modifiers
+      this._window.keyboard.modifiers
     );
     // fixed phantom js no fire contextmenu event
     if (button === 2) {
-      this._page.evaluate(function () {
-        var event = document.createEvent('HTMLEvents');
-        event.initEvent('contextmenu', true, false);
-        document.body.dispatchEvent(event);
-      });
+      var script = "var event = document.createEvent('HTMLEvents');" +
+                   "event.initEvent('contextmenu', true, false);" +
+                   "document.body.dispatchEvent(event);"
+      this._window.executeScript(script);
     }
   };
 

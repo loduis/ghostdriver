@@ -33,7 +33,5 @@ module.exports = function(window, session, request, response) {
     }
   }
   window.mouse.move(x, y);
-  console.log('X: ' + window.mouse.x);
-  console.log('Y: ' + window.mouse.y);
   response.success(session.getId());
 };

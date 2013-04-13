@@ -1,6 +1,6 @@
-function Keyboard(page) {
-  this._page = page;
-  this._keys = page.event.key;
+function Keyboard(window) {
+  this._event = window.event;
+  this._keys = window.event.key;
 }
 
 (function (keyboard) {
@@ -203,12 +203,12 @@ function Keyboard(page) {
             this._keyDown(actualKey);
         }
       } else if (_implicitShiftKeys.hasOwnProperty(actualKey)) {
-        this._page.sendEvent(
+        this._event.send(
           'keydown',
           this._translateKey(_modifierKeyChars.SHIFT)
         );
         this._keyPress(actualKey);
-        this._page.sendEvent(
+        this._event.send(
           'keyup',
           this._translateKey(_modifierKeyChars.SHIFT)
         );
@@ -287,7 +287,7 @@ function Keyboard(page) {
   };
 
   keyboard._keyEvent = function (eventType, keyCode) {
-    this._page.sendEvent(eventType, keyCode, null, null, this.modifiers);
+    this._event.send(eventType, keyCode, null, null, this.modifiers);
   };
 
   function _normalizeSpecialChars(key) {

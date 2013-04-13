@@ -3,22 +3,52 @@ require './spec_helper'
 describe 'Ghostdriver' do
   $driver1 = nil
   $url     = 'http://localhost:4567/'
+  $remote  = 'http://localhost:8910'
 
   describe 'Start' do
+
+    it "should query the server's current status." do
+      uri = URI($remote + '/status')
+      res = Net::HTTP.get_response(uri)
+      data = JSON.parse(res.body)
+      data['sessionId'].should be_nil
+      data['status'].should eq 0
+      data['value'].should_not be_nil
+      data['value']['build'].should_not be_nil
+    end
+
     it 'should start the session' do
       #$driver1 = Selenium::WebDriver.for(:phantomjs)
-      $driver1 = Selenium::WebDriver.for(:remote, :url=> 'http://localhost:8910')
+      $driver1 = Selenium::WebDriver.for(:remote, :url=> $remote)
       #$driver1 = Selenium::WebDriver.for(:firefox)
+    end
+
+    it 'should returns a list of the currently active sessions.' do
+      uri = URI($remote + '/sessions')
+      res = Net::HTTP.get_response(uri)
+      data = JSON.parse(res.body)
+      data['sessionId'].should be_nil
+      data['status'].should eq 0
+      value = data['value']
+      value.class.should eq Array
+      value.length.should eq 1
+      value.each do |row|
+        row['id'].should_not be_nil
+        row['id'].length.should eq 32
+        row['capabilities'].class.should eq Hash
+      end
+      $driver2 = Selenium::WebDriver.for(:remote, :url=> $remote)
+      uri = URI($remote + '/sessions')
+      res = Net::HTTP.get_response(uri)
+      data = JSON.parse(res.body)
+      value = data['value']
+      value.class.should eq Array
+      value.length.should eq 2
     end
   end
 
 
   describe 'Basic' do
-
-    it "should Query the server's current status." do
-      status = $driver1.__status__
-      status['build'].should_not be_nil
-    end
 
     it 'should navigate to a new URL' do
       $driver1.get($url)
@@ -69,9 +99,8 @@ describe 'Ghostdriver' do
 
     it 'should Inject a snippet of JavaScript into the page for execution in the context of the currently selected frame' do
       element = $driver1.script 'document.body.blur(); return document.activeElement;'
-      # al parecer panthomjs nunca pierde el foco
-      # al menos un elemento lo tiene
-      element.tag_name.should eq 'body'
+      tag_name = $driver1.script 'return arguments[0].tagName.toLowerCase()', element
+      tag_name.should eq 'body'
     end
 
     it 'should Inject a snippet of JavaScript into the page for execution asynchronous in the context of the currently selected frame' do
@@ -102,20 +131,21 @@ describe 'Ghostdriver' do
 
   end # Basic
 
+=begin
   describe 'Alert' do
     it 'should gets the text of the currently displayed JavaScript alert(), confirm(), or prompt() dialog.' do
       element = $driver1.find_element(:id=>'alert')
       element.click()
       $driver1.switch_to.alert.text.should eq 'This is a test.'
     end
-=begin
+
     it 'should Accepts the currently displayed alert dialog.' do
       element = $driver1.find_element(:id=>'alert')
       element.click()
       $driver1.switch_to.alert.accept
     end
-=end
   end
+=end
 
   describe 'Mouse' do
 
@@ -172,6 +202,14 @@ describe 'Ghostdriver' do
       $driver1.current_url.should eq $url + 'submit'
       $driver1.navigate.back
     end
+
+    it 'should describe the identified element.' do
+      element = $driver1.find_element(:id=>'send')
+      element = element.__describe__
+      element.class.should eq Hash
+      element['ELEMENT'].should_not be_nil
+    end
+
 
   end
 
@@ -656,6 +694,7 @@ describe 'Ghostdriver' do
   describe 'Stop' do
     it 'should close the session' do
       $driver1.quit()
+      $driver2.quit()
     end
   end # Stop
 
