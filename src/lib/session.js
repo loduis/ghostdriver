@@ -45,8 +45,42 @@ function _getCap(desiredCapabilities, property) {
           desiredCapabilities[property];
 }
 
+function _onLoadFinished(session, status) {
+  var key;
+  this.loading = false;
+  this.status = status;
+  var windows = session._windows;
+  for (key in windows) {
+    if (windows[key].loading) {
+      return;
+    }
+  }
+  // disable loading in the wait
+  this.wait.notify('finished');
+  var window;
+  for (key in windows) {
+    window = windows[key];
+    window.fire('load', window.status);
+  }
+}
+
+function _onClosing(session) {
+  var handle = this.handle;
+  if (session._windows.hasOwnProperty(handle)) {
+    delete session._windows[this.handle];
+  }
+}
+
+function _createWindow(session, pageSettings, page) {
+  var window = new _Window(pageSettings, page);
+  session._windows[window.handle] = window;
+  window.on('loadFinished', _onLoadFinished.bind(window, session));
+  window.on('closing', _onClosing.bind(window, session));
+  return window;
+}
+
 function Session(desiredCapabilities) {
-  _defaultCapabilities['driverVersion'] = ghostdriver.version;
+  desiredCapabilities = desiredCapabilities || {};
   this._id = _uuid();
   this._windows = {};
   this._timeouts = {};
@@ -69,9 +103,9 @@ function Session(desiredCapabilities) {
     proxy                    : _getCap(desiredCapabilities, 'proxy')
   };
 
-  var pageSettings = {};
+  var k, pageSettings = {};
 
-  for (var k in desiredCapabilities) {
+  for (k in desiredCapabilities) {
       if (k.indexOf(_capsPageSettingsPref) === 0) {
           settingKey = k.substring(_capsPageSettingsPref.length);
           if (settingKey.length > 0) {
@@ -82,33 +116,19 @@ function Session(desiredCapabilities) {
   }
 
   // set time outs
-  for (var k in _TIMEOUT_NAMES) {
+  for (k in _TIMEOUT_NAMES) {
     this._timeouts[_TIMEOUT_NAMES[k]] = _max32bitInt;
   }
 
   this._timeouts[_TIMEOUT_NAMES.IMPLICIT] = 5;
 
-  this._currentWindowHandle = _uuid();
 
-  var window = new _Window(this._currentWindowHandle, pageSettings),
-     self = this;
+  var window = _createWindow(this, pageSettings);
 
-  window.on('closing', function () {
-    var handle = this.handle;
-    if (self._windows.hasOwnProperty(handle)) {
-      delete self._windows[this.handle];
-    }
-  });
+  // handle new page popup
+  window.on('pageCreated', _createWindow.bind(window, this, pageSettings));
 
-  // handle new page pop up
-  window.on('pageCreated', function (page) {
-    var handle = _uuid();
-        window = new _Window(handle, pageSettings, page);
-    self._windows[handle] = window;
-  });
-
-  this._windows[this._currentWindowHandle] = window;
-
+  this._currentWindowHandle    = window.handle;
 }
 
 //=================== INSTANCE METHOD ===================//
@@ -206,7 +226,7 @@ function Session(desiredCapabilities) {
     } else {
         this._timeouts[type] = ms;
     }
-  }
+  };
 
 })(Session.prototype);
 

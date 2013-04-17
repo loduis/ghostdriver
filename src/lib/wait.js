@@ -5,15 +5,16 @@ function Wait(window) {
 (function (wait) {
 
   var _timerId = null,
-      _slice = Array.prototype.slice;
+      _slice   = Array.prototype.slice,
+      _loading = false;
 
   function _now() {
     return Date.now();
   }
 
   function _resultLoop(execute, retry, stopTime) {
-    var result = { status: 0 }, value
-    value = execute();
+    var result = { status: 0 },
+        value  = execute();
     if (!value.hasOwnProperty('status')) {
       result.value = value;
     } else {
@@ -57,63 +58,42 @@ function Wait(window) {
     }
   }
 
-  function _load(retry, timeout, callback) {
+  function _load(result, retry, timeout, callback) {
     _registerEvent.call(this, 'load', callback);
     _timerId = setTimeout(
       _loadLoop.bind(this, retry, _now() + timeout),
       10
     );
+    if (result !== undefined) {
+      setTimeout(function (result) {
+        if (!_loading) {
+          if (result !== null && result.hasOwnProperty('status')) {
+            this.fire('load', 'fail', result);
+          } else {
+            this.fire('load', 'success');
+          }
+        }
+      }.bind(this, result), 0);
+    }
   }
 
-  function _off(eventName, params) {
-    var args = _slice.call(arguments, 0);
-    setTimeout(function () {
-      if (!this.loading) {
-        this.fire.apply(this, args);
-      }
-    }.bind(this), 0);
-  }
-
-  wait.load = function (retry) {
-    retry = retry || 100;
+  wait.load = function (result) {
     return {
-      wait: _load.bind(this._window, retry),
-      off: _off.bind(this._window)
+      wait: _load.bind(this._window, result, 100)
     };
   };
 
-  wait.result = function (execute, retry) {
-    retry = retry || 50;
+  wait.result = function (execute) {
     return {
-      wait: _result.bind(this._window, retry, execute)
+      wait: _result.bind(this._window, 50, execute)
     };
   };
 
-  wait.off = function (eventName, params) {
-    var args = _slice.call(arguments, 0);
-    setTimeout(function () {
-      if (!this.loading) {
-        this.fire.apply(this, args);
-      }
-    }.bind(this._window), 0);
+  wait.notify = function (eventName) {
+    _loading = eventName === 'loading';
   };
 
 })(Wait.prototype);
 
 
 module.exports = Wait;
-
-
-/*
-module.exports = {
-  load: function (retry) {
-    return {
-      wait: _load.bind(this, retry)
-    };
-  },
-  result: function (retry, execute) {
-    return {
-      wait: _result.bind(this, retry, execute)
-    };
-  }
-};*/

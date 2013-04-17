@@ -1,10 +1,11 @@
 require ('./core');
 
-var _WebPage  = require('webpage'),
-    _Alert     = require('./alert'),
-    _defineGetter = require('./getter');
+var _WebPage      = require('webpage'),
+    _Alert        = require('./alert'),
+    _defineGetter = require('./getter'),
+    _uuid         = require('./uuid');
 
-function Window(handle, settings, page) {
+function Window(settings, page) {
   // page instance
   this._page = page || _WebPage.create();
   // Pages lifetime will be managed by Driver, not the pages
@@ -12,7 +13,7 @@ function Window(handle, settings, page) {
   // is loading page.
   this._page.loading = false;
   // 1. Random Window Handle
-  this.handle = handle;
+  this.handle = _uuid();
   // manange internal window position
   this._position = {
     x: 0,
@@ -34,11 +35,14 @@ function Window(handle, settings, page) {
 
   // event on load stared
   this.on('loadStarted', function () {
-    this._page.loading = true; // fixed for phantomjs 1.8.x
+    this.loading = true;
+    this.wait.notify('loading');
   });
+
   // event load finished
+
   this.on('loadFinished', function (status) {
-    this._page.loading = false;
+    this.loading = false;
     this.fire('load', status);
   });
 
@@ -49,6 +53,16 @@ function Window(handle, settings, page) {
   this.on('consoleMessage', function (msg) {
     console.log('MESSAGE: ' + msg);
   });
+
+  this.on('error', function (msg, stack) {
+    console.log('ERROR: ' + msg);
+    var error;
+    stack.forEach(function(item) {
+        error += item.file + ":" + item.line;
+        error += (item["function"] ? " in " + item["function"] : "") + "\n";
+    });
+    console.log('STACK: ' + error);
+  });
 }
 
 (function (window){
@@ -57,6 +71,25 @@ function Window(handle, settings, page) {
   _requireAtoms = require('./atoms'),
   _capitalize = function (word) {
     return word.charAt(0).toUpperCase() + word.substring(1);
+  },
+  _classSelectorRE = /^\.([\w-]+)$/,
+  _idSelectorRE = /^#([\w-]*)$/,
+  _tagSelectorRE = /^[\w-]+$/,
+  _getLocator =  function (selector) {
+    var locator = {
+      value: selector,
+      using: 'css'
+    };
+    if (_classSelectorRE.test(selector)) {
+      locator.value = selector.slice(1);
+      locator.using = 'className';
+    } else if (_tagSelectorRE.test(selector)) {
+      locator.using = 'tagName';
+    } else if(_idSelectorRE.test(selector)) {
+      locator.value = selector.slice(1);
+      locator.using = 'id';
+    }
+    return locator;
   };
 
   // instance of wait
@@ -102,7 +135,7 @@ function Window(handle, settings, page) {
   });
 
   window.__defineGetter__('appCacheStatus', function () {
-    return this.eval('get_appcache_status');
+    return this.executeAtomScript('get_appcache_status');
   });
 
   window.__defineGetter__('title', function () {
@@ -121,15 +154,11 @@ function Window(handle, settings, page) {
     return this._page.windowName;
   });
 
-  window.__defineGetter__('loading', function() {
-    return this._page.loading;
-  });
-
   window.__defineGetter__('url', function () {
-    return this.eval('execute_script', 'return location.toString()');
+    return this.executeScript('return location.toString()');
   });
 
-  window.eval = function (name) {
+  window.executeAtomScript = function (name) {
     var args = _slice.call(arguments, 0);
     args[0]  = _requireAtoms(name);
     var result = this._page.evaluate.apply(this._page, args);
@@ -153,40 +182,47 @@ function Window(handle, settings, page) {
       result = {
         status: 13, // OJO THIS IS AN NOT UNKNOW ERROR ATOM EVALAUTION FAIL
         value: {message: result}
-      }
+      };
     }
     return result;
   };
 
-  window.open = function (url) {
+  window.stop = function () {
     this._page.stop();
+  };
+
+  window.open = function (url) {
+    this.stop();
     this.focus();
     this._page.open(url);
     return this.wait.load();
   };
 
   window.reload = function () {
-    this._page.stop();
+    this.stop();
+    this.focus();
     this._page.reload();
     return this.wait.load();
   };
 
   window.back = function () {
-    var wait = this.wait.load();
+    var wait;
     if (this._page.canGoBack) {
       this._page.goBack();
+      wait = this.wait.load();
     } else {
-      wait.off('load', 'success');
+      wait = this.wait.load(null);
     }
     return wait;
   };
 
   window.forward = function () {
-    var wait = this.wait.load();
+    var wait;
     if (this._page.canGoForward) {
       this._page.goForward();
+      wait = this.wait.load();
     } else {
-      wait.off('load', 'success');
+      wait = this.wait.load(null);
     }
     return wait;
   };
@@ -215,12 +251,17 @@ function Window(handle, settings, page) {
 
   window.fire = function(eventName) {
     eventName = 'on' + _capitalize(eventName);
-    var callback = this._page[eventName];
-    callback.apply(this, _slice.call(arguments, 1));
+    if (this._page.hasOwnProperty(eventName)) {
+      var callback = this._page[eventName];
+      callback.apply(this, _slice.call(arguments, 1));
+    }
   };
 
   window.find = function (locator, context) {
-    var execute = this.eval.bind(
+    if (typeof locator === 'string') {
+      locator = _getLocator(locator);
+    }
+    var execute = this.executeAtomScript.bind(
       this,
       'find_element',
       locator.using,
@@ -231,7 +272,10 @@ function Window(handle, settings, page) {
   };
 
   window.findAll = function (locator, context) {
-    var execute = this.eval.bind(
+    if (typeof locator === 'string') {
+      locator = _getLocator(locator);
+    }
+    var execute = this.executeAtomScript.bind(
       this,
       'find_elements',
       locator.using,
@@ -268,7 +312,7 @@ function Window(handle, settings, page) {
   };
 
   window.activeElement = function() {
-    return this.eval('active_element');
+    return this.executeAtomScript('active_element');
   };
 
   window.frames = function (nameOrId) {
@@ -287,11 +331,20 @@ function Window(handle, settings, page) {
   };
 
   window.executeScript = function (script, args) {
-    return this.eval('execute_script', script, args);
+    return this.executeAtomScript(
+      'execute_script',
+      script,
+      args
+    );
   };
 
   window.executeAsyncScript = function (script, args, timeout) {
-    return this.eval('execute_async_script', script, args, timeout);
+    return this.executeAtomScript(
+      'execute_async_script',
+      script,
+      args,
+      timeout
+    );
   };
 
 })(Window.prototype);

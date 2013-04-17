@@ -13,39 +13,63 @@ function Element(window, element) {
   element.clearModifiers = true;
 
   element.getTagName = function () {
-    return this._window.eval('get_tag_name', this._id);
+    return this._window.executeAtomScript(
+      'get_tag_name',
+      this._id
+    );
   };
 
   element.getText = function () {
-    return this._window.eval('get_text', this._id);
+    return this._window.executeAtomScript(
+      'get_text',
+      this._id
+    );
   };
 
   element.getSize = function () {
-    return this._window.eval('get_size', this._id);
+    return this._window.executeAtomScript(
+      'get_size',
+      this._id
+    );
   };
 
   element.isSelected = function () {
-    return this._window.eval('is_selected', this._id);
+    return this._window.executeAtomScript(
+      'is_selected',
+      this._id
+    );
   };
 
   element.isEnabled = function () {
-    return this._window.eval('is_enabled', this._id);
+    return this._window.executeAtomScript(
+      'is_enabled',
+      this._id
+    );
   };
 
   element.isDisplayed = function () {
-    return this._window.eval('is_displayed', this._id);
+    return this._window.executeAtomScript(
+      'is_displayed',
+      this._id
+    );
   };
 
   element.getLocation = function () {
-    return this._window.eval('get_location', this._id);
+    return this._window.executeAtomScript(
+      'get_location',
+      this._id
+    );
   };
 
   element.getLocationInView = function () {
-    return this._window.eval('get_location_in_view', this._id);
+    return this._window.executeAtomScript(
+      'get_location_in_view',
+      this._id
+    );
   };
 
   element.getStyle = function (property) {
-    return this._window.eval(
+    return this._window.executeAtomScript(
       'get_value_of_css_property',
       this._id,
       property
@@ -53,23 +77,38 @@ function Element(window, element) {
   };
 
   element.getAttribute = function (name) {
-    return this._window.eval('get_attribute_value', this._id, name);
-  }
+    return this._window.executeAtomScript(
+      'get_attribute_value',
+      this._id,
+      name
+    );
+  };
 
   element.clear = function () {
-    return this._window.eval('clear', this._id);
+    return this._window.executeAtomScript(
+      'clear',
+      this._id
+    );
   };
 
   element.submit = function () {
-    var wait = this._window.wait.load();
-    try {
-      var result = this._window.eval('submit', this._id);
-      wait.off('load', 'success');
-    } catch (e) {
-      wait.off('load', 'fail', e.result);
-    }
-    return wait;
+    this._window.stop();
+    var result = this._window.executeAtomScript(
+      'submit',
+      this._id
+    );
+
+    return this._window.wait.load(result);
   };
+
+  element.equal = function (other) {
+    return this._window.executeAtomScript(
+      'is_same_node',
+      this._id,
+      other
+    );
+  };
+
 
   element.find = function (locator) {
     return this._window.find(locator, this._id);
@@ -88,14 +127,12 @@ function Element(window, element) {
   };
 
   element.click = function () {
-    var wait = this._window.wait.load();
-    try {
-      var result = this._window.eval('click', this._id);
-      wait.off('load', 'success');
-    } catch (e) {
-      wait.off('load', 'fail', e.result);
-    }
-    return wait;
+    this._window.stop();
+    var result = this._window.executeAtomScript(
+      'click',
+      this._id
+    );
+    return this._window.wait.load(result);
   };
 
   element.getId = function () {
@@ -110,10 +147,6 @@ function Element(window, element) {
     }
     return result;
   };
-
-  element.equal = function (other) {
-    return this._window.eval('is_same_node', this._id, other);
-  }
 
 })(Element.prototype);
 

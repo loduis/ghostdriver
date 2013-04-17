@@ -30,3 +30,8 @@ $('alert').addEventListener('click', function () {
     console.log('CANCEL..');
   }*/
 })
+
+// open new window
+$('popup').addEventListener('click', function (event) {
+  window.open('/popup','new_window','width=350,height=250');
+});

@@ -11,7 +11,12 @@ end
 get '/frame' do
    send_file File.join(settings.public_folder, 'frame.html')
 end
+
 post '/submit' do
   sleep 1
   send_file File.join(settings.public_folder, 'submit.html')
+end
+
+get '/popup' do
+  send_file File.join(settings.public_folder, 'popup.html')
 end

@@ -75,6 +75,10 @@ module Selenium
       def __describe__
         bridge.describeElement @id
       end
+
+      def __drag__(x, y)
+        brige.dragElement @id, x, y
+      end
     end
   end
 end

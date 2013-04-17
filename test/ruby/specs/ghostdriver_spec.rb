@@ -74,20 +74,24 @@ describe 'Ghostdriver' do
       handle.length.should eq 32
     end
 
-    it 'should retrieve the list of all window handles available to the session' do
+    it 'should retrieve the list of all window handles
+        available to the session' do
       handles = $driver1.window_handles;
       handles.length.should eq 1
     end
 
-    it 'should set the amount of time the driver should wait when searching for elements' do
+    it 'should set the amount of time the driver should
+        wait when searching for elements' do
       $driver1.manage.timeouts.implicit_wait  = 1
     end
 
-    it 'should sets the amount of time to wait for an asynchronous script to finish execution before throwing an error' do
+    it 'should sets the amount of time to wait for an asynchronous script
+        to finish execution before throwing an error' do
       $driver1.manage.timeouts.script_timeout = 20
     end
 
-    it 'should sets the amount of time to wait for a page load to complete before throwing an error' do
+    it 'should sets the amount of time to wait for a page load to complete
+        before throwing an error' do
       $driver1.manage.timeouts.page_load = 10
     end
 
@@ -97,13 +101,19 @@ describe 'Ghostdriver' do
       exists.should be true
     end
 
-    it 'should Inject a snippet of JavaScript into the page for execution in the context of the currently selected frame' do
-      element = $driver1.script 'document.body.blur(); return document.activeElement;'
-      tag_name = $driver1.script 'return arguments[0].tagName.toLowerCase()', element
+    it 'should Inject a snippet of JavaScript into the page for execution
+        in the context of the currently selected frame' do
+      element = $driver1.script 'document.body.blur(); ' +
+                                'return document.activeElement;'
+      tag_name = $driver1.script(
+                  'return arguments[0].tagName.toLowerCase()',
+                  element
+                 )
       tag_name.should eq 'body'
     end
 
-    it 'should Inject a snippet of JavaScript into the page for execution asynchronous in the context of the currently selected frame' do
+    it 'should Inject a snippet of JavaScript into the page for execution
+        asynchronous in the context of the currently selected frame' do
       title = $driver1.execute_async_script 'arguments[0](document.title)';
       title.should eq 'Ghostdriver'
     end
@@ -133,7 +143,8 @@ describe 'Ghostdriver' do
 
 =begin
   describe 'Alert' do
-    it 'should gets the text of the currently displayed JavaScript alert(), confirm(), or prompt() dialog.' do
+    it 'should gets the text of the currently displayed JavaScript alert(),
+        confirm(), or prompt() dialog.' do
       element = $driver1.find_element(:id=>'alert')
       element.click()
       $driver1.switch_to.alert.text.should eq 'This is a test.'
@@ -149,7 +160,8 @@ describe 'Ghostdriver' do
 
   describe 'Mouse' do
 
-    it 'should the mouse from its current position (or 0,0) by the given offset' do
+    it 'should the mouse from its current
+        position (or 0,0) by the given offset' do
       element = $driver1.find_element(:id=>'send')
       point = element.location
       size  = element.size
@@ -167,13 +179,15 @@ describe 'Ghostdriver' do
       $driver1.action.move_to(element, 5, 5).perform;
     end
 
-    it 'should click any mouse button (at the coordinates set by the last moveto command).' do
+    it 'should click any mouse button
+        (at the coordinates set by the last moveto command).' do
       $driver1.action.click.perform;
       $driver1.current_url.should eq $url + 'submit'
       $driver1.navigate.back
     end
 
-    it 'should double-clicks at the current mouse coordinates (set by moveto).' do
+    it 'should double-clicks at the current
+        mouse coordinates (set by moveto).' do
       element = $driver1.find_element(:id=>'send')
       $driver1.action.double_click.perform;
       $driver1.current_url.should eq $url + 'submit'
@@ -190,26 +204,28 @@ describe 'Ghostdriver' do
       $driver1.current_url.should eq $url
     end
 
-    it 'should click and hold the left mouse button (at the coordinates set by the last moveto command).' do
+    it 'should click and hold the left mouse button
+        (at the coordinates set by the last moveto command).' do
       element = $driver1.find_element(:id=>'send')
       $driver1.action.click_and_hold(element).perform;
       $driver1.current_url.should eq $url
     end
 
-    it 'should releases the mouse button previously held (where the mouse is currently at).' do
+    it 'should releases the mouse button
+        previously held (where the mouse is currently at).' do
       element = $driver1.find_element(:id=>'send')
       $driver1.action.release(element).perform;
       $driver1.current_url.should eq $url + 'submit'
       $driver1.navigate.back
     end
 
-    it 'should describe the identified element.' do
-      element = $driver1.find_element(:id=>'send')
-      element = element.__describe__
-      element.class.should eq Hash
-      element['ELEMENT'].should_not be_nil
+    it 'should A convenience method that performs click-and-hold at the
+        location of the source element, moves to the location of the target
+        element, then releases the mouse.' do
+      el1 = $driver1.find_element(:id, "radio_unchecked")
+      el2 = $driver1.find_element(:id, "send")
+      $driver1.action.drag_and_drop(el1, el2).perform
     end
-
 
   end
 
@@ -247,7 +263,6 @@ describe 'Ghostdriver' do
 
     it 'should get all keys of the storage' do
       keys = $driver1.local_storage.keys
-      p keys
       keys.length.should eq 0
     end
 
@@ -395,7 +410,8 @@ describe 'Ghostdriver' do
 
     end
 
-    it 'should determine if an OPTION element, or an INPUT element of type checkbox or radiobutton is currently selected' do
+    it 'should determine if an OPTION element, or an INPUT
+        element of type checkbox or radiobutton is currently selected' do
       element = $driver1.find_element(:id => 'radio_checked')
       element.selected?.should be true
 
@@ -457,7 +473,8 @@ describe 'Ghostdriver' do
       point.y.should eq 15
     end
 
-    it "should Determine an element's location on the screen once it has been scrolled into view" do
+    it "should Determine an element's location on the screen once it
+        has been scrolled into view" do
       element = $driver1.find_element(:id=> 'html')
       point = element.location_once_scrolled_into_view
       point.class.should eq Selenium::WebDriver::Point
@@ -478,14 +495,16 @@ describe 'Ghostdriver' do
       element.tag_name.should eq 'body'
     end
 
-    it 'should search for an element on the page, starting from the identified element' do
+    it 'should search for an element on the page,
+        starting from the identified element' do
       element = $driver1.find_element(:class=> 'container')
       child   = element.find_element(:class, 'element')
       child.class.should eq Selenium::WebDriver::Element
       child.tag_name.should eq 'div'
     end
 
-    it 'should search for multiple elements on the page, starting from the identified element' do
+    it 'should search for multiple elements on the page,
+        starting from the identified element' do
       element = $driver1.find_element(:class=> 'container')
       childs   = element.find_elements(:class, 'element')
       childs.length.should eq 3
@@ -498,7 +517,8 @@ describe 'Ghostdriver' do
       element.tag_name.should eq 'input'
     end
 
-    it 'should submit a FORM element. The submit command may also be applied to any element that is a descendant of a FORM element' do
+    it 'should submit a FORM element. The submit command may also be applied
+        to any element that is a descendant of a FORM element' do
       element = $driver1.find_element(:id => 'send')
       element.submit
       $driver1.current_url.should eq $url + 'submit'
@@ -522,36 +542,48 @@ describe 'Ghostdriver' do
 
     it 'should Test if two element IDs refer to the same DOM element.' do
       element = $driver1.find_element(:name => 'q')
-      puts element.eql?(element).should be true;
+      element.eql?(element).should be true;
       other  = $driver1.find_element(:id => 'send')
-      puts element.eql?(other).should be false;
+      element.eql?(other).should be false;
+    end
+
+    it 'should describe the identified element.' do
+      element = $driver1.find_element(:id=>'send')
+      element = element.__describe__
+      element.class.should eq Hash
+      element['ELEMENT'].should_not be_nil
     end
 
   end # Element
 
   describe 'Elements' do
-    it 'should search for multiple elements on the page, starting from the document root by css.' do
+    it 'should search for multiple elements on the page,
+        starting from the document root by css.' do
       elements = $driver1.find_elements(:css=> '.container > *')
       elements.length.should eq 6
     end
 
-    it 'should search for multiple elements on the page, starting from the document root by class name.' do
+    it 'should search for multiple elements on the page,
+        starting from the document root by class name.' do
       elements = $driver1.find_elements(:class=> 'element')
       elements.length.should eq 3
     end
 
-    it 'should search for multiple elements on the page, starting from the document root by tag name.' do
+    it 'should search for multiple elements on the page,
+        starting from the document root by tag name.' do
       elements = $driver1.find_elements(:tag_name=> 'div')
       elements.length.should eq 6
     end
 
-    it 'should search for multiple elements on the page, starting from the document root by xpath.' do
+    it 'should search for multiple elements on the page,
+        starting from the document root by xpath.' do
       elements = $driver1.find_elements(:xpath=> '//div')
       elements.length.should eq 6
     end
 
 
-    it 'should search for multiple elements on the page, starting from the document root by name.' do
+    it 'should search for multiple elements on the page,
+        starting from the document root by name.' do
       elements = $driver1.find_elements(:name=> 'p')
       elements.length.should eq 2
     end
@@ -581,6 +613,7 @@ describe 'Ghostdriver' do
   end # Elements
 
   describe 'Window' do
+
     it 'should get the size of the specified window' do
       size = $driver1.manage.window.size()
       size.class.should eq Selenium::WebDriver::Dimension
@@ -617,10 +650,6 @@ describe 'Ghostdriver' do
       get_screen_size.should eq $driver1.manage.window.size
     end
 
-    it 'should change focus to another window. The window to change focus to may be specified by its server assigned window handle, or by the value of its name attribute.' do
-      handle = $driver1.window_handle()
-      $driver1.switch_to.window(handle)
-    end
 
     it 'should change focus to another frame on the page.' do
       $driver1.get($url + 'frame')
@@ -650,6 +679,7 @@ describe 'Ghostdriver' do
       $driver1.switch_to.frame('right')
       element = $driver1.find_element(:id=> 'right')
       element.tag_name.should eq 'div'
+
     end
 
     it 'should navigate backwards in the browser history, if possible.' do
@@ -664,6 +694,37 @@ describe 'Ghostdriver' do
       $driver1.current_url.should eq $url + 'frame'
       $driver1.navigate.forward
       $driver1.current_url.should eq $url + 'frame'
+      $driver1.navigate.back
+    end
+
+    it 'should change focus to another window.
+        The window to change focus to may be specified by its server
+        assigned window handle, or by the value of its name attribute.' do
+      current = $driver1.window_handle
+      element = $driver1.find_element :id => 'popup'
+      element.click
+      handles = $driver1.window_handles;
+
+      handles.length.should eq 2
+
+      handles.each do |value|
+        if value != current
+          $driver1.switch_to.window(value) do
+            $driver1.window_handle.should eq value
+            element = $driver1.find_element :id => 'child_popup'
+
+            $driver1.close # close the window
+            expect {
+              element = $driver1.find_element :id => 'child_popup'
+            }.to raise_error(Selenium::WebDriver::Error::NoSuchWindowError)
+
+          end
+          break
+        end
+      end
+      handles = $driver1.window_handles;
+      handles.length.should eq 1
+      $driver1.switch_to.window(current)
     end
 
 
@@ -677,13 +738,15 @@ describe 'Ghostdriver' do
       }.to raise_error Selenium::WebDriver::Error::NoSuchWindowError
     end
 
-    it 'should throw exception by closed window on retrieve the URL of the current page' do
+    it 'should throw exception by closed window on
+        retrieve the URL of the current page' do
       expect {
         $driver1.current_url;
       }.to raise_error Selenium::WebDriver::Error::NoSuchWindowError
     end
 
-    it 'should throw exception by closed window on get the current page title' do
+    it 'should throw exception by closed window on
+        get the current page title' do
       expect {
         $driver1.title
       }.to raise_error Selenium::WebDriver::Error::NoSuchWindowError

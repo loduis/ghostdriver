@@ -31,13 +31,12 @@ function Mouse(window) {
   };
 
   mouse._sendEventAndWait = function (type, button) {
-    var wait = this._window.wait.load();
     this._sendEvent(type, button);
-    wait.off('load', 'success');
-    return wait;
+    return this._window.wait.load(null);
   };
 
   mouse._sendEvent = function (type, button) {
+    this._window.stop();
     this._window.event.send(
       type,
       this.x,
@@ -49,7 +48,7 @@ function Mouse(window) {
     if (button === 2) {
       var script = "var event = document.createEvent('HTMLEvents');" +
                    "event.initEvent('contextmenu', true, false);" +
-                   "document.body.dispatchEvent(event);"
+                   "document.body.dispatchEvent(event);";
       this._window.executeScript(script);
     }
   };
