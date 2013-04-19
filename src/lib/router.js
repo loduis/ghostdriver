@@ -12,7 +12,7 @@ router.dispatch = function (request, response) {
       var sessionId = request.getSessionId(),
           session   = null;
       if (sessionId !== null) {
-        session = ghostdriver.Session.get(sessionId);
+        session = ghostdriver.session.get(sessionId);
         if (session === null) {
           response.error.variableResourceNotFound(request);
         } else if (callback.numArguments === 4) {

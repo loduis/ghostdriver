@@ -15926,6 +15926,17 @@ phantomjs.atoms.inject.action.clear = function(element) {
   return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.action.clear, [element]);
 };
 
+/**
+ * Sends key events to simulating typing on an element.
+ *
+ * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
+ * @param {!Array.<string>} keys The keys to type.
+ * @return {string} A stringified {@link bot.response.ResponseObject}.
+ */
+phantomjs.atoms.inject.action.type = function(element, keys) {
+  return phantomjs.atoms.inject.executeScript(webdriver.atoms.element.type,
+      [element, keys]);
+};
 
 /**
  * Click an element.
@@ -16135,7 +16146,7 @@ phantomjs.atoms.inject.executeScript = function(fn, args, opt_window) {
  * @return {string} The response object
  */
 phantomjs.atoms.inject.executeAsyncScript =
-    function(fn, args, timeout, onDone, opt_window) {
+    function(fn, args, timeout) {
   return /** @type {string} */(bot.inject.executeAsyncScript(
       fn, args, timeout, onDone || callPhantom, true,/* NOT CHANGE THIS PHANTOMJS BUG https://github.com/ariya/phantomjs/issues/10434*/
       phantomjs.atoms.inject.getWindow_(opt_window)));

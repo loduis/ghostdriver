@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 try {
   var ghostdriver = require('./lib/ghostdriver');
 
-  ghostdriver.Session = require('./lib/session');;
+  //ghostdriver.Session = require('./lib/session');;
 
   if (ghostdriver.start()) {
     console.log('Ghost Driver running on port ' + ghostdriver.args.port);

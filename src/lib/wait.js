@@ -12,7 +12,7 @@ function Wait(window) {
     return Date.now();
   }
 
-  function _resultLoop(execute, retry, stopTime) {
+  function _retryResult(execute, stopTime) {
     var result = { status: 0 },
         value  = execute();
     if (!value.hasOwnProperty('status')) {
@@ -25,7 +25,13 @@ function Wait(window) {
         result.hasOwnProperty('value') &&
         result.value !== null) || _now() >= stopTime) {
           this.fire('result', result);
-    } else {
+        return false;
+    }
+    return true;
+  }
+
+  function _resultLoop(execute, retry, stopTime) {
+    if (_retryResult.call(this, execute, stopTime)) {
       _timerId = setTimeout(
         _resultLoop.bind(this, execute, retry, stopTime),
         retry
@@ -35,19 +41,22 @@ function Wait(window) {
 
   function _registerEvent(name, callback) {
     this.on(name, function(){
+      this.off(name);
       clearTimeout(_timerId);
       _timerId = null;
       callback.apply(this, _slice.call(arguments));
-      this.off(name);
     });
   }
 
   function _result(retry, execute, timeout, callback) {
+    var stopTime = _now() + timeout;
     _registerEvent.call(this, 'result', callback);
-    _timerId = setTimeout(
-      _resultLoop.bind(this, execute, retry, _now() + timeout),
-      10
-    );
+    if (_retryResult.call(this, execute, stopTime)) {
+      _timerId = setTimeout(
+        _resultLoop.bind(this, execute, retry, stopTime),
+        10
+      );
+    }
   }
 
   function _loadLoop(retry, stopTime) {
@@ -70,7 +79,7 @@ function Wait(window) {
           if (result !== null && result.hasOwnProperty('status')) {
             this.fire('load', 'fail', result);
           } else {
-            this.fire('load', 'success');
+            this.fire('load', 'success', null);
           }
         }
       }.bind(this, result), 0);

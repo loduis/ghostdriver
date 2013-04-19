@@ -5,14 +5,13 @@ module.exports = function (window, session, request, response) {
   } else if(params.args === undefined) {
     response.error.missingCommandParameter('args', request);
   } else {
-    window.on('result', function(result) {
-      response.basedOnResult(result, session, request);
-      this.off('result');
-    });
     window.executeAsyncScript(
       params.script,
       params.args,
-      session.getAsyncScriptTimeout()
+      session.getAsyncScriptTimeout(),
+      function (result) {
+        response.basedOnResult(result, session, request);
+      }
     );
   }
 };

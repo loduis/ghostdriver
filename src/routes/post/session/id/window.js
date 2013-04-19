@@ -6,7 +6,7 @@ module.exports = function(session, request, response) {
       response.success(session.getId());
   } else {
     response.error.noSuchWindow(
-      'the currently selected window has been closed',
+      'Unable to switch to window (closed?)',
       session,
       request
     );

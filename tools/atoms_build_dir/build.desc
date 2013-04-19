@@ -68,6 +68,12 @@ js_fragment(name = "clear",
   function = "phantomjs.atoms.inject.action.clear",
   deps = [ ":deps" ])
 
+js_fragment(name = "type",
+  module = "phantomjs.atoms.inject.action",
+  function = "phantomjs.atoms.inject.action.type",
+  deps = [ ":deps" ])
+
+
 # ================= DOM =====================
 
 js_fragment(name = "get_location_in_view",
@@ -147,6 +153,7 @@ js_deps(name = "build_atoms",
     ":click",
     ":submit",
     ":clear",
+    ":type",
 
     ":get_location",
     ":get_location_in_view",

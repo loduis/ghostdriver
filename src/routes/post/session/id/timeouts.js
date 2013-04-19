@@ -5,7 +5,7 @@ module.exports = function (session, request, response) {
   } else if (typeof parmas.ms !== 'number') {
     response.error.missingCommandParameter('ms', request);
   } else {
-    var TIMEOUT_NAMES = this.Session.TIMEOUT_NAMES;
+    var TIMEOUT_NAMES = session.TIMEOUT_NAMES;
     switch(parmas.type) {
       case TIMEOUT_NAMES.SCRIPT:
         session.setScriptTimeout(parmas.ms);

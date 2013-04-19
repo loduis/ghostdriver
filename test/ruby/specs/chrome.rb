@@ -55,7 +55,6 @@ describe 'Ghostdriver' do
       $driver1.navigate.refresh
     end
 
-
     it 'should change focus to another frame on the page.' do
       current = $driver1.window_handle
       $driver1.get($url + 'frame')

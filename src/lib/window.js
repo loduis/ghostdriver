@@ -2,6 +2,7 @@ require ('./core');
 
 var _WebPage      = require('webpage'),
     _Alert        = require('./alert'),
+    _Wait         = require('./wait'),
     _defineGetter = require('./getter'),
     _uuid         = require('./uuid');
 
@@ -31,12 +32,60 @@ function Window(settings, page) {
   // instance for manage alert.
   this.alert    = new _Alert(this);
 
+  // instance of wait
+  //_defineGetter(this, 'wait', function (Wait) {
+  this.wait = new _Wait(this);
+  //});
+
+  // instance for manage event mouse
+  _defineGetter(this, 'event', function (Event) {
+    return new Event(this._page);
+  });
+
+  // instance of keyboard
+  _defineGetter(this, 'keyboard', function (Keyboard) {
+    return new Keyboard(this);
+  });
+
+  // instance for manage event mouse
+  _defineGetter(this, 'mouse', function (Mouse) {
+    return new Mouse(this);
+  });
+
+  // instance for manage cookie
+  _defineGetter(this, 'cookie', function (Cookie) {
+    return new Cookie(this._page);
+  });
+
+  // instance for manage local storage
+  _defineGetter(this, 'localStorage', 'storage', function (Storage) {
+    return new Storage(this, 'local');
+  });
+
+  _defineGetter(this, 'sessionStorage', 'storage', function (Storage) {
+    return new Storage(this, 'session');
+  });
+
+  _defineGetter(this, 'Element', function (Element) {
+    return Element.bind(null, this);
+  });
+
+  _defineGetter(this, 'maximize', function (maximize) {
+    return maximize;
+  });
+
   //============ EVENT ==============//
 
   // event on load stared
   this.on('loadStarted', function () {
     this.loading = true;
     this.wait.notify('loading');
+  });
+
+  this.on('urlChanged', function (targetUrl) {
+    this.loading = true;
+    this.wait.notify('loading');
+    this._url = targetUrl;
   });
 
   // event load finished
@@ -48,6 +97,21 @@ function Window(settings, page) {
 
   this.on('callback', function (result) {
     this.fire('result', JSON.parse(result));
+  });
+
+  this.on('resourceReceived', function (resource) {
+    if (resource.url === this._url) {
+      this.statusCode = resource.status;
+      /*
+      if (this.statusCode === 301 || this.statusCode === 302) {
+        var self = this;
+        resource.headers.forEach(function (header) {
+          if (header.name === 'Location') {
+            self._url = header.value;
+          }
+        });
+      }*/
+    }
   });
 
   this.on('consoleMessage', function (msg) {
@@ -62,6 +126,8 @@ function Window(settings, page) {
         error += (item["function"] ? " in " + item["function"] : "") + "\n";
     });
     console.log('STACK: ' + error);
+    this.render();
+    phantom.exit(1);
   });
 }
 
@@ -91,48 +157,6 @@ function Window(settings, page) {
     }
     return locator;
   };
-
-  // instance of wait
-  _defineGetter(window, 'wait', function (Wait) {
-    return new Wait(this);
-  });
-
-  // instance for manage event mouse
-  _defineGetter(window, 'event', function (Event) {
-    return new Event(this._page);
-  });
-
-  // instance of keyboard
-  _defineGetter(window, 'keyboard', function (Keyboard) {
-    return new Keyboard(this);
-  });
-
-  // instance for manage event mouse
-  _defineGetter(window, 'mouse', function (Mouse) {
-    return new Mouse(this);
-  });
-
-  // instance for manage cookie
-  _defineGetter(window, 'cookie', function (Cookie) {
-    return new Cookie(this._page);
-  });
-
-  // instance for manage local storage
-  _defineGetter(window, 'localStorage', 'storage', function (Storage) {
-    return new Storage(this, 'local');
-  });
-
-  _defineGetter(window, 'sessionStorage', 'storage', function (Storage) {
-    return new Storage(this, 'session');
-  });
-
-  _defineGetter(window, 'Element', function (Element) {
-    return Element.bind(null, this);
-  });
-
-  _defineGetter(window, 'maximize', function (maximize) {
-    return maximize;
-  });
 
   window.__defineGetter__('appCacheStatus', function () {
     return this.executeAtomScript('get_appcache_status');
@@ -194,6 +218,7 @@ function Window(settings, page) {
   window.open = function (url) {
     this.stop();
     this.focus();
+    this._url = url;
     this._page.open(url);
     return this.wait.load();
   };
@@ -231,6 +256,9 @@ function Window(settings, page) {
     this._page.close();
   };
 
+  window.render = function() {
+    this._page.render(this.handle + '.png');
+  };
 
   window.getScreenshot = function () {
     return this._page.renderBase64('png');
@@ -246,12 +274,13 @@ function Window(settings, page) {
   };
 
   window.off = function(eventName) {
-    delete this._page[eventName];
+    eventName = 'on' + _capitalize(eventName);
+    this._page[eventName] = null;
   };
 
   window.fire = function(eventName) {
     eventName = 'on' + _capitalize(eventName);
-    if (this._page.hasOwnProperty(eventName)) {
+    if (typeof this._page[eventName] === 'function') {
       var callback = this._page[eventName];
       callback.apply(this, _slice.call(arguments, 1));
     }
@@ -338,8 +367,12 @@ function Window(settings, page) {
     );
   };
 
-  window.executeAsyncScript = function (script, args, timeout) {
-    return this.executeAtomScript(
+  window.executeAsyncScript = function (script, args, timeout, done) {
+    this.on('result', function(result) {
+      done.call(this, result);
+      this.off('result');
+    });
+    this.executeAtomScript(
       'execute_async_script',
       script,
       args,

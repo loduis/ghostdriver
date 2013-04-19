@@ -4,7 +4,7 @@ module.exports = function (element, session, request, response) {
     if (status === 'success') {
       response.success(session.getId());
     } else if (result !== undefined) {
-      response.baseOnResult(result, session, request);
+      response.basedOnResult(result, session, request);
     } else if (status === 'timeout') {
       response.error.timeout(
         'Click timed-out',

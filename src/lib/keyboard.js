@@ -198,9 +198,9 @@ function Keyboard(window) {
         this.clearModifiers();
       } else if (this._isModifier(key)) {
         if (this._isModifierPressed(key)) {
-            this._keyUp(actualKey);
+            this._keyUp(key);
         } else {
-            this._keyDown(actualKey);
+            this._keyDown(key);
         }
       } else if (_implicitShiftKeys.hasOwnProperty(actualKey)) {
         this._event.send(
@@ -223,13 +223,13 @@ function Keyboard(window) {
 
   keyboard.clearModifiers = function () {
     if(this.modifiers && _modifierKeyValues.SHIFT) {
-      this._keyUp(this._translateKey(_modifierKeyChars.SHIFT));
+      this._keyUp(_modifierKeyChars.SHIFT);
     }
     if (this.modifiers & _modifierKeyValues.CONTROL) {
-        this._keyUp(this._translateKey(_modifierKeyChars.CONTROL));
+        this._keyUp(_modifierKeyChars.CONTROL);
     }
     if (this.modifiers & _modifierKeyValues.ALT) {
-      this._keyUp(this._translateKey(_modifierKeyChars.ALT));
+      this._keyUp(_modifierKeyChars.ALT);
     }
   };
 
@@ -237,6 +237,7 @@ function Keyboard(window) {
   //================== PRIVATE API ==================//
 
   keyboard._updateModifiers = function (key, on) {
+    key = _specialKeys[key];
     var KEY = key.toUpperCase();
     if (_modifierKeyValues.hasOwnProperty(KEY) &&
       (KEY !== 'META' && KEY !== 'NUMPAD')) {
@@ -273,13 +274,13 @@ function Keyboard(window) {
   };
 
   keyboard._keyDown = function(key) {
-      this._keyEvent('keydown', key);
+      this._keyEvent('keydown', this._translateKey(key));
       this._updateModifiers(key, true);
   };
 
   keyboard._keyUp = function (key) {
     this._updateModifiers(key, false);
-    this._keyEvent('keyup', key);
+    this._keyEvent('keyup', this._translateKey(key));
   };
 
   keyboard._keyPress = function(key) {

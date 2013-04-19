@@ -6,18 +6,21 @@ module.exports = function (element, session, request, response) {
   } else {
     var tagName = element.getTagName(),
         type = element.getAttribute('type');
-    value = value.join('');
-      fs = fs || require('fs');
+        value = value.join(''),
+        timeout = session.getPageLoadTimeout();
+    fs = fs || require('fs');
+
     if (tagName === 'input' && type && type.toLowerCase() === 'file' && fs.exists(value)) {
       element.on('filePicker', function () {
         return value;
       });
-      var timeout = session.getPageLoadTimeout();
       element.click().wait(timeout, function (status, result) {
-        response.baseOnResult(result, session, request);
+        response.basedOnResult(result, session, request);
       });
     } else {
-      return element.setValue(value);
+      return element.setValue(value).wait(timeout, function (status, result) {
+        response.basedOnResult(result, session, request);
+      });
     }
   }
 };

@@ -60,7 +60,7 @@ function _onLoadFinished(session, status) {
   var window;
   for (key in windows) {
     window = windows[key];
-    window.fire('load', window.status);
+    window.fire('load', window.status, null);
   }
 }
 
@@ -169,13 +169,22 @@ function Session(desiredCapabilities) {
   };
 
   session.switchToWindow = function(handle) {
-    var window = this.getWindow(handle), change = false;
+    var window = this.getWindow(handle);
     if (window !== null) {
       this._currentWindowHandle = window.handle;
       window.focus();
-      change = true;
     }
-    return change;
+    return window;
+  };
+
+  session.closeWindow = function (handle) {
+    var window = this.getWindow(handle);
+    if (window !== null) {
+      window.close();
+      delete this._windows[window.handle];
+      return true;
+    }
+    return false;
   };
 
   session.setPageLoadTimeout = function (ms) {
@@ -228,44 +237,8 @@ function Session(desiredCapabilities) {
     }
   };
 
+  session.TIMEOUT_NAMES = _TIMEOUT_NAMES;
+
 })(Session.prototype);
-
-//=================== CLASS METHOD ===================//
-
-Session.get =  function(id) {
-  return _sessions.hasOwnProperty(id) ? _sessions[id] : null;
-};
-
-Session.getWindow = function (request, response) {
-  var session = Session.get(request, response),
-      window = session.getWindow();
-  if (window === null) {
-    throw response.error.noSuchWindow(
-      'the currently selected window has been closed',
-      session,
-      request
-    );
-  }
-  return window;
-};
-
-Session.create = function (desiredCapabilities) {
-  var session = new Session(desiredCapabilities);
-  _sessions[session.getId()] = session;
-  return session;
-};
-
-Session.all = function () {
-  var sessions = [];
-  for (var id in _sessions) {
-      sessions.push({
-        id : id,
-        capabilities : _sessions[id].getCapabilities()
-      });
-  }
-  return sessions;
-};
-
-Session.TIMEOUT_NAMES = _TIMEOUT_NAMES;
 
 module.exports = Session;

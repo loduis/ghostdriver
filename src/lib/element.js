@@ -101,6 +101,15 @@ function Element(window, element) {
     return this._window.wait.load(result);
   };
 
+  element.click = function () {
+    this._window.stop();
+    var result = this._window.executeAtomScript(
+      'click',
+      this._id
+    );
+    return this._window.wait.load(result);
+  };
+
   element.equal = function (other) {
     return this._window.executeAtomScript(
       'is_same_node',
@@ -126,26 +135,18 @@ function Element(window, element) {
     this._window.on(eventName);
   };
 
-  element.click = function () {
-    this._window.stop();
-    var result = this._window.executeAtomScript(
-      'click',
-      this._id
-    );
-    return this._window.wait.load(result);
-  };
-
   element.getId = function () {
     return this._id;
   };
 
   element.setValue = function(value) {
-    var result = this.clear();
-    this._window.keyboard.sendKeys(value);
-    if (this.clearModifiers) {
-      this._window.keyboard.clearModifiers();
-    }
-    return result;
+    this._window.stop();
+    var result = this._window.executeAtomScript('type', this._id, ''),
+        wait = this._window.keyboard.sendKeys(value);
+    //if (this.clearModifiers) {
+    this._window.keyboard.clearModifiers();
+    //}
+    return this._window.wait.load(result);
   };
 
 })(Element.prototype);

@@ -16,11 +16,6 @@ var WebServerRequest = function () {
         'delete': {}
       };
 
-  function _getParam(name) {
-    var params = this.getParams();
-    return params[name];
-  }
-
   function _getNumArguments(functionName) {
     var names = functionName.toString().
         match(/^[\s\(]*function[^(]*\(([^)]*)\)/)[1].split(',');
@@ -46,15 +41,6 @@ var WebServerRequest = function () {
       return parts[index - 1];
     };
 
-    request.getElement = function () {
-        if (typeof parts[3] === 'undefined') {
-          return undefined;
-        }
-        return {
-            'ELEMENT' : parts[3]
-        };
-    };
-
     request.getElementId = function () {
       if (typeof parts[3] !== 'undefined' && parts[2] === 'element' &&
                             parts[3] !== 'active') {
@@ -67,9 +53,9 @@ var WebServerRequest = function () {
     };
 
 
-    request.getParams = function getParams() {
+    request.getParams = function () {
       var method = this.method;
-      if (method === 'POST') {
+      if (method === 'POST' || method === 'DELETE') {
         try {
           if (params === null) {
             var post = this.hasOwnProperty('postRaw') ?
@@ -86,7 +72,10 @@ var WebServerRequest = function () {
 
 
 
-    request.getParam  = _getParam;
+    request.getParam  = function (name) {
+      var params = this.getParams();
+      return params[name];
+    };
 
     request.getCallback = function (command) {
       if (command === undefined) {

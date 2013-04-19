@@ -42,6 +42,39 @@ ghostdriver.registerHub = function () {
   }
 };
 
+ghostdriver.session = function () {
+
+  var Session, _sessions = {};
+
+  function create(desiredCapabilities) {
+    Session = Session || require('./session');
+    var session = new Session(desiredCapabilities);
+    _sessions[session.getId()] = session;
+    return session;
+  }
+
+  function get(id) {
+    return _sessions.hasOwnProperty(id) ? _sessions[id] : null;
+  }
+
+  function all() {
+    var sessions = [];
+    for (var id in _sessions) {
+        sessions.push({
+          id : id,
+          capabilities : _sessions[id].getCapabilities()
+        });
+    }
+    return sessions;
+  }
+
+  return {
+    create: create,
+    get: get,
+    all: all
+  };
+}();
+
 
 ghostdriver.start = function () {
   var server   = require('webserver').create(),
