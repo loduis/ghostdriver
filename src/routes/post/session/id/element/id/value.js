@@ -18,7 +18,7 @@ module.exports = function (element, session, request, response) {
         response.basedOnResult(result, session, request);
       });
     } else {
-      return element.setValue(value).wait(timeout, function (status, result) {
+      return element.sendKeys(value).wait(timeout, function (status, result) {
         response.basedOnResult(result, session, request);
       });
     }

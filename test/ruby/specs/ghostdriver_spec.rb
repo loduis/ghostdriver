@@ -712,7 +712,7 @@ describe 'Ghostdriver' do
           $driver1.switch_to.window(value) do
             $driver1.window_handle.should eq value
             element = $driver1.find_element :id => 'child_popup'
-
+            element.text.should eq 'I am popup'
             $driver1.close # close the window
             expect {
               element = $driver1.find_element :id => 'child_popup'

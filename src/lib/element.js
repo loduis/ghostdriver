@@ -102,7 +102,41 @@ function Element(window, element) {
   };
 
   element.click = function () {
+    /*
+    var location = this.getLocationInView(),
+        x = 0,
+        y = 0,
+        wait;
+    if (location !== null) {
+      if (location.hasOwnProperty('status')) {
+        wait = this._window.wait.load();
+        wait.off('load', 'fail', location);
+        return wait;
+      } else {
+        x += location.x;
+        y += location.y;
+      }
+    }
+    var size = this.getSize();
+
+    if (size !== null && size.hasOwnProperty('status')) {
+      wait = this._window.wait.load();
+      wait.off('load', 'fail', location);
+      return wait;
+    }
+    console.log('LOCATION ' + JSON.stringify(location));
+    console.log('SIZE ' + JSON.stringify(size));
+    var result = this._window.executeAtomScript(
+      'get_client_position',
+      this._id
+    );
+    console.log('PREPARE ' + JSON.stringify(result));
+    x += Math.floor(size.width / 2);
+    y += Math.floor(size.height / 2);
     this._window.stop();
+    this._window.mouse.move(x, y);
+    return this._window.mouse.click();
+    */
     var result = this._window.executeAtomScript(
       'click',
       this._id
@@ -139,13 +173,13 @@ function Element(window, element) {
     return this._id;
   };
 
-  element.setValue = function(value) {
+  element.sendKeys = function(keys) {
     this._window.stop();
-    var result = this._window.executeAtomScript('type', this._id, ''),
-        wait = this._window.keyboard.sendKeys(value);
-    //if (this.clearModifiers) {
-    this._window.keyboard.clearModifiers();
-    //}
+    var result = this.clear(),
+        wait = this._window.keyboard.sendKeys(keys);
+    if (this.clearModifiers) {
+      this._window.keyboard.clearModifiers();
+    }
     return this._window.wait.load(result);
   };
 

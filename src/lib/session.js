@@ -224,7 +224,6 @@ function Session(desiredCapabilities) {
     for (var handle in this._windows) {
       this._windows[handle].close();
     }
-    delete _sessions[this.getId()];
     return id;
   };
 

@@ -4,7 +4,12 @@ var _WebPage      = require('webpage'),
     _Alert        = require('./alert'),
     _Wait         = require('./wait'),
     _defineGetter = require('./getter'),
-    _uuid         = require('./uuid');
+    _uuid         = require('./uuid'),
+    _slice = Array.prototype.slice;
+
+function _capitalize(word) {
+  return word.charAt(0).toUpperCase() + word.substring(1);
+}
 
 function Window(settings, page) {
   // page instance
@@ -28,6 +33,18 @@ function Window(settings, page) {
           this._page.settings[k] = settings[k];
       }
   }
+
+
+  var self = this;
+
+  this.on = function (eventName, callback) {
+    // var self = this; other orible phantomjs bug
+    eventName = 'on' + _capitalize(eventName);
+    //this._page[eventName] = callback.bind(self); # bug phantomjs
+    this._page[eventName] = function () {
+      callback.apply(self, _slice.call(arguments, 0));
+    };
+  };
 
   // instance for manage alert.
   this.alert    = new _Alert(this);
@@ -133,11 +150,7 @@ function Window(settings, page) {
 
 (function (window){
   var
-  _slice = Array.prototype.slice,
   _requireAtoms = require('./atoms'),
-  _capitalize = function (word) {
-    return word.charAt(0).toUpperCase() + word.substring(1);
-  },
   _classSelectorRE = /^\.([\w-]+)$/,
   _idSelectorRE = /^#([\w-]*)$/,
   _tagSelectorRE = /^[\w-]+$/,
@@ -264,15 +277,6 @@ function Window(settings, page) {
     return this._page.renderBase64('png');
   };
 
-  window.on = function (eventName, callback) {
-    var self = this;
-    eventName = 'on' + _capitalize(eventName);
-    //this._page[eventName] = callback.bind(self); # bug phantomjs
-    this._page[eventName] = function () {
-      callback.apply(self, _slice.call(arguments, 0));
-    };
-  };
-
   window.off = function(eventName) {
     eventName = 'on' + _capitalize(eventName);
     this._page[eventName] = null;
@@ -376,7 +380,8 @@ function Window(settings, page) {
       'execute_async_script',
       script,
       args,
-      timeout
+      timeout,
+      callPhantom
     );
   };
 

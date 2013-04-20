@@ -68,10 +68,24 @@ ghostdriver.session = function () {
     return sessions;
   }
 
+  function close(session) {
+    // if type is string is the id
+    if (typeof session === 'string') {
+      session = this.get(session);
+    }
+    if (session !== null) {
+      var id = session.close();
+      delete _sessions[id];
+      return true;
+    }
+    return false;
+  }
+
   return {
     create: create,
     get: get,
-    all: all
+    all: all,
+    close: close
   };
 }();
 

@@ -49,9 +49,9 @@ phantomjs.atoms.inject.executeScript = function(fn, args, opt_window) {
  * @return {string} The response object
  */
 phantomjs.atoms.inject.executeAsyncScript =
-    function(fn, args, timeout) {
+    function(fn, args, timeout, onDone, opt_window) {
   return /** @type {string} */(bot.inject.executeAsyncScript(
-      fn, args, timeout, onDone || callPhantom, true,/* NOT CHANGE THIS PHANTOMJS BUG https://github.com/ariya/phantomjs/issues/10434*/
+      fn, args, timeout, onDone, true,/* NOT CHANGE THIS PHANTOMJS BUG https://github.com/ariya/phantomjs/issues/10434*/
       phantomjs.atoms.inject.getWindow_(opt_window)));
 };
 
