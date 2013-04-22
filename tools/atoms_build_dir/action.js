@@ -48,15 +48,12 @@ phantomjs.atoms.inject.action.clear = function(element) {
 };
 
 /**
- * Sends key events to simulating typing on an element.
+ * Focuses on the given element if it is not already the active element.
  *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
- * @param {!Array.<string>} keys The keys to type.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
+ * @param {!Element} element The element to focus on.
  */
-phantomjs.atoms.inject.action.type = function(element, keys) {
-  return phantomjs.atoms.inject.executeScript(webdriver.atoms.element.type,
-      [element, keys]);
+phantomjs.atoms.inject.action.focusOnElement = function(element) {
+  return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.action.focusOnElement, [element]);
 };
 
 /**

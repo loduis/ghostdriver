@@ -1,8 +1,8 @@
-var page = require('webpage').create();
-page.onLoadStaredOneShot = function () {
-    console.log('PRUEBA...')
-};
+var Session = require('./session'),
+    session  = new Session(),
+    win     = session.getWindow();
 
-page.open('http://localhost:4567/', function (status) {
-
+win.open('http://phantomjs.org', function(status) {
+  console.log(status);
+  phantom.exit(1);
 });

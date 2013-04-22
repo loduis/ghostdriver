@@ -173,13 +173,17 @@ function Element(window, element) {
     return this._id;
   };
 
+  element.focus = function () {
+    return this._window.executeAtomScript(
+      'focus_on_element',
+      this._id
+    );
+  };
+
   element.sendKeys = function(keys) {
     this._window.stop();
-    var result = this.clear(),
-        wait = this._window.keyboard.sendKeys(keys);
-    if (this.clearModifiers) {
-      this._window.keyboard.clearModifiers();
-    }
+    var result = this.focus();
+    this._window.keyboard.sendKeys(keys);
     return this._window.wait.load(result);
   };
 

@@ -1,6 +1,6 @@
 var
   ghostdriver     = require('./lib/ghostdriver'),
-  session         = require('./lib/session').create(),
+  session         = ghostdriver.session.create(),
   win             = session.getWindow(),
   pageTimeout     = session.getPageLoadTimeout(),
   implicitTimeout = session.getImplicitTimeout();

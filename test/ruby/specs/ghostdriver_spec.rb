@@ -126,6 +126,8 @@ describe 'Ghostdriver' do
       element = $driver1.find_element(:name => 'q')
       point = element.location
       size  = element.size
+      element.clear
+      element['value'].should be_empty
       $driver1.action.send_keys(element, "Hello Ghostdriver!").perform
       element['value'].should eq "Hello Ghostdriver!"
       # restore to 0,0
@@ -389,6 +391,7 @@ describe 'Ghostdriver' do
 
     it 'should retrieve the value attribute of an element' do
       element = $driver1.find_element(:name=> 'q')
+      element.clear
       element.send_keys 'this an test'
       element['value'].should eq 'this an test'
     end

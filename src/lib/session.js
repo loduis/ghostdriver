@@ -36,9 +36,6 @@ const
     }
   };
 
-var _sessions = {};
-
-
 function _getCap(desiredCapabilities, property) {
   return typeof(desiredCapabilities[property]) === 'undefined' ?
           _defaultCapabilities[property] :

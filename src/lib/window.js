@@ -40,7 +40,7 @@ function Window(settings, page) {
   this.on = function (eventName, callback) {
     // var self = this; other orible phantomjs bug
     eventName = 'on' + _capitalize(eventName);
-    //this._page[eventName] = callback.bind(self); # bug phantomjs
+    // this._page[eventName] = callback.bind(this);// bug phantomjs
     this._page[eventName] = function () {
       callback.apply(self, _slice.call(arguments, 0));
     };

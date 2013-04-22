@@ -15927,18 +15927,6 @@ phantomjs.atoms.inject.action.clear = function(element) {
 };
 
 /**
- * Sends key events to simulating typing on an element.
- *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
- * @param {!Array.<string>} keys The keys to type.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
- */
-phantomjs.atoms.inject.action.type = function(element, keys) {
-  return phantomjs.atoms.inject.executeScript(webdriver.atoms.element.type,
-      [element, keys]);
-};
-
-/**
  * Click an element.
  *
  * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to click.
@@ -15948,7 +15936,15 @@ phantomjs.atoms.inject.action.type = function(element, keys) {
 phantomjs.atoms.inject.action.click = function(element) {
   return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.action.click, [element]);
 };
-// Copyright 2011 WebDriver committers
+
+/**
+ * Focuses on the given element if it is not already the active element.
+ *
+ * @param {!Element} element The element to focus on.
+ */
+phantomjs.atoms.inject.action.focusOnElement = function(element) {
+  return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.action.focusOnElement, [element]);
+};// Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16054,6 +16050,7 @@ phantomjs.atoms.inject.dom.isDisplayed = function(element) {
   return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.dom.isShown,
       [element, /*ignoreOpacity=*/true]);
 };
+
 
 /**
  * Scrolls the element into the client's view and returns its position
