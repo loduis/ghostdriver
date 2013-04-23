@@ -46,15 +46,23 @@ function _onLoadFinished(session, status) {
   var key;
   this.loading = false;
   this.status = status;
-  var windows = session._windows;
+  var windows = session._windows, window;
   for (key in windows) {
-    if (windows[key].loading) {
+    window = windows[key];
+    // phantomjs bug
+    // window.open('url_post', 'target');
+    // <form action="post" action="url_post" target="target">
+    // form.submit()
+    // for this phantomjs submit two request
+    // this request has url about:blank
+    // after url load this url is the window url
+    // debe haber una mejor manera de ajustar eso
+    if (window.loading || (window.popup && window.url === 'about:blank')) {
       return;
     }
   }
   // disable loading in the wait
   this.wait.notify('finished');
-  var window;
   for (key in windows) {
     window = windows[key];
     window.fire('load', window.status, null);
@@ -73,6 +81,9 @@ function _createWindow(session, pageSettings, page) {
   session._windows[window.handle] = window;
   window.on('loadFinished', _onLoadFinished.bind(window, session));
   window.on('closing', _onClosing.bind(window, session));
+  // need for popup finished event
+  window.popup = page !== undefined;
+
   return window;
 }
 

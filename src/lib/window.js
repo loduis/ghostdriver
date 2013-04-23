@@ -102,7 +102,7 @@ function Window(settings, page) {
   this.on('urlChanged', function (targetUrl) {
     this.loading = true;
     this.wait.notify('loading');
-    this._url = targetUrl;
+    //this._url = targetUrl;
   });
 
   // event load finished
@@ -117,8 +117,9 @@ function Window(settings, page) {
   });
 
   this.on('resourceReceived', function (resource) {
-    if (resource.url === this._url) {
+    if (resource.url === this.url) {
       this.statusCode = resource.status;
+      //console.log(JSON.stringify(resource));
       /*
       if (this.statusCode === 301 || this.statusCode === 302) {
         var self = this;
@@ -191,9 +192,10 @@ function Window(settings, page) {
     return this._page.windowName;
   });
 
+  /*
   window.__defineGetter__('url', function () {
     return this.executeScript('return location.toString()');
-  });
+  });*/
 
   window.executeAtomScript = function (name) {
     var args = _slice.call(arguments, 0);
@@ -231,7 +233,7 @@ function Window(settings, page) {
   window.open = function (url) {
     this.stop();
     this.focus();
-    this._url = url;
+    //this._url = url;
     this._page.open(url);
     return this.wait.load();
   };

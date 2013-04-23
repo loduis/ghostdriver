@@ -64,39 +64,39 @@ function _getParam(name) {
   return params[name];
 }
 
-function _getCommandUrl(command) {
-  if (command === undefined) {
-    //un new copy of the array
-    var split = _parts.slice();
-    if (_length === 1) {
-        command = split[0];
-    } else if (_length > 1) {
-      split[1] = 'id';
-      if (_length > 3) {
-        if (split[2] === 'element') {
-          if (split[3] !== 'active') {
-            split[3] = 'id';
-          }
-        } else if (split[2] === 'cookie') {
-          split[3] = 'name';
-        } else if (split[2] === 'window') {
-          split[3] = 'handle';
-        } else if (split[3] === 'key') { // local store and session store
-          split[4] = 'name';
+function _getCommandFromUrl() {
+  var command,
+      //un new copy of the array
+      split = _parts.slice();
+  if (_length === 1) {
+      command = split[0];
+  } else if (_length > 1) {
+    split[1] = 'id';
+    if (_length > 3) {
+      if (split[2] === 'element') {
+        if (split[3] !== 'active') {
+          split[3] = 'id';
         }
+      } else if (split[2] === 'cookie') {
+        split[3] = 'name';
+      } else if (split[2] === 'window') {
+        split[3] = 'handle';
+      } else if (split[3] === 'key') { // local store and session store
+        split[4] = 'name';
       }
-      if (_length > 4) {
-        if (split[4] === 'attribute') {
-          split[5] = 'name';
-        } else if (split[4] === 'css') {
-          split[5] = 'property';
-        } else if (split[4] === 'equals') {
-          split[5] = 'other';
-        }
-      }
-      command = split.join('/');
     }
+    if (_length > 4) {
+      if (split[4] === 'attribute') {
+        split[5] = 'name';
+      } else if (split[4] === 'css') {
+        split[5] = 'property';
+      } else if (split[4] === 'equals') {
+        split[5] = 'other';
+      }
+    }
+    command = split.join('/');
   }
+
   return command;
 }
 
@@ -121,7 +121,7 @@ function _getCallbackFromFileOrCache(method, command) {
 
 function _getCallback(command) {
   var method = this.method.toLowerCase();
-  command = _getCommandUrl(command);
+  command = _getCommandFromUrl(command);
 
   // ONLY FOR DEBUG REMOVE AFTER
   var execute = method + ' /' + command, i;
