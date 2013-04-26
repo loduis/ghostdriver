@@ -34,7 +34,6 @@ function Window(settings, page) {
       }
   }
 
-
   var self = this;
 
   this.on = function (eventName, callback) {
@@ -50,9 +49,9 @@ function Window(settings, page) {
   this.alert    = new _Alert(this);
 
   // instance of wait
-  //_defineGetter(this, 'wait', function (Wait) {
-  this.wait = new _Wait(this);
-  //});
+  _defineGetter(this, 'wait', function (Wait) {
+    return new _Wait(this);
+  });
 
   // instance for manage event mouse
   _defineGetter(this, 'event', function (Event) {
@@ -93,20 +92,34 @@ function Window(settings, page) {
 
   //============ EVENT ==============//
 
-  // event on load stared
+  // 1. event on load stared
   this.on('loadStarted', function () {
+    this._resources = {};
     this.loading = true;
     this.wait.notify('loading');
   });
 
+  // 2. recibe los recursos
+  this.on('resourceReceived', function (resource) {
+    if (this._resources !== null) {
+      this._resources[resource.url] = resource.status;
+    }
+    var status = resource.status;
+    if (status !== 200) {
+      console.log('REVIEW STATUS: ' + status);
+    }
+  });
+  // 3. se cambia la url
   this.on('urlChanged', function (targetUrl) {
-    this.loading = true;
-    this.wait.notify('loading');
-    //this._url = targetUrl;
+    //this.loading = true;
+    //this.wait.notify('loading');
+    if (this._resources.hasOwnProperty(targetUrl)) {
+      this.statusCode = this._resources[targetUrl];
+      this._resources = null; // free memory
+    }
   });
 
-  // event load finished
-
+  // 4. event load finished
   this.on('loadFinished', function (status) {
     this.loading = false;
     this.fire('load', status);
@@ -114,22 +127,6 @@ function Window(settings, page) {
 
   this.on('callback', function (result) {
     this.fire('result', JSON.parse(result));
-  });
-
-  this.on('resourceReceived', function (resource) {
-    if (resource.url === this.url) {
-      this.statusCode = resource.status;
-      //console.log(JSON.stringify(resource));
-      /*
-      if (this.statusCode === 301 || this.statusCode === 302) {
-        var self = this;
-        resource.headers.forEach(function (header) {
-          if (header.name === 'Location') {
-            self._url = header.value;
-          }
-        });
-      }*/
-    }
   });
 
   this.on('consoleMessage', function (msg) {
@@ -192,10 +189,6 @@ function Window(settings, page) {
     return this._page.windowName;
   });
 
-  /*
-  window.__defineGetter__('url', function () {
-    return this.executeScript('return location.toString()');
-  });*/
 
   window.executeAtomScript = function (name) {
     var args = _slice.call(arguments, 0);
@@ -271,8 +264,8 @@ function Window(settings, page) {
     this._page.close();
   };
 
-  window.render = function() {
-    this._page.render(this.handle + '.png');
+  window.render = function(name) {
+    this._page.render((name || this.handle) + '.png');
   };
 
   window.getScreenshot = function () {

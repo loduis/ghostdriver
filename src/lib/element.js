@@ -161,14 +161,6 @@ function Element(window, element) {
     return this._window.findAll(locator, this._id);
   };
 
-  element.on = function (eventName, callback) {
-    this._window.on(eventName, callback);
-  };
-
-  element.off = function (eventName) {
-    this._window.on(eventName);
-  };
-
   element.getId = function () {
     return this._id;
   };

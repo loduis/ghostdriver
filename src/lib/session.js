@@ -47,6 +47,11 @@ function _onLoadFinished(session, status) {
   this.loading = false;
   this.status = status;
   var windows = session._windows, window;
+  if (this.statusCode === 500) {
+    console.log('FATAL ERROR: ' + status);
+    window.render('error_' + status);
+    phantom.exit(1);
+  }
   for (key in windows) {
     window = windows[key];
     // phantomjs bug
