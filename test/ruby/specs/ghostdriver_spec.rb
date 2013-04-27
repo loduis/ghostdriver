@@ -19,7 +19,12 @@ describe 'Ghostdriver' do
 
     it 'should start the session' do
       #$driver1 = Selenium::WebDriver.for(:phantomjs)
-      $driver1 = Selenium::WebDriver.for(:remote, :url=> $remote)
+      # $driver1 = Selenium::WebDriver.for(:remote, :url=> $remote)
+      $driver1 = Selenium::WebDriver.for(
+        :remote,
+        :url => "http://127.0.0.1:4444/wd/hub",
+        :desired_capabilities => :phantomjs
+      )
       #$driver1 = Selenium::WebDriver.for(:firefox)
     end
 

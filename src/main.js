@@ -25,19 +25,17 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+var ghostdriver = require('./lib/ghostdriver');
+
 try {
-  var ghostdriver = require('./lib/ghostdriver');
-
-  //ghostdriver.Session = require('./lib/session');;
-
   if (ghostdriver.start()) {
     console.log('Ghost Driver running on port ' + ghostdriver.args.port);
   } else {
     throw new Error("ERROR: Could not start Ghost Driver");
-    phantom.exit(1);
+    ghostdriver.exit();
   }
 } catch (e) {
   console.log(e.message);
   throw new Error("ERROR: Could not start Ghost Driver");
-  phantom.exit(1);
+  ghostdriver.exit();
 }

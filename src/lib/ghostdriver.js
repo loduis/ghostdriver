@@ -1,3 +1,5 @@
+require ('./core');
+
 var
   system = require('system'),
   ghostdriver = {
@@ -8,39 +10,27 @@ var
 
 ghostdriver.args = function (args) {
   var
-    ip   = '127.0.0.1',
-    port = 8910,
-    hub  = null;
-
-  // Check if parameters were given, regarding the "ip:port" to listen to
-  if (args[1]) {
-      if (args[1].indexOf(':') >= 0) {
-          var listen = args[1].split(':');
-          ip = listen[0];
-          port = listen[1];
-      } else {
-          port = args[1];
+    config = {
+      ip  : '127.0.0.1',
+      port: 8910,
+      hub : null
+    },
+    i = args.length,
+    regexp = new RegExp("^--([a-z]+)=([a-z0-9_/\\\\:.]+)$", "i"),
+    result;
+    while (i --) {
+      result = regexp.exec(args[i]);
+      if (result !== null &&
+          result.length === 3 &&
+          config.hasOwnProperty(result[1])) {
+        config[result[1]] = result[2];
       }
-  }
+    }
+  console.log(JSON.stringify(config));
 
-  if (args[2]) {
-    hub = args[2];
-  }
-
-  return {
-    ip: ip,
-    port: port,
-    hub: hub
-  };
+  return config;
 
 }(system.args);
-
-ghostdriver.registerHub = function () {
-  if (this.args.hub) {
-    var hub = null;
-    ghostdriver.register(hub);
-  }
-};
 
 ghostdriver.session = function () {
 
@@ -89,14 +79,36 @@ ghostdriver.session = function () {
   };
 }();
 
+ghostdriver.hub = function () {
+  var _register;
+  function register() {
+    var args = ghostdriver.args;
+    _register = _register || require('./hub');
+    return _register(args.ip, args.port, args.hub);
+  }
+
+  return {
+    register: register
+  };
+}();
+
 
 ghostdriver.start = function () {
   var server   = require('webserver').create(),
       listen   = server.listen(this.args.port, router.dispatch);
   if (listen) {
-    this.registerHub();
+    if (server.port !== this.args.port) {
+      this.args.port = server.port;
+    }
+    if (this.args.hub) {
+      this.hub.register();
+    }
   }
   return listen;
 };
+
+ghostdriver.exit = function () {
+  phantom.exit(1);
+}
 
 module.exports = ghostdriver;

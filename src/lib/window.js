@@ -1,5 +1,3 @@
-require ('./core');
-
 var _WebPage      = require('webpage'),
     _Alert        = require('./alert'),
     _Wait         = require('./wait'),
