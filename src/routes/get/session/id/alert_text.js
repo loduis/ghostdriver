@@ -1,3 +1,7 @@
 module.exports = function(window, session, request, response) {
-  return window.alert.text;
+  response.basedOnResult(
+    window.alert.text,
+    session,
+    request
+  );
 };

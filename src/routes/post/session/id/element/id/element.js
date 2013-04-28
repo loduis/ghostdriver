@@ -7,7 +7,11 @@ module.exports = function (element, session, request, response) {
   } else {
     var time    = session.getImplicitTimeout();
     element.find(locator).wait(time, function (result) {
-      response.basedOnResult(result, session, request);
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
     });
   }
 };

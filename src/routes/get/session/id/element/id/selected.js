@@ -1,3 +1,7 @@
 module.exports = function (element, session, request, response) {
-  return element.isSelected();
+  response.basedOnResult(
+    element.isSelected(),
+    session,
+    request
+  );
 };

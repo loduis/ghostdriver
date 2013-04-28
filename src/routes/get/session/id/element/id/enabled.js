@@ -1,3 +1,7 @@
 module.exports = function (element, session, request, response) {
-  return element.isEnabled();
+  response.basedOnResult(
+    element.isEnabled(),
+    session,
+    request
+  );
 };

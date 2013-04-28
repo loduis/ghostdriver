@@ -1,3 +1,7 @@
 module.exports = function (element, session, request, response) {
-  return element.clear();
+  response.basedOnResult(
+    element.clear(),
+    session,
+    request
+  );
 };

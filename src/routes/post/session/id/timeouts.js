@@ -19,7 +19,6 @@ module.exports = function (session, request, response) {
       case TIMEOUT_NAMES.PAGE_LOAD:
         session.setPageLoadTimeout(parmas.ms);
         break;
-
     }
     response.success(session.getId());
   }

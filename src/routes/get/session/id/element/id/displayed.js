@@ -1,3 +1,7 @@
 module.exports = function (element, session, request, response) {
-  return element.isDisplayed();
+  response.basedOnResult(
+    element.isDisplayed(),
+    session,
+    request
+  );
 };

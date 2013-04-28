@@ -4,8 +4,8 @@ var
   WebServerRequest  = require('./request');
 
 router.dispatch = function (request, response) {
-  response = WebServerResponse.extend(response);
-  request  = WebServerRequest.extend(request);
+  WebServerResponse.extend(response);
+  WebServerRequest.extend(request);
   // callback for request
   var callback = request.getCallback();
   if (callback === null) {
@@ -32,16 +32,13 @@ router.dispatch = function (request, response) {
         if (id !== undefined) {
           element = new window.Element(id);
         }
-        var result = callback.call(
+        callback.call(
           ghostdriver,
           element,
           session,
           request,
           response
         );
-        if (result !== undefined) {
-          response.basedOnResult(result, session, request);
-        }
       }
     } else {
       callback.call(ghostdriver, session, request, response);

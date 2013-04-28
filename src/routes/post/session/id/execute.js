@@ -22,7 +22,11 @@ module.exports = function (window, session, request, response) {
     clearTimeout(timeId);
 
     if (!timeout) {
-      return result;
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
     }
   }
 };

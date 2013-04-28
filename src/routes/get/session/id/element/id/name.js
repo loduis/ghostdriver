@@ -1,3 +1,7 @@
 module.exports = function(element, session, request, response) {
-  return element.getTagName();
+  response.basedOnResult(
+    element.getTagName(),
+    session,
+    request
+  );
 };

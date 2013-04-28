@@ -1,3 +1,7 @@
 module.exports = function (window, session, request, response) {
-  return window.sessionStorage.length;
+  response.basedOnResult(
+    window.sessionStorage.length,
+    session,
+    request
+  );
 };

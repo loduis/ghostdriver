@@ -1,3 +1,7 @@
 module.exports = function (element, session, request, response) {
-  return element.getText();
+  response.basedOnResult(
+    element.getText(),
+    session,
+    request
+  );
 };

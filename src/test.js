@@ -1,3 +1,41 @@
+var test = {
+
+};
+
+function _callback(request, response, i) {
+  console.log('REQUEST... ' + i);
+  response.statusCode = 200;
+  response.write('<html><body>Hello ' + i + '!</body></html>');
+  response.close();
+}
+
+
+var router = {
+  dispatch: function (request, response) {
+    i ++;
+    if (i % 2 === 0) {
+      (function (i) {
+        setTimeout(function () {
+          _callback.call(test, request, response, i);
+        }, 10000);
+      })(i);
+    } else {
+      _callback.call(test, request, response, i);
+    }
+  }
+};
+
+
+var server = require('webserver').create(), i = 0;
+
+var service = server.listen(9000, router.dispatch);
+
+if (service) {
+  console.log('SERVER START...');
+}
+
+
+/*
 var
   ghostdriver     = require('./lib/ghostdriver'),
   session         = ghostdriver.session.create(),
@@ -63,4 +101,4 @@ win.open('http://localhost:4567/').wait(pageTimeout, function (status) {
     console.log('No could open the url: ' + this.url);
     phantom.exit(1);
   }
-});
+});*/

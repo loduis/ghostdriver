@@ -1,3 +1,6 @@
 module.exports = function (session, request, response) {
-  response.success(session.getId(), session.getWindowHandles());
+  response.success(
+    session.getId(),
+    session.getWindowHandles()
+  );
 };

@@ -1,4 +1,8 @@
 module.exports = function (window, session, request, response) {
   var key = request.getChunk(5);
-  return window.sessionStorage.removeItem(key);
+  response.basedOnResult(
+    window.sessionStorage.removeItem(key),
+    session,
+    request
+  );
 };

@@ -1,3 +1,7 @@
 module.exports = function (element, session, request, response) {
-  return element.getLocationInView();
+  response.basedOnResult(
+    element.getLocationInView(),
+    session,
+    request
+  );
 };

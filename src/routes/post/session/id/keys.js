@@ -13,7 +13,8 @@ module.exports = function () {
           timeout = session.getPageLoadTimeout();
       fs = fs || require('fs');
 
-      if (tagName === 'input' && type && type.toLowerCase() === 'file' && fs.exists(value)) {
+      if (tagName === 'input' && type &&
+                          type.toLowerCase() === 'file' && fs.exists(value)) {
         element.on('filePicker', function () {
           return value;
         });
@@ -21,9 +22,13 @@ module.exports = function () {
           response.basedOnResult(result, session, request);
         });
       } else {
-        return element.sendKeys(value).wait(timeout, function (status, result) {
+        element.sendKeys(value).wait(timeout, function (status, result) {
           window.keyboard.clearModifiers();
-          response.basedOnResult(result, session, request);
+          response.basedOnResult(
+            result,
+            session,
+            request
+          );
         });
       }
     }

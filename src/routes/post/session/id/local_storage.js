@@ -5,6 +5,10 @@ module.exports = function (window, session, request, response) {
   } else if(params.value === undefined) {
     response.error.missingCommandParameter('value', request);
   } else {
-    return window.localStorage.setItem(params.key, params.value);
+    response.basedOnResult(
+      window.localStorage.setItem(params.key, params.value),
+      session,
+      request
+    );
   }
 };

@@ -1,3 +1,7 @@
 module.exports = function (element, session, request, response) {
-  return element.getSize();
+  response.basedOnResult(
+    element.getSize(),
+    session,
+    request
+  );
 };

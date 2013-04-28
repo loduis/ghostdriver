@@ -109,6 +109,6 @@ ghostdriver.start = function () {
 
 ghostdriver.exit = function () {
   phantom.exit(1);
-}
+};
 
 module.exports = ghostdriver;
