@@ -19,12 +19,14 @@ describe 'Ghostdriver' do
 
     it 'should start the session' do
       #$driver1 = Selenium::WebDriver.for(:phantomjs)
-      # $driver1 = Selenium::WebDriver.for(:remote, :url=> $remote)
+      $driver1 = Selenium::WebDriver.for(:remote, :url=> $remote)
+=begin
       $driver1 = Selenium::WebDriver.for(
         :remote,
         :url => "http://127.0.0.1:4444/wd/hub",
         :desired_capabilities => :phantomjs
       )
+=end
       #$driver1 = Selenium::WebDriver.for(:firefox)
     end
 
@@ -560,6 +562,13 @@ describe 'Ghostdriver' do
       element = element.__describe__
       element.class.should eq Hash
       element['ELEMENT'].should_not be_nil
+    end
+
+    it 'should simultate un keysortcut.' do
+      element = $driver1.find_element(:tag_name=> 'body')
+      element.send_keys([:shift, 'f'])
+      $driver1.current_url.should eq $url + 'frame'
+      $driver1.navigate.back
     end
 
   end # Element

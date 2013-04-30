@@ -1,6 +1,5 @@
 var _WebPage      = require('webpage'),
     _Alert        = require('./alert'),
-    _Wait         = require('./wait'),
     _defineGetter = require('./getter'),
     _uuid         = require('./uuid'),
     _slice = Array.prototype.slice;
@@ -48,7 +47,7 @@ function Window(settings, page) {
 
   // instance of wait
   _defineGetter(this, 'wait', function (Wait) {
-    return new _Wait(this);
+    return new Wait(this);
   });
 
   // instance for manage event mouse

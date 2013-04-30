@@ -179,6 +179,10 @@ function Element(window, element) {
     return this._window.wait.load(result);
   };
 
+  element.on = function(eventName, callback) {
+    this._window.on(eventName, callback);
+  };
+
 })(Element.prototype);
 
 module.exports = Element;

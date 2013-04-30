@@ -22,6 +22,13 @@ window.onclick = function (event) {
   console.log('BUTTON: ' + event.button);*/
 };
 
+window.onkeypress = function (event) {
+  //[shift, f]
+  if (event.shiftKey && event.keyCode === 70) {
+    location.href = '/frame';
+  }
+};
+
 $('alert').addEventListener('click', function () {
   /*
   if (confirm('This is a test.')) {

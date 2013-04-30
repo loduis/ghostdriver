@@ -1,5 +1,4 @@
 require ('./core');
-
 var
   system = require('system'),
   ghostdriver = {
@@ -18,15 +17,14 @@ ghostdriver.args = function (args) {
     i = args.length,
     regexp = new RegExp("^--([a-z]+)=([a-z0-9_/\\\\:.]+)$", "i"),
     result;
-    while (i --) {
-      result = regexp.exec(args[i]);
-      if (result !== null &&
-          result.length === 3 &&
-          config.hasOwnProperty(result[1])) {
-        config[result[1]] = result[2];
-      }
+  while (i --) {
+    result = regexp.exec(args[i]);
+    if (result !== null &&
+        result.length === 3 &&
+        config.hasOwnProperty(result[1])) {
+      config[result[1]] = result[2];
     }
-  console.log(JSON.stringify(config));
+  }
 
   return config;
 
@@ -92,6 +90,11 @@ ghostdriver.hub = function () {
   };
 }();
 
+
+ghostdriver.router = function() {
+
+
+}();
 
 ghostdriver.start = function () {
   var server   = require('webserver').create(),
