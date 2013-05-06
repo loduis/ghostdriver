@@ -40,7 +40,7 @@ function Wait(window) {
   }
 
   function _registerEvent(name, callback) {
-    this.on(name, function(){
+    this.on(':' + name, function(){
       this.off(name);
       clearTimeout(_timerId);
       _timerId = null;

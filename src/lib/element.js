@@ -10,8 +10,6 @@ function Element(window, element) {
 
 (function (element) {
 
-  element.clearModifiers = true;
-
   element.getTagName = function () {
     return this._window.executeAtomScript(
       'get_tag_name',
@@ -172,10 +170,10 @@ function Element(window, element) {
     );
   };
 
-  element.sendKeys = function(keys) {
+  element.sendKeys = function(keys, clearModifiers) {
     this._window.stop();
     var result = this.focus();
-    this._window.keyboard.sendKeys(keys);
+    this._window.keyboard.sendKeys(keys, clearModifiers);
     return this._window.wait.load(result);
   };
 

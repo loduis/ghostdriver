@@ -173,7 +173,6 @@ describe 'Ghostdriver' do
         position (or 0,0) by the given offset' do
       element = $driver1.find_element(:id=>'send')
       point = element.location
-      size  = element.size
       $driver1.action.move_by(point.x + 5, point.y + 5).click.perform()
       $driver1.current_url.should eq $url + 'submit'
       $driver1.navigate.back
@@ -741,6 +740,26 @@ describe 'Ghostdriver' do
       end
       handles = $driver1.window_handles;
       handles.length.should eq 1
+      $driver1.switch_to.window(current)
+    end
+
+    it 'should send post data to popup' do
+      element = $driver1.find_element(:name => 'q')
+      element.clear
+      data = 'This is an text for send post data'
+      current = $driver1.window_handle;
+      element.send_keys data
+      element = $driver1.find_element(:id => 'popup_post')
+      element.click
+
+      $driver1.switch_to.window('new_window')
+      element = $driver1.find_element(:id => 'post_data')
+      element.text.should eq data
+      element = $driver1.find_element(:id => 'close')
+      element.click
+      expect {
+        element = $driver1.find_element :id => 'child_popup'
+      }.to raise_error(Selenium::WebDriver::Error::NoSuchWindowError)
       $driver1.switch_to.window(current)
     end
 

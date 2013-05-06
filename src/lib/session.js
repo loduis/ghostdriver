@@ -77,7 +77,8 @@ function _onLoadFinished(session, status) {
 function _onClosing(session) {
   var handle = this.handle;
   if (session._windows.hasOwnProperty(handle)) {
-    delete session._windows[this.handle];
+    session._windows[handle].fire('load', 'success');
+    delete session._windows[handle];
   }
 }
 

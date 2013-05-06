@@ -42,3 +42,17 @@ $('alert').addEventListener('click', function () {
 $('popup').addEventListener('click', function (event) {
   window.open('/popup','new_window','width=350,height=250');
 });
+
+$('popup_post').addEventListener('click', function (event) {
+  // send the form data to the popup
+  var form   = document.forms[0];
+  var target = 'new_window';
+  var url    = '/popup';
+  var action = form.action;
+  window.open(url, target, 'width=350,height=250');
+  form.target = 'new_window';
+  form.action = url;
+  form.submit();
+  form.action = action;
+  form.target = '';
+});

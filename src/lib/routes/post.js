@@ -332,7 +332,7 @@ router.post('/session/:sessionId/element/:id/value',
           response.basedOnResult(result, session, request);
         });
       } else {
-        element.sendKeys(value).wait(timeout, function (status, result) {
+        element.sendKeys(value, true).wait(timeout, function (status, result) {
           response.basedOnResult(
             result,
             session,
@@ -564,7 +564,6 @@ router.post('/session/:sessionId/keys',
         });
       } else {
         element.sendKeys(value).wait(timeout, function (status, result) {
-          window.keyboard.clearModifiers();
           response.basedOnResult(
             result,
             session,
@@ -612,19 +611,7 @@ router.post('/session/:sessionId/moveto',
     var params = request.post,
         x = 0,
         y = 0;
-    if (params.element === undefined) {
-      return response.error.missingCommandParameter('element', request);
-    }
-    if (params.element === null) {
-      if (params.xoffset === undefined) {
-        return response.error.missingCommandParameter('xoffset', request);
-      } else if (params.yoffset === undefined) {
-        return response.error.missingCommandParameter('yoffset', request);
-      } else {
-        x = window.mouse.x + params.xoffset;
-        y = window.mouse.y + params.yoffset;
-      }
-    } else {
+    if (params.element) {
       var
         element  = new window.Element(params.element),
         location = element.getLocationInView(),
@@ -640,6 +627,14 @@ router.post('/session/:sessionId/moveto',
         x += Math.floor(size.width / 2);
         y += Math.floor(size.height / 2);
       }
+
+    } else if (params.xoffset === undefined) {
+        return response.error.missingCommandParameter('xoffset', request);
+    } else if (params.yoffset === undefined) {
+      return response.error.missingCommandParameter('yoffset', request);
+    } else {
+      x = window.mouse.x + params.xoffset;
+      y = window.mouse.y + params.yoffset;
     }
     window.mouse.move(x, y);
     response.success(session.getId());

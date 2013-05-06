@@ -34,12 +34,20 @@ function Window(settings, page) {
   var self = this;
 
   this.on = function (eventName, callback) {
+    var isCustom = eventName.indexOf(':') === 0;
+    if (isCustom) {
+      eventName = eventName.slice(1);
+    }
     // var self = this; other orible phantomjs bug
     eventName = 'on' + _capitalize(eventName);
     // this._page[eventName] = callback.bind(this);// bug phantomjs
-    this._page[eventName] = function () {
-      callback.apply(self, _slice.call(arguments, 0));
-    };
+    if (isCustom) {
+      this[eventName] = callback.bind(this);
+    } else {
+      this._page[eventName] = function () {
+        callback.apply(self, _slice.call(arguments, 0));
+      };
+    }
   };
 
   // instance for manage alert.
@@ -272,12 +280,13 @@ function Window(settings, page) {
   window.off = function(eventName) {
     eventName = 'on' + _capitalize(eventName);
     this._page[eventName] = null;
+    this[eventName]       = null;
   };
 
   window.fire = function(eventName) {
     eventName = 'on' + _capitalize(eventName);
-    if (typeof this._page[eventName] === 'function') {
-      var callback = this._page[eventName];
+    if (typeof this[eventName] === 'function') {
+      var callback = this[eventName];
       callback.apply(this, _slice.call(arguments, 1));
     }
   };
@@ -364,7 +373,7 @@ function Window(settings, page) {
   };
 
   window.executeAsyncScript = function (script, args, timeout, done) {
-    this.on('result', function(result) {
+    this.on(':result', function(result) {
       done.call(this, result);
       this.off('result');
     });

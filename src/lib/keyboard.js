@@ -184,7 +184,10 @@ function Keyboard(window) {
 
   keyboard.modifiers = 0;
 
-  keyboard.sendKeys = function (keys) {
+  keyboard.sendKeys = function (keys, clearModifiers) {
+    if (clearModifiers) {
+      this._clearModifiers();
+    }
     if (keys instanceof Array) {
       keys = keys.join(''); // for any array value
     }
@@ -195,7 +198,7 @@ function Keyboard(window) {
       key       = _normalizeSpecialChars(keys[i]);
       actualKey = this._translateKey(key);
       if (key === _modifierKeyChars.ESCAPE) {
-        this.clearModifiers();
+        this._clearModifiers();
       } else if (this._isModifier(key)) {
         if (this._isModifierPressed(key)) {
             this._keyUp(key);
@@ -221,7 +224,7 @@ function Keyboard(window) {
     }
   };
 
-  keyboard.clearModifiers = function () {
+  keyboard._clearModifiers = function () {
     if(this.modifiers && _modifierKeyValues.SHIFT) {
       this._keyUp(_modifierKeyChars.SHIFT);
     }
