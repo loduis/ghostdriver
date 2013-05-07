@@ -103,7 +103,7 @@ router.delete('/session/:sessionId/session_storage',
  */
 router.delete('/session/:sessionId/window',
   function (session, request, response) {
-    var name = request.post.name;
+    var name = request.body.name;
     if (session.closeWindow(name)) {
       response.success(session.getId());
     } else {

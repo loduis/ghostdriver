@@ -17,3 +17,6 @@ build
 
 # vim temp files
 *.swp
+
+node_modules/
+!test/javascript/Makefile

@@ -80,9 +80,9 @@ router.parse = function(request) {
         var post = request.hasOwnProperty('postRaw') ?
                     request.postRaw :
                     request.post;
-        request.post = JSON.parse(post);
+        request.body = JSON.parse(post);
     } catch (e) {
-      request.post = {};
+      request.body = {};
     }
   }
 

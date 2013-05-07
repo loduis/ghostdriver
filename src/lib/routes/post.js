@@ -35,7 +35,7 @@ router.post('/session/:sessionId/back',
  */
 router.post('/session/:sessionId/buttondown',
   function(window, session, request, response) {
-    var button = request.post.button;
+    var button = request.body.button;
     button = button === undefined ? 0 : parseInt(button, 10);
     if (isNaN(button)) {
       response.error.missingCommandParameter('button', request);
@@ -55,7 +55,7 @@ router.post('/session/:sessionId/buttondown',
  */
 router.post('/session/:sessionId/buttonup',
   function(window, session, request, response) {
-    var button = request.post.button;
+    var button = request.body.button;
     button = button === undefined ? 0 : parseInt(button, 10);
     if (isNaN(button)) {
       response.error.missingCommandParameter('button', request);
@@ -77,7 +77,7 @@ router.post('/session/:sessionId/buttonup',
  */
 router.post('/session/:sessionId/click',
   function(window, session, request, response) {
-    var button = request.post.button;
+    var button = request.body.button;
     button = button === undefined ? 0 : parseInt(button, 10);
     if (isNaN(button)) {
       response.error.missingCommandParameter('button', request);
@@ -99,7 +99,7 @@ router.post('/session/:sessionId/click',
  */
 router.post('/session/:sessionId/cookie',
   function (window, session, request, response) {
-    var cookie = request.post.cookie;
+    var cookie = request.body.cookie;
     if (cookie === null || typeof cookie !== 'object') {
       response.error.missingCommandParameter('cookie', request);
     } else {
@@ -228,7 +228,7 @@ router.post('/session/:sessionId/element/:id/click',
  */
 router.post('/session/:sessionId/element/:id/element',
   function (element, session, request, response) {
-    var locator = request.post;
+    var locator = request.body;
     if (locator.using === undefined) {
       response.error.missingCommandParameter('using', request);
     } else if (locator.value === undefined) {
@@ -255,7 +255,7 @@ router.post('/session/:sessionId/element/:id/element',
  */
 router.post('/session/:sessionId/element/:id/elements',
   function (element, session, request, response) {
-    var locator = request.post;
+    var locator = request.body;
     if (locator.using === undefined) {
       response.error.missingCommandParameter('using', request);
     } else if (locator.value === undefined) {
@@ -314,7 +314,7 @@ router.post('/session/:sessionId/element/:id/submit',
  */
 router.post('/session/:sessionId/element/:id/value',
   function (element, session, request, response) {
-    var value = request.post.value;
+    var value = request.body.value;
     if (value === undefined) {
       response.error.missingCommandParameter('value', request);
     } else {
@@ -369,7 +369,7 @@ router.post('/session/:sessionId/element/:id',
  */
 router.post('/session/:sessionId/element',
   function (window, session, request, response) {
-    var locator = request.post;
+    var locator = request.body;
     if (locator.using === undefined) {
       response.error.missingCommandParameter('using', request);
     } else if (locator.value === undefined) {
@@ -396,7 +396,7 @@ router.post('/session/:sessionId/element',
  */
 router.post('/session/:sessionId/elements',
   function (window, session, request, response) {
-    var locator = request.post;
+    var locator = request.body;
     if (locator.using === undefined) {
       response.error.missingCommandParameter('using', request);
     } else if (locator.value === undefined) {
@@ -424,7 +424,7 @@ router.post('/session/:sessionId/elements',
  */
 router.post('/session/:sessionId/execute',
   function (window, session, request, response) {
-    var params = request.post;
+    var params = request.body;
     if (params.script === undefined) {
       response.error.missingCommandParameter('script', request);
     } else if(params.args === undefined) {
@@ -467,7 +467,7 @@ router.post('/session/:sessionId/execute',
  */
 router.post('/session/:sessionId/execute_async',
   function (window, session, request, response) {
-    var params = request.post;
+    var params = request.body;
     if (params.script === undefined) {
       response.error.missingCommandParameter('script', request);
     } else if(params.args === undefined) {
@@ -518,7 +518,7 @@ router.post('/session/:sessionId/forward',
  */
 router.post('/session/:sessionId/frame',
   function (window, session, request, response) {
-    var id = request.post.id;
+    var id = request.body.id;
     if (id === undefined) {
       response.error.missingCommandParameter('id', request);
     } else {
@@ -544,7 +544,7 @@ router.post('/session/:sessionId/keys',
   function (window, session, request, response) {
     var id      = window.activeElement(),
         element = new window.Element(id),
-        value   = request.post.value;
+        value   = request.body.value;
     if (value === undefined) {
       response.error.missingCommandParameter('value', request);
     } else {
@@ -584,7 +584,7 @@ router.post('/session/:sessionId/keys',
  */
 router.post('/session/:sessionId/local_storage',
   function (window, session, request, response) {
-    var params = request.post;
+    var params = request.body;
     if (params.key === undefined) {
       response.error.missingCommandParameter('key', request);
     } else if(params.value === undefined) {
@@ -608,7 +608,7 @@ router.post('/session/:sessionId/local_storage',
  */
 router.post('/session/:sessionId/moveto',
   function(window, session, request, response) {
-    var params = request.post,
+    var params = request.body,
         x = 0,
         y = 0;
     if (params.element) {
@@ -674,7 +674,7 @@ router.post('/session/:sessionId/refresh',
  */
 router.post('/session/:sessionId/session_storage',
   function (window, session, request, response) {
-    var params = request.post;
+    var params = request.body;
     if (params.key === undefined) {
       response.error.missingCommandParameter('key', request);
     } else if(params.value === undefined) {
@@ -699,7 +699,7 @@ router.post('/session/:sessionId/session_storage',
  */
 router.post('/session/:sessionId/timeouts/async_script',
   function (session, request, response) {
-    var ms = request.post.ms;
+    var ms = request.body.ms;
     if (typeof ms !== 'number') {
       response.error.missingCommandParameter('ms', request);
     } else {
@@ -717,7 +717,7 @@ router.post('/session/:sessionId/timeouts/async_script',
  */
 router.post('/session/:sessionId/timeouts/implicit_wait',
   function (session, request, response) {
-    var ms = request.post.ms;
+    var ms = request.body.ms;
     if (typeof ms !== 'number') {
       response.error.missingCommandParameter('ms', request);
     } else {
@@ -737,7 +737,7 @@ router.post('/session/:sessionId/timeouts/implicit_wait',
  */
 router.post('/session/:sessionId/timeouts',
   function (session, request, response) {
-    var parmas = request.post;
+    var parmas = request.body;
     if (typeof parmas.type === undefined) {
       response.error.missingCommandParameter('type', request);
     } else if (typeof parmas.ms !== 'number') {
@@ -772,7 +772,7 @@ router.post('/session/:sessionId/timeouts',
  */
 router.post('/session/:sessionId/url',
   function(window, session, request, response) {
-    var url = request.post.url;
+    var url = request.body.url;
     if (url === undefined) {
       response.error.missingCommandParameter('url', request);
     } else {
@@ -824,7 +824,7 @@ router.post('/session/:sessionId/window/:windowHandle/maximize',
  */
 router.post('/session/:sessionId/window/:windowHandle/position',
   function (window, session, request, response) {
-    var params = request.post,
+    var params = request.body,
         x = parseInt(params.x, 10),
         y = parseInt(params.y, 10);
     if (isNaN(x)) {
@@ -847,7 +847,7 @@ router.post('/session/:sessionId/window/:windowHandle/position',
  */
 router.post('/session/:sessionId/window/:windowHandle/size',
   function (window, session, request, response) {
-    var params = request.post,
+    var params = request.body,
         width = parseInt(params.width, 10),
         height = parseInt(params.height, 10);
     if (isNaN(width)) {
@@ -869,7 +869,7 @@ router.post('/session/:sessionId/window/:windowHandle/size',
  */
 router.post('/session/:sessionId/window',
   function(session, request, response) {
-    var name = request.post.name;
+    var name = request.body.name;
     if (name === undefined) {
       response.error.missingCommandParameter('name', request);
     } else if (session.switchToWindow(name)) {
@@ -890,7 +890,7 @@ router.post('/session/:sessionId/window',
  * @param {Response} response
  */
 router.post('/session', function (request, response) {
-  var desiredCapabilities = request.post.desiredCapabilities;
+  var desiredCapabilities = request.body.desiredCapabilities;
   if(typeof desiredCapabilities === 'object') {
     var session = this.session.create(desiredCapabilities);
     response.redirect(
