@@ -1,4 +1,4 @@
-MOCHA_OPTS= --check-leaks
+MOCHA_OPTS= --check-leaks -t 4000 -b
 REPORTER = spec
 
 test:
@@ -17,7 +17,11 @@ test-docs:
 app:
 	node ./app.js
 
+stress:
+	node ./stress.js
+
+
 ghostdriver:
 	phantomjs ../../src/main.js
 
-.PHONY: test docs test-docs app ghostdriver
+.PHONY: test docs test-docs app ghostdriver stress

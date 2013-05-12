@@ -86,7 +86,7 @@ describe('Ghostdriver', function () {
 
     it('should sets the amount of time to wait for a page load to complete' +
         'before throwing an error', function(done) {
-      driver.manage().timeouts().setPageLoadTimeout(1000).then(function () {
+      driver.manage().timeouts().setPageLoadTimeout(4000).then(function () {
         done();
       });
     });
