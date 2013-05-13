@@ -222,6 +222,9 @@ function Keyboard(window) {
           this._keyPress(actualKey);
       }
     }
+    if (clearModifiers) {
+      this._clearModifiers();
+    }
   };
 
   keyboard._clearModifiers = function () {

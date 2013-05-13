@@ -17,11 +17,11 @@ window.oncontextmenu = function (event) {
 window.onclick = function (event) {
   var element = event.target;
   console.log(element.tagName);
-  console.log('X: ' + event.pageX);
-  console.log('Y: ' + event.pageY);
+  console.log('X: ' + event.clientX);
+  console.log('Y: ' + event.clientY);
   console.log('BUTTON: ' + event.button);
-  $('output').innerHTML = 'X: ' + event.pageX + "<br>" +
-      'Y: ' + event.pageY + "<br>" +
+  $('output').innerHTML = 'X: ' + event.clientX + "<br>" +
+      'Y: ' + event.clientY + "<br>" +
       'H: ' + element.clientWidth + "<br>" +
       'W: ' + element.clientHeight;
 };
@@ -32,7 +32,8 @@ window.onkeypress = function (event) {
     location.href = '/frame';
   }
 };
-
+// phantomjs crash with change to new window
+// if you remove this line
 window.onmousemove = function (event) {
   console.log('tagName: ' + event.target.tagName);
   console.log('id: ' + event.target.id);
@@ -40,6 +41,7 @@ window.onmousemove = function (event) {
   console.log('Y: ' + event.clientY);
   console.log('-----------------------------');
 };
+
 
 document.getElementById('alert').addEventListener('click', function () {
   /*
@@ -67,4 +69,10 @@ document.getElementById('popup_post').addEventListener('click', function (event)
   form.submit();
   form.action = action;
   form.target = '';
+});
+document.getElementById('receiver').addEventListener('click', function (event) {
+  var element = event.target;
+  if (element.id === 'sender') {
+    element.setAttribute('is_sender', 'true');
+  }
 });

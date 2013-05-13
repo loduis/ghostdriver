@@ -106,18 +106,20 @@ function Window(settings, page) {
 
   // 2. recibe los recursos
   this.on('resourceReceived', function (resource) {
-    if (this._resources !== null) {
-      this._resources[resource.url] = resource.status;
-    }
-    var status = resource.status;
-    if (status !== 200) {
-      console.log('REVIEW STATUS: ' + status);
+    if (resource.stage === 'end') {
+      if (this._resources !== null) {
+        this._resources[resource.url] = resource.status;
+      }
+      var status = resource.status;
+      if (status !== 200) {
+        console.log('REVIEW STATUS: ' + status);
+      }
     }
   });
   // 3. se cambia la url
   this.on('urlChanged', function (targetUrl) {
-    //this.loading = true;
-    //this.wait.notify('loading');
+    this.loading = true;
+    this.wait.notify('loading');
     if (this._resources.hasOwnProperty(targetUrl)) {
       this.statusCode = this._resources[targetUrl];
       this._resources = null; // free memory

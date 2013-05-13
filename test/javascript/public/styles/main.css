@@ -449,3 +449,21 @@ input[type="text"] {
   border: 1px solid #ddd;
   padding: 2px;
 }
+
+#receiver {
+  position: absolute;
+  left: 300px;
+  top: 100px;
+  height: 200px;
+  width: 200px;
+  border: 1px solid red;
+}
+
+#sender {
+  border: 1px solid red;
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 100px;
+  height: 100px;
+}

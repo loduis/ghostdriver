@@ -370,12 +370,88 @@ describe('Ghostdriver', function () {
   });
 
   describe('#actions', function () {
+    it('should fire the click event from parent, and propagate to child.',
+      function(done) {
+        var element = driver.findElement(By.id('sender')),
+            res     = {};
+        element.click().then(function () {
+          return element.getAttribute('is_sender');
+        }).then(function (value) {
+          value.should.equal('true');
+          return driver.executeScript(
+            "arguments[0].removeAttribute('is_sender')",
+            element
+          );
+        }).
+        then(function () {
+          return element.getAttribute('is_sender');
+        }).then(function (value) {
+          should.not.exist(value);
+          return driver.actions().click(element).perform();
+        }).then(function () {
+          return element.getAttribute('is_sender');
+        }).then(function (value) {
+          value.should.equal('true');
+          return driver.executeScript(
+            "arguments[0].removeAttribute('is_sender')",
+            element
+          );
+        }).
+        then(function () {
+          return element.getAttribute('is_sender');
+        }).then(function (value) {
+          should.not.exist(value);
+          return driver.actions().mouseMove(element).click().perform();
+        }).then(function () {
+          return element.getAttribute('is_sender');
+        }).then(function (value) {
+          value.should.equal('true');
+          return driver.executeScript(
+            "arguments[0].removeAttribute('is_sender')",
+            element
+          );
+        }).
+        then(function () {
+          return element.getAttribute('is_sender');
+        }).then(function (value) {
+          should.not.exist(value);
+        }).then(function () {
+          return driver.executeScript(
+            'return arguments[0].getBoundingClientRect()',
+            element
+          );
+        }).
+        then(function (clientRect) {
+          res.location = {
+            x: clientRect.left,
+            y: clientRect.top
+          };
+          var location = {x: 0, y: 0};
+          location.x = -clientRect.left - Math.ceil(clientRect.width / 2);
+          location.y = -clientRect.top - Math.ceil(clientRect.height / 2);
+          // restore to 0, 0
+          return driver.actions().mouseMove(location).click().perform();
+        }).then(function () {
+          return driver.actions().mouseMove(res.location).click().perform();
+        }).then(function () {
+          return element.getAttribute('is_sender');
+        }).then(function (value) {
+          value.should.equal('true');
+          return driver.actions().mouseMove({
+            x: -res.location.x,
+            y: -res.location.y
+          }).click().perform();
+        }).then(function () {
+          done();
+        });
+    });
+
     it('should send a sequence of key strokes to an element', function(done) {
       var _size, _location, _element;
       driver.findElement(By.name('q')).
         then(function(element) {
           _element = element;
-          return element.getLocation();
+          return element.getLocationOnceScrolledIntoView();
         }).then(function (location) {
           _location = location;
           return _element.getSize();
@@ -402,13 +478,37 @@ describe('Ghostdriver', function () {
           done();
         });
     });
+/*
+    it('should fire the click from parent event, this propagate here.',
+      function(done) {
+        var element = driver.findElement(By.id('sender')), res = {};
+        element.click().then(function () {
+          return element.getAttribute('is_sender');
+        }).then(function (value) {
+          value.should.equal('true');
+          return element.getLocationOnceScrolledIntoView();
+        }).then(function (location) {
+          res.location = location;
+          return element.getSize();
+        }).then(function (size) {
+          res.location.x += Math.ceil(size.width / 2);
+          res.location.y += Math.ceil(size.height / 2);
+          return driver.actions().mouseMove({
+            x: -res.location.x,
+            y: -res.location.y
+          }).click().perform();
+        }).then(function () {
+          done();
+        });
+    });
+*/
 
     it('should the mouse from its current ' +
        'position (or 0,0) by the given offset', function (done) {
       var result = {};
       driver.findElement(By.id('send')).then(function (element) {
         result.element = element;
-        return element.getLocation();
+        return element.getLocationOnceScrolledIntoView();
       }).then(function (location) {
         location.x += 5;
         location.y += 5;
@@ -424,7 +524,7 @@ describe('Ghostdriver', function () {
         location.x = - location.x;
         location.y = - location.y;
         // restore to 0,0
-        return driver.actions().mouseMove(location).perform();
+        return driver.actions().mouseMove(location).click().perform();
       }).then(function () {
         done();
       });
@@ -435,7 +535,7 @@ describe('Ghostdriver', function () {
         var res = {};
         driver.findElement(By.id('send')).then(function (element) {
           res.element = element;
-          return element.getLocation();
+          return element.getLocationOnceScrolledIntoView();
         }).then(function (location) {
           pointer = location;
           pointer.x += 5;
@@ -959,7 +1059,7 @@ describe('Ghostdriver', function () {
     it('should search for multiple elements on the page, ' +
        'starting from the document root by css.', function (done) {
       driver.findElements(By.css('.container > *')).then(function(elements) {
-        elements.length.should.equal(7);
+        elements.length.should.equal(8);
         done();
       });
     });
@@ -975,7 +1075,7 @@ describe('Ghostdriver', function () {
     it('should search for multiple elements on the page, ' +
        'starting from the document root by tag name.', function (done) {
       driver.findElements(By.tagName('div')).then(function(elements) {
-        elements.length.should.equal(7);
+        elements.length.should.equal(9);
         done();
       });
     });
@@ -983,7 +1083,7 @@ describe('Ghostdriver', function () {
     it('should search for multiple elements on the page, ' +
        'starting from the document root by xpath.', function (done) {
       driver.findElements(By.xpath('//div')).then(function(elements) {
-        elements.length.should.equal(7);
+        elements.length.should.equal(9);
         done();
       });
     });

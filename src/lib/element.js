@@ -100,11 +100,16 @@ function Element(window, element) {
   };
 
   element.click = function () {
-    /*
-    var location = this.getLocationInView(),
-        x = 0,
-        y = 0,
-        wait;
+    // info position to phantomjs
+    // need fixed this
+    this._window.stop();
+    var isDisplayed = this.isDisplayed(), wait, x = 0, y = 0;
+    if (isDisplayed !== true) {
+        wait = this._window.wait.load();
+        wait.off('load', 'fail', location);
+        return wait;
+    }
+    var location = this.getLocationInView();
     if (location !== null) {
       if (location.hasOwnProperty('status')) {
         wait = this._window.wait.load();
@@ -116,30 +121,24 @@ function Element(window, element) {
       }
     }
     var size = this.getSize();
-
-    if (size !== null && size.hasOwnProperty('status')) {
-      wait = this._window.wait.load();
-      wait.off('load', 'fail', location);
-      return wait;
+    if (size !== null) {
+      if (size.hasOwnProperty('status')) {
+        wait = this._window.wait.load();
+        wait.off('load', 'fail', size);
+        return wait;
+      } else {
+        x += Math.floor(size.width / 2);
+        y += Math.floor(size.height / 2);
+      }
     }
-    console.log('LOCATION ' + JSON.stringify(location));
-    console.log('SIZE ' + JSON.stringify(size));
-    var result = this._window.executeAtomScript(
-      'get_client_position',
-      this._id
-    );
-    console.log('PREPARE ' + JSON.stringify(result));
-    x += Math.floor(size.width / 2);
-    y += Math.floor(size.height / 2);
-    this._window.stop();
     this._window.mouse.move(x, y);
     return this._window.mouse.click();
-    */
+    /*
     var result = this._window.executeAtomScript(
       'click',
       this._id
     );
-    return this._window.wait.load(result);
+    return this._window.wait.load(result);*/
   };
 
   element.equal = function (other) {
