@@ -48,7 +48,7 @@ phantomjs.atoms.inject.locators.findElement =
     result.value.message.indexOf('SYNTAX_ERR: DOM Exception 12') !== -1) {
     result.status = bot.ErrorCode.INVALID_SELECTOR_ERROR;
   }
-  return /** @type {string} */ JSON.stringify(result);
+  return JSON.stringify(result);
 };
 
 
@@ -72,5 +72,5 @@ phantomjs.atoms.inject.locators.findElements =
     result.value.message.indexOf('SYNTAX_ERR: DOM Exception 12') !== -1) {
     result.status = bot.ErrorCode.INVALID_SELECTOR_ERROR;
   }
-  return /** @type {string} */ JSON.stringify(result);
+  return JSON.stringify(result);
 };

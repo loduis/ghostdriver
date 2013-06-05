@@ -32,7 +32,7 @@ goog.require('phantomjs.atoms.inject');
  *     WebDriver wire protocol.
  */
 phantomjs.atoms.inject.dom.getText = function(element) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.dom.getVisibleText,
+  return phantomjs.atoms.inject.executeScript(bot.dom.getVisibleText,
       [element]);
 };
 
@@ -44,7 +44,7 @@ phantomjs.atoms.inject.dom.getText = function(element) {
  *     the wire protocol.
  */
 phantomjs.atoms.inject.dom.isSelected = function(element) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.dom.isSelected, [element]);
+  return phantomjs.atoms.inject.executeScript(bot.dom.isSelected, [element]);
 };
 
 
@@ -55,7 +55,7 @@ phantomjs.atoms.inject.dom.isSelected = function(element) {
  *     as defined by the wire protocol.
  */
 phantomjs.atoms.inject.dom.getAttributeValue = function(element, attribute) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(
+  return phantomjs.atoms.inject.executeScript(
       webdriver.atoms.element.getAttribute, [element, attribute]);
 };
 
@@ -66,7 +66,7 @@ phantomjs.atoms.inject.dom.getAttributeValue = function(element, attribute) {
  *     defined by the wire protocol.
  */
 phantomjs.atoms.inject.dom.getSize = function(element) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.dom.getElementSize,
+  return phantomjs.atoms.inject.executeScript(bot.dom.getElementSize,
       [element]);
 };
 
@@ -79,7 +79,7 @@ phantomjs.atoms.inject.dom.getSize = function(element) {
  */
 phantomjs.atoms.inject.dom.getValueOfCssProperty =
     function(element, property) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.dom.getEffectiveStyle,
+  return phantomjs.atoms.inject.executeScript(bot.dom.getEffectiveStyle,
       [element, property]);
 };
 
@@ -90,7 +90,7 @@ phantomjs.atoms.inject.dom.getValueOfCssProperty =
  *     in a JSON string as defined by the wire protocol.
  */
 phantomjs.atoms.inject.dom.isEnabled = function(element) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.dom.isEnabled, [element]);
+  return phantomjs.atoms.inject.executeScript(bot.dom.isEnabled, [element]);
 };
 
 
@@ -101,38 +101,28 @@ phantomjs.atoms.inject.dom.isEnabled = function(element) {
  *     protocol.
  */
 phantomjs.atoms.inject.dom.isDisplayed = function(element) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(bot.dom.isShown,
+  return phantomjs.atoms.inject.executeScript(bot.dom.isShown,
       [element, /*ignoreOpacity=*/true]);
 };
 
 /**
- * Scrolls the element into the client's view and returns its position
- * relative to the client viewport. If the element or region is too
- * large to fit in the view, it will be aligned to the top-left of the
- * container.
- *
- * The element should be attached to the current document.
- *
- * @param {!Element} elem The element to use.
- * @param {!goog.math.Rect=} opt_elemRegion The region relative to the element
- *     to be scrolled into view.
- * @return {!goog.math.Coordinate} The coordinate of the element in client
- *     space.
+ * @param {{bot.inject.ELEMENT_KEY: string}} element The element to query.
+ * @return {string} The coordinates of the top left corner in a JSON
+ *     string as defined by the wire protocol.
  */
 phantomjs.atoms.inject.dom.getLocationInView = function(element) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(
-    bot.dom.getLocationInView, [element]
-  );
+  return phantomjs.atoms.inject.executeScript(bot.dom.getLocationInView,
+      [element]);
 };
 
 phantomjs.atoms.inject.dom.getLocation = function(element) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(
+  return phantomjs.atoms.inject.executeScript(
     goog.style.getPageOffset, [element]
   );
 };
 
 phantomjs.atoms.inject.dom.getTagName = function(element) {
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(
+  return phantomjs.atoms.inject.executeScript(
     'return arguments[0].tagName.toLowerCase()',
     [element]
   );
@@ -142,7 +132,7 @@ phantomjs.atoms.inject.dom.isSameNode = function (element, other) {
   other = {
     'ELEMENT' : other
   };
-  return /** @type {string} */ phantomjs.atoms.inject.executeScript(
+  return phantomjs.atoms.inject.executeScript(
     'return arguments[0].isSameNode(arguments[1]);',
     [element, other]
   );

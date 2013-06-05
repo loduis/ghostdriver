@@ -44,6 +44,10 @@ function _getCap(desiredCapabilities, property) {
 
 function _onLoadFinished(session, status) {
   var key;
+  if (!this.loading) {
+    // stop page any time fire onFinished with fail status
+    return;
+  }
   this.loading = false;
   this.status = status;
   var windows = session._windows, window;

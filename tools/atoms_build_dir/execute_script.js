@@ -44,15 +44,17 @@ phantomjs.atoms.inject.executeScript = function(fn, args, opt_window) {
  * @param {!(string|Function)} fn The function to execute.
  * @param {Array.<*>} args Array of arguments to pass to fn.
  * @param {number} timeout The timeout to wait up to in millis.
+ * @param {function(string)|function(!bot.response.ResponseObject)} onDone
+ *     The function to call when the given {@code fn} invokes its callback,
+ *     or when an exception or timeout occurs. This will always be called.
  * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
  *     object to be read from the cache.
- * @return {string} The response object
  */
 phantomjs.atoms.inject.executeAsyncScript =
     function(fn, args, timeout, onDone, opt_window) {
-  return /** @type {string} */(bot.inject.executeAsyncScript(
+  return bot.inject.executeAsyncScript(
       fn, args, timeout, onDone, true,/* NOT CHANGE THIS PHANTOMJS BUG https://github.com/ariya/phantomjs/issues/10434*/
-      phantomjs.atoms.inject.getWindow_(opt_window)));
+      phantomjs.atoms.inject.getWindow_(opt_window));
 };
 
 

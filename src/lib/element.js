@@ -99,26 +99,34 @@ function Element(window, element) {
     return this._window.wait.load(result);
   };
 
+  element.prepareClick = function(coords) {
+    return this._window.executeAtomScript(
+      'prepare_click',
+      this._id,
+      coords
+    );
+  };
+
   element.click = function () {
     // info position to phantomjs
     // need fixed this
+    /*
     this._window.stop();
     var isDisplayed = this.isDisplayed(), wait, x = 0, y = 0;
     if (isDisplayed !== true) {
         wait = this._window.wait.load();
-        wait.off('load', 'fail', location);
+        wait.off('load', 'fail', isDisplayed);
         return wait;
     }
-    var location = this.getLocationInView();
-    if (location !== null) {
-      if (location.hasOwnProperty('status')) {
+    var positon = this.getLocationInView();
+    if (positon !== null) {
+      if (positon.hasOwnProperty('status')) {
         wait = this._window.wait.load();
-        wait.off('load', 'fail', location);
+        wait.off('load', 'fail', positon);
         return wait;
-      } else {
-        x += location.x;
-        y += location.y;
       }
+      x += positon.x;
+      y += positon.y;
     }
     var size = this.getSize();
     if (size !== null) {
@@ -126,19 +134,58 @@ function Element(window, element) {
         wait = this._window.wait.load();
         wait.off('load', 'fail', size);
         return wait;
+      }
+      x += Math.floor(size.width / 2);
+      y += Math.floor(size.height / 2);
+    }
+    var tagName = this.getTagName();
+    if (tagName.hasOwnProperty('status')) {
+        wait = this._window.wait.load();
+        wait.off('load', 'fail', tagName);
+        return wait;
+    }
+    // webkit bug for focus
+    if (tagName === 'select' || tagName === 'option') {
+      if (tagName === 'option') {
+        var result = this._window.executeScript(
+          'arguments[0].parentNode.focus();',
+          [this._id]
+        );
+        console.log(JSON.stringify(result));
       } else {
-        x += Math.floor(size.width / 2);
-        y += Math.floor(size.height / 2);
+        this.focus();
       }
     }
     this._window.mouse.move(x, y);
     return this._window.mouse.click();
+    */
     /*
     var result = this._window.executeAtomScript(
       'click',
       this._id
     );
     return this._window.wait.load(result);*/
+    /*
+    this._window.stop();
+    var coords = this.prepareClick();
+    if (coords.hasOwnProperty('status')) {
+      var wait = this._window.wait.load();
+      wait.off('load', 'fail', coords);
+      return wait;
+    } else {
+      var result = this._window.executeAtomScript(
+        'move_mouse',
+        this._id
+      );
+      this._window.mouse.move(coords.x, coords.y);
+      return this._window.mouse.click();
+    }*/
+
+    var result = this._window.executeAtomScript(
+      'click',
+      this._id
+    );
+    return this._window.wait.load(result);
   };
 
   element.equal = function (other) {

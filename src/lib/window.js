@@ -45,7 +45,8 @@ function Window(settings, page) {
       this[eventName] = callback.bind(this);
     } else {
       this._page[eventName] = function () {
-        callback.apply(self, _slice.call(arguments, 0));
+         // return is need for onFilePicker
+        return callback.apply(self, _slice.call(arguments, 0));
       };
     }
   };
@@ -118,8 +119,6 @@ function Window(settings, page) {
   });
   // 3. se cambia la url
   this.on('urlChanged', function (targetUrl) {
-    this.loading = true;
-    this.wait.notify('loading');
     if (this._resources.hasOwnProperty(targetUrl)) {
       this.statusCode = this._resources[targetUrl];
       this._resources = null; // free memory
@@ -228,12 +227,12 @@ function Window(settings, page) {
 
   window.stop = function () {
     this._page.stop();
+    this.loading = false;
   };
 
   window.open = function (url) {
     this.stop();
     this.focus();
-    //this._url = url;
     this._page.open(url);
     return this.wait.load();
   };
@@ -356,8 +355,15 @@ function Window(settings, page) {
         frames = this._page.framesName;
     if (nameOrId === null) {
       return this;
-    } else if (frames.length > 0 && nameOrId !== undefined &&
-      (frames.indexOf(nameOrId) !== -1 || frames[nameOrId] !== undefined)) {
+    } else if (frames.length > 0 && nameOrId !== undefined) {
+      if (typeof(nameOrId) === 'object' && 'ELEMENT' in nameOrId) {
+        nameOrId  = this.executeAtomScript('get_frame_index', nameOrId);
+      }
+      // si no existe el frame
+      if (!(nameOrId !== null &&
+        (frames.indexOf(nameOrId) !== -1 || frames[nameOrId] !== undefined))) {
+        return;
+      }
       return {
         focus: function () {
           return self._page.switchToFrame(nameOrId);

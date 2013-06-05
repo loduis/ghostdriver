@@ -1182,6 +1182,25 @@ describe('Ghostdriver', function () {
           });
     });
 
+    it('should change focus to another frame on the page by element.',
+      function (done) {
+        driver.switchTo().frame('left').
+          then(function () {
+            return driver.findElement(By.tagName('iframe'));
+          }).
+          then(function (element) {
+            return driver.switchTo().frame(element);
+          }).
+          then(function () {
+            return driver.findElement(By.id('iframe')).getTagName();
+          }).then(function (tagName) {
+            tagName.should.equal('div');
+            return driver.switchTo().frame(null);
+          }).then(function () {
+            done();
+          });
+    });
+
     it('should change focus to iframe on the frame', function (done) {
       driver.switchTo().frame('left').
         then(function () {

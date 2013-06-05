@@ -73,6 +73,18 @@ js_fragment(name = "focus_on_element",
   function = "phantomjs.atoms.inject.action.focusOnElement",
   deps = [ ":deps" ])
 
+js_fragment(name = "prepare_click",
+  module = "phantomjs.atoms.inject.action",
+  function = "phantomjs.atoms.inject.action.prepareClick",
+  deps = [ ":deps" ])
+
+# ================= FRAME =====================
+
+js_fragment(name = "get_frame_index",
+  module = "phantomjs.atoms.inject.frame",
+  function = "phantomjs.atoms.inject.frame.getFrameIndex",
+  deps = [ ":deps" ])
+
 
 # ================= DOM =====================
 
@@ -151,9 +163,10 @@ js_deps(name = "build_atoms",
     ":execute_async_script",
 
     ":click",
-    ":submit",
     ":clear",
     ":focus_on_element",
+    ":prepare_click",
+    ":submit",
 
     ":get_location",
     ":get_location_in_view",
@@ -169,6 +182,8 @@ js_deps(name = "build_atoms",
 
     ":find_element",
     ":find_elements",
+
+    ":get_frame_index",
 
     "//javascript/webdriver/atoms/inject:set_local_storage_item",
     "//javascript/webdriver/atoms/inject:get_local_storage_item",
