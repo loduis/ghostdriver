@@ -816,6 +816,20 @@ describe('Ghostdriver', function () {
         });
     });
 
+    it('should change select value', function (done) {
+      var select = driver.findElement(By.id('select'));
+      select.getAttribute('value').
+        then(function (value) {
+          value.should.equal('on');
+          return driver.findElement(By.css('#select > option[value="off"]')).click();
+        }).then(function() {
+          return select.getAttribute('value');
+        }).then(function (value) {
+          value.should.equal('off');
+          done();
+        });
+    });
+
     it('should throw exception by element not selectable', function (done) {
       var element = driver.findElement(By.id('html'));
       element.isSelected().then(null, function (error) {

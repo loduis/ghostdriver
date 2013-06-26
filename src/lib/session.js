@@ -43,14 +43,7 @@ function _getCap(desiredCapabilities, property) {
 }
 
 function _onLoadFinished(session, status) {
-  var key;
-  if (!this.loading) {
-    // stop page any time fire onFinished with fail status
-    return;
-  }
-  this.loading = false;
-  this.status = status;
-  var windows = session._windows, window;
+  var windows = session._windows, window, key;
   if (this.statusCode === 500) {
     console.log('FATAL ERROR: ' + status);
     window.render('error_' + status);
@@ -70,6 +63,7 @@ function _onLoadFinished(session, status) {
       return;
     }
   }
+  this.status = status;
   // disable loading in the wait
   this.wait.notify('finished');
   for (key in windows) {

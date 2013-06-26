@@ -101,7 +101,6 @@ function Window(settings, page) {
   // 1. event on load stared
   this.on('loadStarted', function () {
     this._resources = {};
-    this.loading = true;
     this.wait.notify('loading');
   });
 
@@ -111,9 +110,15 @@ function Window(settings, page) {
       if (this._resources !== null) {
         this._resources[resource.url] = resource.status;
       }
-      var status = resource.status;
-      if (status !== 200) {
-        console.log('REVIEW STATUS: ' + status);
+      var validStatus = [
+        200,
+        204,
+        304
+      ];
+      // inline images has status null
+      if (resource.status && validStatus.indexOf(resource.status) === -1) {
+        console.log('REVIEW STATUS: ' + resource.status);
+        throw new Error('STATUS PROBLEM: ' + JSON.stringify(resource));
       }
     }
   });
@@ -127,7 +132,6 @@ function Window(settings, page) {
 
   // 4. event load finished
   this.on('loadFinished', function (status) {
-    this.loading = false;
     this.fire('load', status);
   });
 
@@ -195,6 +199,9 @@ function Window(settings, page) {
     return this._page.windowName;
   });
 
+  window.__defineGetter__('loading', function () {
+    return this._page.loading;
+  });
 
   window.executeAtomScript = function (name) {
     var args = _slice.call(arguments, 0);
@@ -226,8 +233,8 @@ function Window(settings, page) {
   };
 
   window.stop = function () {
+    this.off('load');
     this._page.stop();
-    this.loading = false;
   };
 
   window.open = function (url) {
