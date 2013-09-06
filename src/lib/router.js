@@ -70,9 +70,10 @@ router.parse = function(request) {
   var url = request.url,
       method = request.method ;
   // fixed hub
+  /*
   if (url.indexOf('/wd/hub') === 0) {
     url = url.replace('/wd/hub', '');
-  }
+  }*/
   request.url = url;
 
   if (method === 'POST' || method === 'DELETE') {
@@ -110,6 +111,7 @@ router.dispatch = function (request, response) {
   } else if (callback.numArguments === 2) {
     callback.call(ghostdriver, request, response);
   } else {
+    try {
     // params in the rest url
     var params  = request.params,
         session   = ghostdriver.session.get(params.sessionId);
@@ -144,6 +146,9 @@ router.dispatch = function (request, response) {
         response
       );
     }
+  } catch (e) {
+    console.log(JSON.stringify(e));
+  }
   }
 };
 

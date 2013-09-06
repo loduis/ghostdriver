@@ -13,6 +13,38 @@ var
   driver;
 
 
+webdriver.WebDriver.prototype.retryOnTrue = function (execute) {
+  var deferOuter = webdriver.promise.defer(),
+      deferInter,
+      retry = function() {
+        var result = execute();
+        if (result instanceof webdriver.promise.Promise) {
+          console.log('prueba...');
+          result.then(function(next) {
+            console.log('NEXT: ' + next);
+            if (next) {
+              deferInter.fulfill(true);
+            } else {
+              deferOuter.fulfill(true);
+            }
+          });
+        } else if (result) {
+          deferInter.fulfill(true);
+        } else {
+          deferOuter.fulfill(true);
+        }
+      },
+      then = function() {
+        deferInter = webdriver.promise.defer();
+        deferInter.promise.then(then);
+        retry();
+      };
+
+  setTimeout(then, 1);
+  return deferOuter.promise;
+};
+
+
 
 describe('Ghostdriver', function () {
 
@@ -513,19 +545,24 @@ describe('Ghostdriver', function () {
         location.x += 5;
         location.y += 5;
         result.location = location;
+        console.log('PRYEBA1...');
         return driver.actions().mouseMove(location).click().perform();
       }).then(function() {
+        console.log('PRYEBA0...');
         return driver.getCurrentUrl();
       }).then(function (url) {
+        console.log('PRYEBA1...');
         url.should.equal(site + 'submit');
         return driver.navigate().back();
       }).then(function () {
+        console.log('PRYEBA2...');
         var location = result.location;
         location.x = - location.x;
         location.y = - location.y;
         // restore to 0,0
         return driver.actions().mouseMove(location).click().perform();
       }).then(function () {
+        console.log('PRYEBA3...');
         done();
       });
     });
@@ -752,6 +789,15 @@ describe('Ghostdriver', function () {
       element.sendKeys('this is an test');
       element.getAttribute('value').then(function(value) {
         value.should.equal('this is an test');
+        done();
+      });
+    });
+
+    it('should set a input file value', function(done){
+      var element = driver.findElement(By.id('file'));
+      element.sendKeys('local.jpg');
+      element.getAttribute('value').then(function(value) {
+        value.should.equal('C:\\fakepath\\local.jpg');
         done();
       });
     });
@@ -1292,6 +1338,7 @@ describe('Ghostdriver', function () {
           return window.getSize();
         }).
         then(function(size) {
+          console.log(size);
           var exec = require('child_process').exec,
               xrandr = exec('xrandr', function (error, stdout, stderr) {
                 if (error === null) {
@@ -1316,38 +1363,48 @@ describe('Ghostdriver', function () {
         driver.getWindowHandle().
           then(function (handle) {
             current = handle;
+            console.log('READ1..');
             return driver.findElement(By.id('popup')).click();
           }).
           then(function () {
+            console.log('READ2..');
             return driver.getAllWindowHandles();
           }).
           then(function (handles) {
             handles.length.should.equal(2);
-            return controlFlow.execute(function () {
-              handles.forEach(function (handle) {
-                if (handle !== current) {
-                  driver.switchTo().window(handle).
-                    then(function () {
-                      return driver.getWindowHandle();
-                    }).
-                    then(function (value) {
-                      value.should.equal(handle);
-                      return driver.findElement(By.id('child_popup')).getText();
-                    }).
-                    then(function (text) {
-                      text.should.equal('I am popup');
-                      return driver.close();
-                    }).
-                    then(function () {
-                      return driver.findElement(By.id('child_popup'));
-                    }).
-                    then(null, function (error) {
-                      error.code.should.equal(
-                        webdriver.error.ErrorCode.NO_SUCH_WINDOW
-                      );
-                    });
-                }
-              });
+            return driver.retryOnTrue(function() {
+              var handle = handles.shift();
+              if (handle !== current) {
+                return driver.switchTo().window(handle).
+                  then(function () {
+                    console.log('READ3..');
+                    return driver.getWindowHandle();
+                  }).
+                  then(function (value) {
+                    console.log('READ4: ' + value);
+                    console.log('READ4: ' + handle);
+                    console.log('READ4: ' + handle === value);
+                    value.should.equal(handle);
+                    return driver.findElement(By.id('child_popup')).getText();
+                  }).
+                  then(function (text) {
+                    console.log('READ5: ' + text);
+                    text.should.equal('I am popup');
+                    return driver.close();
+                  }).
+                  then(function () {
+                    console.log('READ6..');
+                    return driver.findElement(By.id('child_popup'));
+                  }).
+                  then(null, function (error) {
+                    error.code.should.equal(
+                      webdriver.error.ErrorCode.NO_SUCH_WINDOW
+                    );
+                    return handles.length > 0;
+                  });
+              } else {
+                return handles.length > 0;
+              }
             });
           }).
           then(function () {

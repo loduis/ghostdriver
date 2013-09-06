@@ -55,8 +55,24 @@ phantomjs.atoms.inject.dom.isSelected = function(element) {
  *     as defined by the wire protocol.
  */
 phantomjs.atoms.inject.dom.getAttributeValue = function(element, attribute) {
-  return phantomjs.atoms.inject.executeScript(
-      webdriver.atoms.element.getAttribute, [element, attribute]);
+  var result = phantomjs.atoms.inject.executeScript(
+        webdriver.atoms.element.getAttribute,
+        [element, attribute]
+      ),
+      object = JSON.parse(result);
+  if (object.status === 0 && object.value === '0' && attribute === 'value') {
+    result = phantomjs.atoms.inject.executeScript(
+      getAttribute,
+      [element, attribute]
+    );
+  }
+
+  return result;
+
+  function getAttribute(element, attribute) {
+    var value = bot.dom.getAttribute(element, attribute);
+    return goog.isDefAndNotNull(value) ? value.toString() : null;
+  }
 };
 
 
@@ -66,8 +82,12 @@ phantomjs.atoms.inject.dom.getAttributeValue = function(element, attribute) {
  *     defined by the wire protocol.
  */
 phantomjs.atoms.inject.dom.getSize = function(element) {
-  return phantomjs.atoms.inject.executeScript(bot.dom.getElementSize,
-      [element]);
+  return phantomjs.atoms.inject.executeScript(getSize, [element]);
+
+  function getSize(e) {
+    var rect = bot.dom.getClientRect(e);
+    return {'width': rect.width, 'height': rect.height};
+  }
 };
 
 

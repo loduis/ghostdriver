@@ -36,11 +36,14 @@ router.delete('/session/:sessionId/cookie',
  */
 router.delete('/session/:sessionId/local_storage/key/:key',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.localStorage.removeItem(request.params.key),
-      session,
-      request
-    );
+    window.localStorage().removeItem(request.params.key).
+      then(function (result) {
+        response.basedOnResult(
+          result,
+          session,
+          request
+        );
+      });
 });
 
 /**
@@ -53,11 +56,14 @@ router.delete('/session/:sessionId/local_storage/key/:key',
  */
 router.delete('/session/:sessionId/local_storage',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.localStorage.clear(),
-      session,
-      request
-    );
+    window.localStorage().clear().
+      then(function(result) {
+        response.basedOnResult(
+          result,
+          session,
+          request
+        );
+      });
 });
 
 /**
@@ -70,11 +76,14 @@ router.delete('/session/:sessionId/local_storage',
  */
 router.delete('/session/:sessionId/session_storage/key/:key',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.sessionStorage.removeItem(request.params.key),
-      session,
-      request
-    );
+    window.sessionStorage().removeItem(request.params.key).
+      then(function (result) {
+        response.basedOnResult(
+          result,
+          session,
+          request
+        );
+      });
 });
 
 /**
@@ -87,11 +96,14 @@ router.delete('/session/:sessionId/session_storage/key/:key',
  */
 router.delete('/session/:sessionId/session_storage',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.sessionStorage.clear(),
-      session,
-      request
-    );
+    window.sessionStorage().clear().
+      then(function (result) {
+        response.basedOnResult(
+          result,
+          session,
+          request
+        );
+      });
 });
 
 /**

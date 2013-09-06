@@ -14,13 +14,19 @@ router.post('/session/:sessionId/back',
     window.back().wait(time, function (status) {
       if (status === 'success') {
         response.success(session.getId());
-      } else {
-        response.error.timeout(
-          'Not can back to history',
-          session,
-          request
-        );
-      }
+        } else if (status === 'timeout') {
+          response.error.timeout(
+            'Not can back. Error: ' + status,
+            session,
+            request
+          );
+        } else {
+          response.error.unknownError(
+            'Not can back. Error: ' + status,
+            request,
+            session
+          );
+        }
     });
 });
 
@@ -83,8 +89,24 @@ router.post('/session/:sessionId/click',
       response.error.missingCommandParameter('button', request);
     } else {
       var time = session.getPageLoadTimeout();
-      window.mouse.click(button).wait(time, function (status) {
-        response.success(session.getId());
+      window.mouse.click(button).wait(time, function (status, result) {
+        if (status === 'success') {
+          response.success(session.getId());
+        } else if (result !== undefined) {
+          response.basedOnResult(result, session, request);
+        } else if (status === 'timeout') {
+          response.error.timeout(
+            'Click timed-out',
+            session,
+            request
+          );
+        } else {
+          response.error.unknownError(
+            'Click failed: ' + status,
+            request,
+            session
+          );
+        }
       });
     }
 });
@@ -139,8 +161,24 @@ router.post('/session/:sessionId/cookie',
 router.post('/session/:sessionId/doubleclick',
   function(window, session, request, response) {
     var time = session.getPageLoadTimeout();
-    window.mouse.doubleClick().wait(time, function (status) {
-      response.success(session.getId());
+    window.mouse.doubleClick().wait(time, function (status, result) {
+        if (status === 'success') {
+          response.success(session.getId());
+        } else if (result !== undefined) {
+          response.basedOnResult(result, session, request);
+        } else if (status === 'timeout') {
+          response.error.timeout(
+            'double click timed-out',
+            session,
+            request
+          );
+        } else {
+          response.error.unknownError(
+            'Double click failed: ' + status,
+            request,
+            session
+          );
+        }
     });
 });
 
@@ -154,11 +192,13 @@ router.post('/session/:sessionId/doubleclick',
  */
 router.post('/session/:sessionId/element/active',
   function(window, session, request, response) {
-    response.basedOnResult(
-      window.activeElement(),
-      session,
-      request
-    );
+    window.activeElement().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -171,11 +211,13 @@ router.post('/session/:sessionId/element/active',
  */
 router.post('/session/:sessionId/element/:id/clear',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.clear(),
-      session,
-      request
-    );
+    element.clear().then(function(result){
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -188,34 +230,36 @@ router.post('/session/:sessionId/element/:id/clear',
  */
 router.post('/session/:sessionId/element/:id/click',
   function (element, session, request, response) {
-    if (element.isDisplayed() !== true) {
-      response.error.elementNotVisible(
-        'Element is not currently visible and may not be manipulated',
-        session,
-        request
-      );
-    } else {
-      var time = session.getPageLoadTimeout();
-      element.click().wait(time, function (status, result) {
-        if (status === 'success') {
-          response.success(session.getId());
-        } else if (result !== undefined) {
-          response.basedOnResult(result, session, request);
-        } else if (status === 'timeout') {
-          response.error.timeout(
-            'Click timed-out',
-            session,
-            request
-          );
-        } else {
-          response.error.unknownError(
-            'Click failed: ' + status,
-            request,
-            session
-          );
-        }
-      });
-    }
+    element.isDisplayed().then(function(displayed) {
+      if (displayed !== true) {
+        response.error.elementNotVisible(
+          'Element is not currently visible and may not be manipulated',
+          session,
+          request
+        );
+      } else {
+        var time = session.getPageLoadTimeout();
+        element.click().wait(time, function (status, result) {
+          if (status === 'success') {
+            response.success(session.getId());
+          } else if (result !== undefined) {
+            response.basedOnResult(result, session, request);
+          } else if (status === 'timeout') {
+            response.error.timeout(
+              'Click timed-out',
+              session,
+              request
+            );
+          } else {
+            response.error.unknownError(
+              'Click failed: ' + status,
+              request,
+              session
+            );
+          }
+        });
+      }
+    });
 });
 
 /**
@@ -318,28 +362,56 @@ router.post('/session/:sessionId/element/:id/value',
     if (value === undefined) {
       response.error.missingCommandParameter('value', request);
     } else {
-      var tagName = element.getTagName(),
-          type = element.getAttribute('type');
-          value = value.join(''),
-          timeout = session.getPageLoadTimeout();
-      fs = fs || require('fs');
-      if (tagName === 'input' && type &&
-                          type.toLowerCase() === 'file' && fs.exists(value)) {
-        element.on('filePicker', function () {
-          return value;
+      element.getTagName().then(function(tagName) {
+        element.getAttribute('type').then(function(type) {
+          var timeout = session.getPageLoadTimeout();
+          value = value.join('');
+          fs = fs || require('fs');
+          if (tagName === 'input' && type &&
+                              type.toLowerCase() === 'file' && fs.exists(value)) {
+            element.filePicker(value, timeout, function (status, result) {
+              if (status === 'success') {
+                response.success(session.getId());
+              } else if (result !== undefined) {
+                response.basedOnResult(result, session, request);
+              } else if (status === 'timeout') {
+                response.error.timeout(
+                  'Click timed-out',
+                  session,
+                  request
+                );
+              } else {
+                response.error.unknownError(
+                  'Click failed: ' + status,
+                  request,
+                  session
+                );
+              }
+            });
+          } else {
+            element.sendKeys(value, true).wait(timeout,
+              function (status, result) {
+                if (status === 'success') {
+                  response.success(session.getId());
+                } else if (result !== undefined) {
+                  response.basedOnResult(result, session, request);
+                } else if (status === 'timeout') {
+                  response.error.timeout(
+                    'SendKeys timed-out',
+                    session,
+                    request
+                  );
+                } else {
+                  response.error.unknownError(
+                    'SendKeys failed: ' + status,
+                    request,
+                    session
+                  );
+                }
+            });
+          }
         });
-        element.click().wait(timeout, function (status, result) {
-          response.basedOnResult(result, session, request);
-        });
-      } else {
-        element.sendKeys(value, true).wait(timeout, function (status, result) {
-          response.basedOnResult(
-            result,
-            session,
-            request
-          );
-        });
-      }
+      });
     }
 });
 
@@ -442,17 +514,16 @@ router.post('/session/:sessionId/execute',
           );
         }, wait);
 
-      var result = window.executeScript(params.script, params.args);
-
-      clearTimeout(timeId);
-
-      if (!timeout) {
-        response.basedOnResult(
-          result,
-          session,
-          request
-        );
-      }
+      window.executeScript(params.script, params.args).then(function(result) {
+        clearTimeout(timeId);
+        if (!timeout) {
+          response.basedOnResult(
+            result,
+            session,
+            request
+          );
+        }
+      });
     }
 });
 
@@ -480,7 +551,9 @@ router.post('/session/:sessionId/execute_async',
         function (result) {
           response.basedOnResult(result, session, request);
         }
-      );
+      ).then(function() {
+        // notingh
+      });
     }
 });
 
@@ -498,13 +571,19 @@ router.post('/session/:sessionId/forward',
     window.forward().wait(time, function (status) {
       if (status === 'success') {
         response.success(session.getId());
-      } else {
-        response.error.timeout(
-          'Not can forward to history',
-          session,
-          request
-        );
-      }
+        } else if (status === 'timeout') {
+          response.error.timeout(
+            'Not can forward. Error: ' + status,
+            session,
+            request
+          );
+        } else {
+          response.error.unknownError(
+            'Not can forward. Error: ' + status,
+            request,
+            session
+          );
+        }
     });
 });
 
@@ -522,17 +601,18 @@ router.post('/session/:sessionId/frame',
     if (id === undefined) {
       response.error.missingCommandParameter('id', request);
     } else {
-      var frame = window.frames(id);
-      if (frame === undefined) {
-        response.error.noSuchFrame(
-          'the frame could not be found',
-          session,
-          request
-        );
-      } else {
-        frame.focus();
-        response.success(session.getId());
-      }
+      window.frame(id).then(function(frame) {
+        if (frame === undefined) {
+          response.error.noSuchFrame(
+            'the frame could not be found',
+            session,
+            request
+          );
+        } else {
+          frame.focus();
+          response.success(session.getId());
+        }
+      });
     }
 });
 
@@ -542,36 +622,68 @@ router.post('/session/:sessionId/frame',
  */
 router.post('/session/:sessionId/keys',
   function (window, session, request, response) {
-    var id      = window.activeElement(),
-        element = new window.Element(id),
-        value   = request.body.value;
-    if (value === undefined) {
-      response.error.missingCommandParameter('value', request);
-    } else {
-      var tagName = element.getTagName(),
-          type = element.getAttribute('type');
-          value = value.join(''),
-          timeout = session.getPageLoadTimeout();
-      fs = fs || require('fs');
-
-      if (tagName === 'input' && type &&
-                          type.toLowerCase() === 'file' && fs.exists(value)) {
-        window.on('filePicker', function () {
-          return value;
-        });
-        element.click().wait(timeout, function (status, result) {
-          response.basedOnResult(result, session, request);
-        });
+    window.activeElement().then(function(id) {
+      var
+          element = new window.Element(id),
+          value   = request.body.value;
+      if (value === undefined) {
+        response.error.missingCommandParameter('value', request);
       } else {
-        element.sendKeys(value).wait(timeout, function (status, result) {
-          response.basedOnResult(
-            result,
-            session,
-            request
-          );
+        element.getTagName().then(function(tagName) {
+          element.getAttribute('type').then(function(type) {
+            var timeout = session.getPageLoadTimeout();
+            value = value.join('');
+            fs = fs || require('fs');
+            if (tagName === 'input' && type &&
+                                type.toLowerCase() === 'file' &&
+                                fs.exists(value)) {
+              window.on('filePicker', function () {
+                return value;
+              });
+              element.click().wait(timeout, function (status, result) {
+                if (status === 'success') {
+                  response.success(session.getId());
+                } else if (result !== undefined) {
+                  response.basedOnResult(result, session, request);
+                } else if (status === 'timeout') {
+                  response.error.timeout(
+                    'Click timed-out',
+                    session,
+                    request
+                  );
+                } else {
+                  response.error.unknownError(
+                    'Click failed: ' + status,
+                    request,
+                    session
+                  );
+                }
+              });
+            } else {
+              element.sendKeys(value).wait(timeout, function (status, result) {
+                if (status === 'success') {
+                  response.success(session.getId());
+                } else if (result !== undefined) {
+                  response.basedOnResult(result, session, request);
+                } else if (status === 'timeout') {
+                  response.error.timeout(
+                    'Click timed-out',
+                    session,
+                    request
+                  );
+                } else {
+                  response.error.unknownError(
+                    'Click failed: ' + status,
+                    request,
+                    session
+                  );
+                }
+              });
+            }
+          });
         });
       }
-    }
+    });
 });
 
 /**
@@ -590,11 +702,14 @@ router.post('/session/:sessionId/local_storage',
     } else if(params.value === undefined) {
       response.error.missingCommandParameter('value', request);
     } else {
-      response.basedOnResult(
-        window.localStorage.setItem(params.key, params.value),
-        session,
-        request
-      );
+      window.localStorage().setItem(params.key, params.value).
+        then(function(result) {
+          response.basedOnResult(
+            result,
+            session,
+            request
+          );
+      });
     }
 });
 
@@ -612,32 +727,32 @@ router.post('/session/:sessionId/moveto',
         x = 0,
         y = 0;
     if (params.element) {
-      var
-        element  = new window.Element(params.element),
-        location = element.getLocationInView(),
-        size     = element.getSize();
-      if (location !== null) {
-        x = location.x;
-        y = location.y;
-      }
-      if (params.xoffset || params.yoffset) {
-        x += params.xoffset || 0;
-        y += params.yoffset || 0;
-      } else {
-        x += Math.floor(size.width / 2);
-        y += Math.floor(size.height / 2);
-      }
-
+      var element  = new window.Element(params.element);
+      element.getLocationInView().then(function(location) {
+        element.getSize().then(function(size) {
+          if (location !== null) {
+            x = location.x;
+            y = location.y;
+          }
+          if (params.xoffset || params.yoffset) {
+            x += params.xoffset || 0;
+            y += params.yoffset || 0;
+          } else {
+            x += Math.floor(size.width / 2);
+            y += Math.floor(size.height / 2);
+          }
+        });
+        window.mouse.move(x, y);
+        response.success(session.getId());
+      });
     } else if (params.xoffset === undefined) {
         return response.error.missingCommandParameter('xoffset', request);
     } else if (params.yoffset === undefined) {
       return response.error.missingCommandParameter('yoffset', request);
     } else {
-      x = window.mouse.x + params.xoffset;
-      y = window.mouse.y + params.yoffset;
+      window.mouse.move(params.xoffset, params.yoffset, true);
+      response.success(session.getId());
     }
-    window.mouse.move(x, y);
-    response.success(session.getId());
 });
 
 /**
@@ -654,11 +769,17 @@ router.post('/session/:sessionId/refresh',
     window.reload().wait(time, function (status) {
       if (status === 'success') {
         response.success(session.getId());
-      } else {
+      } else if (status === 'timeout') {
         response.error.timeout(
-          'Not can reload the url ' + this.url,
+          'Not can refresh current page. Error: ' + status,
           session,
           request
+        );
+      } else {
+        response.error.unknownError(
+          'Not can refresh current page. Error: ' + status,
+          request,
+          session
         );
       }
     });
@@ -680,11 +801,14 @@ router.post('/session/:sessionId/session_storage',
     } else if(params.value === undefined) {
       response.error.missingCommandParameter('value', request);
     } else {
-      response.basedOnResult(
-        window.sessionStorage.setItem(params.key,params.value),
-        session,
-        request
-      );
+      window.sessionStorage().setItem(params.key,params.value).
+        then(function (result) {
+          response.basedOnResult(
+            result,
+            session,
+            request
+          );
+        });
     }
 });
 
@@ -778,13 +902,19 @@ router.post('/session/:sessionId/url',
     } else {
       var time = session.getPageLoadTimeout();
       window.open(url).wait(time, function (status) {
-        if (status === 'success') {
+        if (status !== 'timeout') {
           response.success(session.getId());
-        } else {
+        } else if (status === 'timeout') {
           response.error.timeout(
-            'Not can load the url ' + url,
+            'URL: ' + this.url + " didn't load. Error: " + status,
             session,
             request
+          );
+        } else {
+          response.error.unknownError(
+            'URL: ' + this.url + " didn't load. Error: " + status,
+            request,
+            session
           );
         }
       });
@@ -832,8 +962,9 @@ router.post('/session/:sessionId/window/:windowHandle/position',
     } else if(isNaN(y)) {
       response.error.missingCommandParameter('y', request);
     } else {
-      window.setPosition(x, y);
-      response.success(session.getId());
+      window.setPosition(x, y).then(function () {
+        response.success(session.getId());
+      });
     }
 });
 
@@ -855,8 +986,9 @@ router.post('/session/:sessionId/window/:windowHandle/size',
     } else if(isNaN(height)) {
       response.error.missingCommandParameter('height', request);
     } else {
-      window.setSize(width, height);
-      response.success(session.getId());
+      window.setSize(width, height).then(function() {
+        response.success(session.getId());
+      });
     }
 });
 
@@ -872,7 +1004,30 @@ router.post('/session/:sessionId/window',
     var name = request.body.name;
     if (name === undefined) {
       response.error.missingCommandParameter('name', request);
-    } else if (session.switchToWindow(name)) {
+    } else {
+      var window = session.getWindow(name);
+      if (window !== null) {
+        window.focus().
+          then(function () {
+            session.setCurrentWindowHandle(window.handle);
+            response.success(session.getId());
+          }, function() {
+            response.error.unknownError(
+              'Unable to change focus to this window: ' + name,
+              session,
+              request
+            );
+          });
+      } else {
+        response.error.noSuchWindow(
+          'Unable to switch to window (closed?)',
+          session,
+          request
+        );
+      }
+    }
+/*
+    if (session.switchToWindow(name)) {
         response.success(session.getId());
     } else {
       response.error.noSuchWindow(
@@ -880,7 +1035,7 @@ router.post('/session/:sessionId/window',
         session,
         request
       );
-    }
+    }*/
 });
 
 /**
@@ -890,13 +1045,24 @@ router.post('/session/:sessionId/window',
  * @param {Response} response
  */
 router.post('/session', function (request, response) {
-  var desiredCapabilities = request.body.desiredCapabilities;
+  var desiredCapabilities  = request.body.desiredCapabilities,
+      requiredCapabilities = request.body.requiredCapabilities;
   if(typeof desiredCapabilities === 'object') {
     var session = this.session.create(desiredCapabilities);
+    if (session.hasAllRequired(requiredCapabilities)) {
+      response.success(session.getId(), session.getCapabilities());
+    } else {
+      response.error.sessionNotCreatedException(
+        'Not can set required capabilities',
+        session,
+        request
+      );
+    }
+    /*
     response.redirect(
       303,
       'http://' + request.headers.Host + '/wd/hub/session/' + session.getId()
-    );
+    );*/
   } else {
     response.error.missingCommandParameter(
       'desiredCapabilities',

@@ -58,11 +58,13 @@ router.get('/session/:sessionId/cookie',
  */
 router.get('/session/:sessionId/element/:id/attribute/:name',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.getAttribute(request.params.name),
-      session,
-      request
-    );
+    element.getAttribute(request.params.name).then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -75,11 +77,13 @@ router.get('/session/:sessionId/element/:id/attribute/:name',
  */
 router.get('/session/:sessionId/element/:id/css/:propertyName',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.getStyle(request.params.propertyName),
-      session,
-      request
-    );
+    element.getCssValue(request.params.propertyName).then(function(result){
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -92,11 +96,13 @@ router.get('/session/:sessionId/element/:id/css/:propertyName',
  */
 router.get('/session/:sessionId/element/:id/displayed',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.isDisplayed(),
-      session,
-      request
-    );
+    element.isDisplayed().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -109,11 +115,13 @@ router.get('/session/:sessionId/element/:id/displayed',
  */
 router.get('/session/:sessionId/element/:id/enabled',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.isEnabled(),
-      session,
-      request
-    );
+    element.isEnabled().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -126,11 +134,13 @@ router.get('/session/:sessionId/element/:id/enabled',
  */
 router.get('/session/:sessionId/element/:id/equals/:other',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.equal(request.params.other),
-      session,
-      request
-    );
+    element.equal(request.params.other).then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -143,11 +153,13 @@ router.get('/session/:sessionId/element/:id/equals/:other',
  */
 router.get('/session/:sessionId/element/:id/location',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.getLocation(),
-      session,
-      request
-    );
+    element.getLocation().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -161,11 +173,13 @@ router.get('/session/:sessionId/element/:id/location',
  */
 router.get('/session/:sessionId/element/:id/location_in_view',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.getLocationInView(),
-      session,
-      request
-    );
+    element.getLocationInView().then(function(result){
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -178,11 +192,13 @@ router.get('/session/:sessionId/element/:id/location_in_view',
  */
 router.get('/session/:sessionId/element/:id/name',
   function(element, session, request, response) {
-    response.basedOnResult(
-      element.getTagName(),
-      session,
-      request
-    );
+    element.getTagName().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -196,11 +212,13 @@ router.get('/session/:sessionId/element/:id/name',
  */
 router.get('/session/:sessionId/element/:id/selected',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.isSelected(),
-      session,
-      request
-    );
+    element.isSelected().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -213,11 +231,13 @@ router.get('/session/:sessionId/element/:id/selected',
  */
 router.get('/session/:sessionId/element/:id/size',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.getSize(),
-      session,
-      request
-    );
+    element.getSize().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -230,11 +250,13 @@ router.get('/session/:sessionId/element/:id/size',
  */
 router.get('/session/:sessionId/element/:id/text',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.getText(),
-      session,
-      request
-    );
+    element.getText().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -247,11 +269,13 @@ router.get('/session/:sessionId/element/:id/text',
  */
 router.get('/session/:sessionId/element/:id',
   function (element, session, request, response) {
-    response.basedOnResult(
-      element.getId(),
-      session,
-      request
-    );
+    element.getId().then(function(result) {
+      response.basedOnResult(
+        result,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -264,11 +288,13 @@ router.get('/session/:sessionId/element/:id',
  */
 router.get('/session/:sessionId/local_storage/key/:key',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.localStorage.getItem(request.params.key),
-      session,
-      request
-    );
+    window.localStorage().getItem(request.params.key).then(function(item) {
+      response.basedOnResult(
+        item,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -281,11 +307,13 @@ router.get('/session/:sessionId/local_storage/key/:key',
  */
 router.get('/session/:sessionId/local_storage/size',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.localStorage.length,
-      session,
-      request
-    );
+    window.localStorage().getSize().then(function(length) {
+      response.basedOnResult(
+        length,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -298,11 +326,13 @@ router.get('/session/:sessionId/local_storage/size',
  */
 router.get('/session/:sessionId/local_storage',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.localStorage.keys,
-      session,
-      request
-    );
+    window.localStorage().getKeys().then(function(keys) {
+      response.basedOnResult(
+        keys,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -315,10 +345,12 @@ router.get('/session/:sessionId/local_storage',
  */
 router.get('/session/:sessionId/screenshot',
   function (window, session, request, response) {
-    response.success(
-      session.getId(),
-      window.getScreenshot()
-    );
+    window.takeScreenshot().then(function (source) {
+      response.success(
+        session.getId(),
+        source
+      );
+    });
 });
 
 /**
@@ -331,11 +363,13 @@ router.get('/session/:sessionId/screenshot',
  */
 router.get('/session/:sessionId/session_storage/key/:key',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.sessionStorage.getItem(request.params.key),
-      session,
-      request
-    );
+    window.sessionStorage().getItem(request.params.key).then(function(item) {
+      response.basedOnResult(
+        item,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -348,11 +382,13 @@ router.get('/session/:sessionId/session_storage/key/:key',
  */
 router.get('/session/:sessionId/session_storage/size',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.sessionStorage.length,
-      session,
-      request
-    );
+    window.sessionStorage().getSize().then(function(length) {
+      response.basedOnResult(
+        length,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -365,11 +401,13 @@ router.get('/session/:sessionId/session_storage/size',
  */
 router.get('/session/:sessionId/session_storage',
   function (window, session, request, response) {
-    response.basedOnResult(
-      window.sessionStorage.keys,
-      session,
-      request
-    );
+    window.sessionStorage().getKeys().then(function(keys) {
+      response.basedOnResult(
+        keys,
+        session,
+        request
+      );
+    });
 });
 
 /**
@@ -382,10 +420,12 @@ router.get('/session/:sessionId/session_storage',
  */
 router.get('/session/:sessionId/source',
   function (window, session, request, response) {
-    response.success(
-      session.getId(),
-      window.source
-    );
+    window.getPageSource().then(function(source) {
+      response.success(
+        session.getId(),
+        source
+      );
+    });
 });
 
 /**
@@ -398,10 +438,12 @@ router.get('/session/:sessionId/source',
  */
 router.get('/session/:sessionId/title',
   function (window, session, request, response) {
-    response.success(
-      session.getId(),
-      window.title
-    );
+    window.getTitle().then(function(title) {
+      response.success(
+        session.getId(),
+        title
+      );
+    });
 });
 
 /**
@@ -414,11 +456,12 @@ router.get('/session/:sessionId/title',
  */
 router.get('/session/:sessionId/url',
   function(window, session, request, response) {
-    response.basedOnResult(
-      window.url,
-      session,
-      request
-    );
+    window.getCurrentUrl().then(function(url) {
+      response.success(
+        session.getId(),
+        url
+      );
+    });
 });
 
 /**
@@ -431,10 +474,12 @@ router.get('/session/:sessionId/url',
  */
 router.get('/session/:sessionId/window/:windowHandle/position',
   function (window, session, request, response) {
-    response.success(
-      session.getId(),
-      window.getPosition()
-    );
+    window.getPosition().then(function(position) {
+      response.success(
+        session.getId(),
+        position
+      );
+    });
 });
 
 /**
@@ -447,10 +492,12 @@ router.get('/session/:sessionId/window/:windowHandle/position',
  */
 router.get('/session/:sessionId/window/:windowHandle/size',
   function (window, session, request, response) {
-    response.success(
-      session.getId(),
-      window.getSize()
-    );
+    window.getSize().then(function(size) {
+      response.success(
+        session.getId(),
+        size
+      );
+    });
 });
 
 /**

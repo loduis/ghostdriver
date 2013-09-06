@@ -21,7 +21,8 @@ var error = function () {
         'InvalidElementCoordinates' : 29,
         'IMENotAvailable'           : 30,
         'IMEEngineActivationFailed' : 31,
-        'InvalidSelector'           : 32
+        'InvalidSelector'           : 32,
+        'SessionNotCreatedException': 33
       },
       _FAILED_CMD_STATUS_CODES_NAMES = function (error, STATUS_CODE) {
         // status name to upper case constant

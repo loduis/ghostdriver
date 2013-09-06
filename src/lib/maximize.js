@@ -1,5 +1,8 @@
 var platform, spawn;
 
+
+
+
 function maximize(callback) {
   spawn = spawn || require('child_process').spawn;
   platform = platform || require('system').os.name;
@@ -11,8 +14,9 @@ function maximize(callback) {
       var regex = /current (\d+) x (\d+)/,
           match  = regex.exec(data);
       if (match) {
-        self.setSize(parseInt(match[1], 10), parseInt(match[2], 10));
-        callback(null)
+        self.setSize(parseInt(match[1], 10), parseInt(match[2], 10)).then(function() {
+          callback(null);
+        });
       } else {
         callback('Error not cant match /current (\d+) x (\d+)/ on: ' + data);
       }
@@ -31,8 +35,9 @@ function maximize(callback) {
         height: screen.height
       };
     });
-    this.setSize(screen.width, screen.height);
-    callback(null);
+    this.setSize(screen.width, screen.height).then(function() {
+      callback(null);
+    });
   }
 }
 

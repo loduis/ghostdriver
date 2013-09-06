@@ -1,5 +1,6 @@
 var _WebPage      = require('webpage'),
     _Alert        = require('./alert'),
+    _Storage      = require('./storage'),
     _defineGetter = require('./getter'),
     _uuid         = require('./uuid'),
     _slice = Array.prototype.slice;
@@ -13,8 +14,9 @@ function Window(settings, page) {
   this._page = page || _WebPage.create();
   // Pages lifetime will be managed by Driver, not the pages
   this._page.ownsPages = false;
-  // is loading page.
-  this._page.loading = false;
+  // resource
+  this._resources = {};
+  this._loading = false;
   // 1. Random Window Handle
   this.handle = _uuid();
   // manange internal window position
@@ -31,7 +33,7 @@ function Window(settings, page) {
       }
   }
 
-  var self = this;
+  var self = this, timerId;
 
   this.on = function (eventName, callback) {
     var isCustom = eventName.indexOf(':') === 0;
@@ -79,6 +81,7 @@ function Window(settings, page) {
     return new Cookie(this._page);
   });
 
+  /*
   // instance for manage local storage
   _defineGetter(this, 'localStorage', 'storage', function (Storage) {
     return new Storage(this, 'local');
@@ -87,6 +90,7 @@ function Window(settings, page) {
   _defineGetter(this, 'sessionStorage', 'storage', function (Storage) {
     return new Storage(this, 'session');
   });
+  */
 
   _defineGetter(this, 'Element', function (Element) {
     return Element.bind(null, this);
@@ -98,42 +102,6 @@ function Window(settings, page) {
 
   //============ EVENT ==============//
 
-  // 1. event on load stared
-  this.on('loadStarted', function () {
-    this._resources = {};
-    this.wait.notify('loading');
-  });
-
-  // 2. recibe los recursos
-  this.on('resourceReceived', function (resource) {
-    if (resource.stage === 'end') {
-      if (this._resources !== null) {
-        this._resources[resource.url] = resource.status;
-      }
-      var validStatus = [
-        200,
-        204,
-        304
-      ];
-      // inline images has status null
-      if (resource.status && validStatus.indexOf(resource.status) === -1) {
-        console.log('REVIEW STATUS: ' + resource.status);
-        throw new Error('STATUS PROBLEM: ' + JSON.stringify(resource));
-      }
-    }
-  });
-  // 3. se cambia la url
-  this.on('urlChanged', function (targetUrl) {
-    if (this._resources.hasOwnProperty(targetUrl)) {
-      this.statusCode = this._resources[targetUrl];
-      this._resources = null; // free memory
-    }
-  });
-
-  // 4. event load finished
-  this.on('loadFinished', function (status) {
-    this.fire('load', status);
-  });
 
   this.on('callback', function (result) {
     this.fire('result', JSON.parse(result));
@@ -183,24 +151,45 @@ function Window(settings, page) {
     return this.executeAtomScript('get_appcache_status');
   });
 
-  window.__defineGetter__('title', function () {
-    return this._page.title;
-  });
+  window.getTitle = function() {
+    return this.wait.stop(function() {
+      return this._page.title;
+    });
+  };
 
-  window.__defineGetter__('source', function () {
-    return this._page.frameContent;
-  });
+  window.getPageSource = function() {
+    return this.wait.stop(function () {
+      return this._page.frameContent;
+    });
+  };
 
-  window.__defineGetter__('url', function () {
-    return this._page.url;
-  });
+  window.getCurrentUrl = function() {
+    return this.wait.stop(function () {
+      return this._page.url;
+    });
+  };
+
+  window.localStorage = function() {
+    return new _Storage(this, 'local');
+  };
+
+  window.sessionStorage = function() {
+    return new _Storage(this, 'session');
+  };
 
   window.__defineGetter__('name', function () {
     return this._page.windowName;
   });
 
   window.__defineGetter__('loading', function () {
-    return this._page.loading;
+    try {
+      return this._isLoading() || this._page.loading;
+    } catch (e) {
+      if (e.message.indexOf('deleted QObject') === -1) {
+        throw e;
+      }
+      return false;
+    }
   });
 
   window.executeAtomScript = function (name) {
@@ -232,45 +221,106 @@ function Window(settings, page) {
     return result;
   };
 
-  window.stop = function () {
-    this.off('load');
-    this._page.stop();
+  window.waitForStopAndExecuteAtomScript = function() {
+    var args = _slice.call(arguments);
+    return this.wait.stop(function () {
+      return this.executeAtomScript.apply(this, args);
+    });
+  };
+
+  window._isLoading = function () {
+    var res, id;
+    for (id in this._resources) {
+      res = this._resources[id];
+      if (res.status === -1) {
+        return true;
+      } else {
+        delete this._resources[id];
+      }
+    }
+    return false;
   };
 
   window.open = function (url) {
-    this.stop();
-    this.focus();
-    this._page.open(url);
-    return this.wait.load();
+    return this.wait.load(function() {
+      this._page.open(url);
+    });
   };
 
   window.reload = function () {
-    this.stop();
-    this.focus();
-    this._page.reload();
-    return this.wait.load();
+    return this.wait.load(function() {
+      this._page.reload();
+    });
   };
 
   window.back = function () {
-    var wait;
+    var callback;
     if (this._page.canGoBack) {
-      this._page.goBack();
-      wait = this.wait.load();
-    } else {
-      wait = this.wait.load(null);
+      callback = function () {
+        this._page.goBack();
+      };
     }
-    return wait;
+    return this.wait.history(callback);
   };
 
   window.forward = function () {
-    var wait;
+    var callback;
     if (this._page.canGoForward) {
-      this._page.goForward();
-      wait = this.wait.load();
-    } else {
-      wait = this.wait.load(null);
+      callback = function () {
+        this._page.goForward();
+      };
     }
-    return wait;
+    return this.wait.history(callback);
+  };
+
+  window.takeScreenshot = function () {
+    return this.wait.stop(function() {
+      return this.getScreenshot();
+    });
+  };
+
+  window.getScreenshot = function() {
+    return this._page.renderBase64('png');
+  };
+
+  window.getSize = function () {
+    return this.wait.stop(function() {
+      return this._page.viewportSize;
+    });
+  };
+
+  window.setSize = function (width, height) {
+    return this.wait.stop(function() {
+      this._page.viewportSize = {
+          width : width,
+          height : height
+      };
+    });
+  };
+
+  window.getPosition = function () {
+    return this.wait.stop(function() {
+      return this._position;
+    });
+  };
+
+  window.setPosition = function (x, y) {
+    return this.wait.stop(function() {
+      this._position = {
+        x: x,
+        y: y
+      };
+    });
+  };
+
+  window.focus = function () {
+    return this.wait.stop(function() {
+      return this._page.switchToMainFrame() === undefined;
+    });
+  };
+
+  window.activeElement = function() {
+    return this.waitForStopAndExecuteAtomScript('active_element');
   };
 
   window.close = function () {
@@ -281,13 +331,16 @@ function Window(settings, page) {
     this._page.render((name || this.handle) + '.png');
   };
 
-  window.getScreenshot = function () {
-    return this._page.renderBase64('png');
-  };
-
   window.off = function(eventName) {
     eventName = 'on' + _capitalize(eventName);
-    this._page[eventName] = null;
+    // for delete with link
+    try {
+      this._page[eventName] = null;
+    } catch (e) {
+      if (e.message.indexOf('deleted QObject') === -1) {
+        throw e;
+      }
+    }
     this[eventName]       = null;
   };
 
@@ -327,60 +380,37 @@ function Window(settings, page) {
     return this.wait.result(execute);
   };
 
-  window.getSize = function () {
-    return this._page.viewportSize;
-  };
 
-  window.setSize = function (width, height) {
-    this._page.viewportSize = {
-        width : width,
-        height : height
-    };
-  };
-
-  window.getPosition = function () {
-    return this._position;
-  };
-
-  window.setPosition = function (x, y) {
-    this._position = {
-      x: x,
-      y: y
-    };
-  };
-
-  window.focus = function () {
-    return this._page.switchToMainFrame();
-  };
-
-  window.activeElement = function() {
-    return this.executeAtomScript('active_element');
-  };
-
-  window.frames = function (nameOrId) {
-    var self = this,
-        frames = this._page.framesName;
-    if (nameOrId === null) {
-      return this;
-    } else if (frames.length > 0 && nameOrId !== undefined) {
-      if (typeof(nameOrId) === 'object' && 'ELEMENT' in nameOrId) {
-        nameOrId  = this.executeAtomScript('get_frame_index', nameOrId);
-      }
-      // si no existe el frame
-      if (!(nameOrId !== null &&
-        (frames.indexOf(nameOrId) !== -1 || frames[nameOrId] !== undefined))) {
-        return;
-      }
-      return {
-        focus: function () {
-          return self._page.switchToFrame(nameOrId);
+  window.frame = function (nameOrId) {
+    return this.wait.stop(function() {
+      var frames = this._page.framesName,
+          self = this;
+      if (nameOrId === null) {
+        return {
+          focus: function () {
+            return self._page.switchToMainFrame();
+          }
+        };
+      } else if (frames.length > 0 && nameOrId !== undefined) {
+        if (typeof(nameOrId) === 'object' && 'ELEMENT' in nameOrId) {
+          nameOrId  = this.executeAtomScript('get_frame_index', nameOrId);
         }
-      };
-    }
+        // si no existe el frame
+        if (!(nameOrId !== null &&
+          (frames.indexOf(nameOrId) !== -1 || frames[nameOrId] !== undefined))) {
+          return;
+        }
+        return {
+          focus: function () {
+            return self._page.switchToFrame(nameOrId);
+          }
+        };
+      }
+    });
   };
 
   window.executeScript = function (script, args) {
-    return this.executeAtomScript(
+    return this.waitForStopAndExecuteAtomScript(
       'execute_script',
       script,
       args
@@ -388,16 +418,26 @@ function Window(settings, page) {
   };
 
   window.executeAsyncScript = function (script, args, timeout, done) {
-    this.on(':result', function(result) {
-      done.call(this, result);
-      this.off('result');
+    return this.wait.stop(function() {
+      this.on(':result', function(result) {
+        done.call(this, result);
+        this.off('result');
+      });
+      this.executeAtomScript(
+        'execute_async_script',
+        script,
+        args,
+        timeout,
+        callPhantom
+      );
     });
-    this.executeAtomScript(
-      'execute_async_script',
+  };
+
+  window.execute = function(script, args) {
+    return this.executeAtomScript(
+      'execute_script',
       script,
-      args,
-      timeout,
-      callPhantom
+      args
     );
   };
 

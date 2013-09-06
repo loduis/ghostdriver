@@ -10,7 +10,7 @@ html
       div#html This my innerHTML
       div.element TWO
       div.element THREE
-      form#form(method="post", action="/submit")
+      form#form(method="post", action="/submit", enctype="multipart/form-data")
         input(type="text", name="q", value="this an test")
         input#radio_checked(type="radio", name="p", value="on", checked)
         input#radio_unchecked(type="radio", name="p", value="off")
@@ -28,6 +28,8 @@ html
         a#popup Open new popup
         br
         a#popup_post Open new popup and submit the form
+        br
+        input#file(type="file")
       div#output
       div#receiver
         div#sender I sender

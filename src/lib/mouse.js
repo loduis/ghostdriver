@@ -8,9 +8,14 @@ function Mouse(window) {
   mouse.x = 0;
   mouse.y = 0;
 
-  mouse.move = function(x, y) {
-    this.x = x;
-    this.y = y;
+  mouse.move = function(x, y, add) {
+    if (add) {
+      this.x += x;
+      this.y += y;
+    } else {
+      this.x = x;
+      this.y = y;
+    }
     this._window.event.send('mousemove', x, y);
   };
 
@@ -31,12 +36,14 @@ function Mouse(window) {
   };
 
   mouse._sendEventAndWait = function (type, button) {
-    this._sendEvent(type, button);
-    return this._window.wait.load(null);
+    var self = this;
+    return this._window.wait.event(function () {
+      self._sendEvent(type, button);
+      return null;
+    });
   };
 
   mouse._sendEvent = function (type, button) {
-    this._window.stop();
     this._window.event.send(
       type,
       this.x,
@@ -49,7 +56,7 @@ function Mouse(window) {
       var script = "var event = document.createEvent('HTMLEvents');" +
                    "event.initEvent('contextmenu', true, false);" +
                    "document.body.dispatchEvent(event);";
-      this._window.executeScript(script);
+      this._window.execute(script);
     }
   };
 

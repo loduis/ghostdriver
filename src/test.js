@@ -1,3 +1,8 @@
+var page = require('webpage').create();
+page.open('https://www.localhost.org/en/login', function() {
+  console.log(page.switchToMainFrame());
+});
+/*
 var test = {
 
 };
@@ -33,7 +38,7 @@ var service = server.listen(9000, router.dispatch);
 if (service) {
   console.log('SERVER START...');
 }
-
+*/
 
 /*
 var

@@ -75,7 +75,7 @@ function _onLoadFinished(session, status) {
 function _onClosing(session) {
   var handle = this.handle;
   if (session._windows.hasOwnProperty(handle)) {
-    session._windows[handle].fire('load', 'success');
+    //session._windows[handle].fire('load', 'success');
     delete session._windows[handle];
   }
 }
@@ -83,7 +83,7 @@ function _onClosing(session) {
 function _createWindow(session, pageSettings, page) {
   var window = new _Window(pageSettings, page);
   session._windows[window.handle] = window;
-  window.on('loadFinished', _onLoadFinished.bind(window, session));
+  //window.on('loadFinished', _onLoadFinished.bind(window, session));
   window.on('closing', _onClosing.bind(window, session));
   // need for popup finished event
   window.popup = page !== undefined;
@@ -147,6 +147,20 @@ function Session(desiredCapabilities) {
 
 (function (session) {
 
+  session.hasAllRequired = function(required) {
+    if (required) {
+      var negotiated = this._negotiatedCapabilities;
+      for (var r in required) {
+        if (r in negotiated) {
+          if (negotiated[r] !== required[r]) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  };
+
   session.getId = function () {
     return this._id;
   };
@@ -157,6 +171,10 @@ function Session(desiredCapabilities) {
 
   session.getCurrentWindowHandle = function() {
     return this._currentWindowHandle;
+  };
+
+  session.setCurrentWindowHandle = function(handle) {
+    this._currentWindowHandle = handle;
   };
 
   session.getWindowHandles = function() {

@@ -11,63 +11,63 @@ function Element(window, element) {
 (function (element) {
 
   element.getTagName = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'get_tag_name',
       this._id
     );
   };
 
   element.getText = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'get_text',
       this._id
     );
   };
 
   element.getSize = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'get_size',
       this._id
     );
   };
 
   element.isSelected = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'is_selected',
       this._id
     );
   };
 
   element.isEnabled = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'is_enabled',
       this._id
     );
   };
 
   element.isDisplayed = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'is_displayed',
       this._id
     );
   };
 
   element.getLocation = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'get_location',
       this._id
     );
   };
 
   element.getLocationInView = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'get_location_in_view',
       this._id
     );
   };
 
-  element.getStyle = function (property) {
-    return this._window.executeAtomScript(
+  element.getCssValue = function (property) {
+    return this._window.waitForStopAndExecuteAtomScript(
       'get_value_of_css_property',
       this._id,
       property
@@ -75,7 +75,7 @@ function Element(window, element) {
   };
 
   element.getAttribute = function (name) {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'get_attribute_value',
       this._id,
       name
@@ -83,22 +83,22 @@ function Element(window, element) {
   };
 
   element.clear = function () {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'clear',
       this._id
     );
   };
 
   element.submit = function () {
-    this._window.stop();
-    var result = this._window.executeAtomScript(
-      'submit',
-      this._id
-    );
-
-    return this._window.wait.load(result);
+    var self = this;
+    return this._window.wait.event(function() {
+      return this.executeAtomScript(
+        'submit',
+        self._id
+      );
+    });
   };
-
+  /*
   element.prepareClick = function(coords) {
     return this._window.executeAtomScript(
       'prepare_click',
@@ -106,90 +106,19 @@ function Element(window, element) {
       coords
     );
   };
-
+  */
   element.click = function () {
-    // info position to phantomjs
-    // need fixed this
-    /*
-    this._window.stop();
-    var isDisplayed = this.isDisplayed(), wait, x = 0, y = 0;
-    if (isDisplayed !== true) {
-        wait = this._window.wait.load();
-        wait.off('load', 'fail', isDisplayed);
-        return wait;
-    }
-    var positon = this.getLocationInView();
-    if (positon !== null) {
-      if (positon.hasOwnProperty('status')) {
-        wait = this._window.wait.load();
-        wait.off('load', 'fail', positon);
-        return wait;
-      }
-      x += positon.x;
-      y += positon.y;
-    }
-    var size = this.getSize();
-    if (size !== null) {
-      if (size.hasOwnProperty('status')) {
-        wait = this._window.wait.load();
-        wait.off('load', 'fail', size);
-        return wait;
-      }
-      x += Math.floor(size.width / 2);
-      y += Math.floor(size.height / 2);
-    }
-    var tagName = this.getTagName();
-    if (tagName.hasOwnProperty('status')) {
-        wait = this._window.wait.load();
-        wait.off('load', 'fail', tagName);
-        return wait;
-    }
-    // webkit bug for focus
-    if (tagName === 'select' || tagName === 'option') {
-      if (tagName === 'option') {
-        var result = this._window.executeScript(
-          'arguments[0].parentNode.focus();',
-          [this._id]
-        );
-        console.log(JSON.stringify(result));
-      } else {
-        this.focus();
-      }
-    }
-    this._window.mouse.move(x, y);
-    return this._window.mouse.click();
-    */
-    /*
-    var result = this._window.executeAtomScript(
-      'click',
-      this._id
-    );
-    return this._window.wait.load(result);*/
-    /*
-    this._window.stop();
-    var coords = this.prepareClick();
-    if (coords.hasOwnProperty('status')) {
-      var wait = this._window.wait.load();
-      wait.off('load', 'fail', coords);
-      return wait;
-    } else {
-      var result = this._window.executeAtomScript(
-        'move_mouse',
-        this._id
+    var self = this;
+    return this._window.wait.event(function() {
+      return this.executeAtomScript(
+        'click',
+        self._id
       );
-      this._window.mouse.move(coords.x, coords.y);
-      return this._window.mouse.click();
-    }*/
-
-    var result = this._window.executeAtomScript(
-      'click',
-      this._id
-    );
-    return this._window.wait.load(result);
+    });
   };
 
   element.equal = function (other) {
-    return this._window.executeAtomScript(
+    return this._window.waitForStopAndExecuteAtomScript(
       'is_same_node',
       this._id,
       other
@@ -206,7 +135,10 @@ function Element(window, element) {
   };
 
   element.getId = function () {
-    return this._id;
+    var self = this;
+    return this._window.wait.stop(function() {
+      return self._id;
+    });
   };
 
   element.focus = function () {
@@ -217,14 +149,24 @@ function Element(window, element) {
   };
 
   element.sendKeys = function(keys, clearModifiers) {
-    this._window.stop();
-    var result = this.focus();
-    this._window.keyboard.sendKeys(keys, clearModifiers);
-    return this._window.wait.load(result);
+    var self = this;
+    return this._window.wait.event(function () {
+      var result = self.focus();
+      this.keyboard.sendKeys(keys, clearModifiers);
+      return result;
+    });
   };
 
-  element.on = function(eventName, callback) {
-    this._window.on(eventName, callback);
+  element.filePicker = function(value, timeout, callback) {
+    var self = this._window;
+    this._window.on('filePicker', function(){
+      return value;
+    });
+
+    this.click().wait(timeout, function(status, result){
+      self.off('filePicker');
+      callback(status, result);
+    });
   };
 
 })(Element.prototype);
