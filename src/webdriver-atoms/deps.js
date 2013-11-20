@@ -2097,6 +2097,7 @@ goog.require('wgxpath.IEAttrWrapper');
 goog.require('wgxpath.Lexer');
 goog.require('wgxpath.NodeSet');
 goog.require('wgxpath.Parser');
+goog.require('wgxpath.nsResolver');
 
 
 /**
@@ -2260,6 +2261,20 @@ wgxpath.XPathResult_['FIRST_ORDERED_NODE_TYPE'] =
     wgxpath.XPathResultType_.FIRST_ORDERED_NODE_TYPE;
 
 
+
+/**
+ * The exported XPathNSResolver type.
+ *
+ * @constructor
+ * @extends {XPathNSResolver}
+ * @param {!Node} node Context node for the namespace resolution.
+ * @private
+ */
+wgxpath.XPathNSResolver_ = function(node) {
+  this['lookupNamespaceURI'] = wgxpath.nsResolver.getResolver(node);
+};
+
+
 /**
  * Installs the library. This is a noop if native XPath is available.
  *
@@ -2270,16 +2285,21 @@ wgxpath.install = function(opt_win) {
   var doc = win.document;
 
   // Installation is a noop if native XPath is available.
-  if (!doc['evaluate']) {
-    win['XPathResult'] = wgxpath.XPathResult_;
-    doc['evaluate'] = function(expr, context, nsResolver, type, result) {
-      return new wgxpath.XPathExpression_(expr, nsResolver).
-          evaluate(context, type);
-    };
-    doc['createExpression'] = function(expr, nsResolver) {
-      return new wgxpath.XPathExpression_(expr, nsResolver);
-    };
+  if (doc['evaluate']) {
+    return;
   }
+
+  win['XPathResult'] = wgxpath.XPathResult_;
+  doc['evaluate'] = function(expr, context, nsResolver, type, result) {
+    return new wgxpath.XPathExpression_(expr, nsResolver).
+        evaluate(context, type);
+  };
+  doc['createExpression'] = function(expr, nsResolver) {
+    return new wgxpath.XPathExpression_(expr, nsResolver);
+  };
+  doc['createNSResolver'] = function(node) {
+    return new wgxpath.XPathNSResolver_(node);
+  };
 };
 // Copyright 2012 Google Inc. All Rights Reserved.
 
@@ -2526,7 +2546,7 @@ wgxpath.BinaryExpr.stringToOpMap_ = {};
  */
 wgxpath.BinaryExpr.createOp_ = function(opString, precedence, dataType,
     evaluate) {
-  if (opString in wgxpath.BinaryExpr.stringToOpMap_) {
+  if (wgxpath.BinaryExpr.stringToOpMap_.hasOwnProperty(opString)) {
     throw new Error('Binary operator already created: ' + opString);
   }
   // The upcast and then downcast for the JSCompiler.
@@ -3016,7 +3036,7 @@ wgxpath.FunctionCall.nameToFuncMap_ = {};
 wgxpath.FunctionCall.createFunc_ = function(name, dataType,
     needContextPosition, needContextNodeWithoutArgs, needContextNodeWithArgs,
     evaluate, minArgs, opt_maxArgs, opt_nodesetsRequired) {
-  if (name in wgxpath.FunctionCall.nameToFuncMap_) {
+  if (wgxpath.FunctionCall.nameToFuncMap_.hasOwnProperty(name)) {
     throw new Error('Function already created: ' + name + '.');
   }
   var func = new wgxpath.FunctionCall.Func_(name, dataType,
@@ -3128,7 +3148,7 @@ wgxpath.FunctionCall.Func = {
   LANG: wgxpath.FunctionCall.createFunc_('lang',
       wgxpath.DataType.BOOLEAN, false, false, false,
       function(ctx, expr) {
-        // TODO(user): Fully implement this.
+        // TODO: Fully implement this.
         return false;
       }, 1),
   LAST: wgxpath.FunctionCall.createFunc_('last',
@@ -3148,14 +3168,14 @@ wgxpath.FunctionCall.Func = {
   NAME: wgxpath.FunctionCall.createFunc_('name',
       wgxpath.DataType.STRING, false, true, false,
       function(ctx, opt_expr) {
-        // TODO(user): Fully implement this.
+        // TODO: Fully implement this.
         var node = opt_expr ? opt_expr.evaluate(ctx).getFirst() : ctx.getNode();
         return node ? node.nodeName.toLowerCase() : '';
       }, 0, 1, true),
   NAMESPACE_URI: wgxpath.FunctionCall.createFunc_('namespace-uri',
       wgxpath.DataType.STRING, true, false, false,
       function(ctx, opt_expr) {
-        // TODO(user): Fully implement this.
+        // TODO: Fully implement this.
         return '';
       }, 0, 1, true),
   NORMALIZE_SPACE: wgxpath.FunctionCall.createFunc_('normalize-space',
@@ -3818,7 +3838,7 @@ wgxpath.Step.nameToAxisMap_ = {};
  */
 wgxpath.Step.createAxis_ =
     function(name, func, reverse, opt_supportsQuickAttr) {
-  if (name in wgxpath.Step.nameToAxisMap_) {
+  if (wgxpath.Step.nameToAxisMap_.hasOwnProperty(name)) {
     throw Error('Axis already created: ' + name);
   }
   // The upcast and then downcast for the JSCompiler.
@@ -4257,7 +4277,7 @@ wgxpath.Node.attrMatches = function(node, name, value) {
   if (goog.isNull(name)) {
     return true;
   }
-  // TODO(user): If possible, figure out why this throws an exception in some
+  // TODO: If possible, figure out why this throws an exception in some
   // cases on IE < 9.
   try {
     if (!node.getAttribute) {
@@ -4442,7 +4462,7 @@ wgxpath.Node.getChildNodesIEPre9_ = function(test, node,
       }
     }
     if (attrName) {
-      // TODO(user): See if an optimization is possible.
+      // TODO: See if an optimization is possible.
       children = goog.array.filter(children, function(n) {
         return wgxpath.Node.attrMatches(n, attrName, attrValue);
       });
@@ -4845,6 +4865,101 @@ goog.addDependency("../../../wicked-good-xpath/test/test.js", ['wgxpath.test'], 
 goog.require('wgxpath');
 
 goog.exportSymbol('wgxpath.install', wgxpath.install);
+/**
+ * @fileoverview Namespace resolver functions.
+ */
+
+goog.provide('wgxpath.nsResolver');
+
+goog.require('goog.dom.NodeType');
+
+
+/**
+ * Returns a namespace resolve function for the given node.
+ *
+ * @param {!Node} node The context node.
+ * @return {function(?string):?string} A lookupNamespaceURI function.
+ */
+wgxpath.nsResolver.getResolver = function(node) {
+  // Adopted from W3C psuedocode specification:
+  // http://www.w3.org/TR/DOM-Level-3-Core/namespaces-algorithms.html
+
+  switch (node.nodeType) {
+    case goog.dom.NodeType.ELEMENT:
+      return goog.partial(wgxpath.nsResolver.resolveForElement_, node);
+
+    case goog.dom.NodeType.DOCUMENT:
+      return wgxpath.nsResolver.getResolver(node.documentElement);
+
+    case goog.dom.NodeType.ATTRIBUTE:
+      if (node.ownerElement) {
+        return wgxpath.nsResolver.getResolver(node.ownerElement);
+      }
+      return wgxpath.nsResolver.nullResolver_;
+
+    case goog.dom.NodeType.DOCUMENT_FRAGMENT:
+    case goog.dom.NodeType.DOCUMENT_TYPE:
+    case goog.dom.NodeType.ENTITY:
+    case goog.dom.NodeType.NOTATION:
+      return wgxpath.nsResolver.nullResolver_;
+
+    default:
+      if (node.parentNode) {
+        return wgxpath.nsResolver.getResolver(node.parentNode);
+      }
+      return wgxpath.nsResolver.nullResolver_;
+  }
+};
+
+
+/**
+ * A resolver function that always returns null.
+ *
+ * @param {?string} prefix Namespace prefix or null for default namespace.
+ * @return {?string} Null.
+ * @private
+ */
+wgxpath.nsResolver.nullResolver_ = function(prefix) {
+  return null;
+};
+
+
+/**
+ * The default namespace URI for XHTML nodes.
+ *
+ * @const
+ * @type {string}
+ * @private
+ */
+wgxpath.nsResolver.HTML_NAMESPACE_URI_ = 'http://www.w3.org/1999/xhtml';
+
+
+/**
+ * Looks up the namespace URI for the given prefix and given element context.
+ *
+ * @param {!Element} elem Context element for the namespace resolution.
+ * @param {?string} prefix Namespace prefix or null for default namespace.
+ * @return {?string} The namespace URI for the given prefix, or null if none.
+ * @private
+ */
+wgxpath.nsResolver.resolveForElement_ = function(elem, prefix) {
+  if (elem.prefix == prefix) {
+    return elem.namespaceURI || wgxpath.nsResolver.HTML_NAMESPACE_URI_;
+  }
+
+  var attr = elem.getAttributeNode('xmlns:' + prefix);
+  if (attr && attr.specified) {
+    return attr.value || null;
+  }
+
+  if (elem.parentNode &&
+      elem.parentNode.nodeType != goog.dom.NodeType.DOCUMENT) {
+    return wgxpath.nsResolver.resolveForElement_(
+        /** @type {!Element} */ (elem.parentNode), prefix);
+  }
+
+  return null;
+};
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
@@ -5783,8 +5898,8 @@ goog.require('goog.userAgent.product');
  * A Device class that provides common functionality for input devices.
  * @param {bot.Device.ModifiersState=} opt_modifiersState state of modifier
  * keys. The state is shared, not copied from this parameter.
- * @param {bot.Device.EventEmitter=} opt_eventEmitter An object that should be used to fire events.
- *
+ * @param {bot.Device.EventEmitter=} opt_eventEmitter An object that should be
+ *     used to fire events.
  * @constructor
  */
 bot.Device = function(opt_modifiersState, opt_eventEmitter) {
@@ -5861,7 +5976,7 @@ bot.Device.prototype.fireHtmlEvent = function(type) {
 
 /**
  * Fires a keyboard event given the state of the device and the given arguments.
- * TODO(user): Populate the modifier keys in this method.
+ * TODO: Populate the modifier keys in this method.
  *
  * @param {bot.events.EventType} type Keyboard event type.
  * @param {bot.events.KeyboardArgs} args Keyboard event arguments.
@@ -5875,7 +5990,7 @@ bot.Device.prototype.fireKeyboardEvent = function(type, args) {
 
 /**
  * Fires a mouse event given the state of the device and the given arguments.
- * TODO(user): Populate the modifier keys in this method.
+ * TODO: Populate the modifier keys in this method.
  *
  * @param {bot.events.EventType} type Mouse event type.
  * @param {!goog.math.Coordinate} coord The coordinate where event will fire.
@@ -6056,7 +6171,8 @@ bot.Device.prototype.fireMSPointerEvent = function(type, coord, button,
       bot.Device.pointerElementMap_[id] = this;
     };
   }
-  var result = target ? this.eventEmitter.fireMSPointerEvent(target, type, args) : true;
+  var result =
+      target ? this.eventEmitter.fireMSPointerEvent(target, type, args) : true;
   if (originalMsSetPointerCapture) {
     owner['Element'].prototype.msSetPointerCapture =
         originalMsSetPointerCapture;
@@ -6066,8 +6182,8 @@ bot.Device.prototype.fireMSPointerEvent = function(type, coord, button,
 
 
 /**
- * A mouse event fired "on" an <option> element, doesn't always fire on the
- * <option> element itself. Sometimes it fires on the parent <select> element
+ * A mouse event fired "on" an option element, doesn't always fire on the
+ * option element itself. Sometimes it fires on the parent select element
  * and sometimes not at all, depending on the browser and event type. This
  * returns the true target element of the event, or null if none is fired.
  *
@@ -6159,7 +6275,7 @@ bot.Device.prototype.clickElement = function(coord, button, opt_pointerId) {
   var isRadioOrCheckbox = !this.select_ && bot.dom.isSelectable(this.element_);
   var wasChecked = isRadioOrCheckbox && bot.dom.isSelected(this.element_);
 
-  // NOTE(user): Clicking on a form submit button is a little broken:
+  // NOTE: Clicking on a form submit button is a little broken:
   // (1) When clicking a form submit button in IE, firing a click event or
   // calling Form.submit() will not by itself submit the form, so we call
   // Element.click() explicitly, but as a result, the coordinates of the click
@@ -6168,7 +6284,7 @@ bot.Device.prototype.clickElement = function(coord, button, opt_pointerId) {
   // (2) When clicking a form submit button in GECKO, while the coordinates of
   // the click event are correct, those submitted with the form are always (0,0)
   // .
-  // TODO(user): See if either of these can be resolved, perhaps by adding
+  // TODO: See if either of these can be resolved, perhaps by adding
   // hidden form elements with the coordinates before the form is submitted.
   if (goog.userAgent.IE && targetButton) {
     targetButton.click();
@@ -6369,10 +6485,15 @@ bot.Device.prototype.maybeToggleOption = function() {
   if (wasSelected && !select.multiple) {
     return;
   }
+
+  // TODO: in a multiselect, clicking an option without the shift key down
+  // should deselect all other selected options.
+
   this.element_.selected = !wasSelected;
   // Only WebKit fires the change event itself and only for multi-selects,
-  // except for Android versions >= 4.0.
+  // except for Android versions >= 4.0 and Chrome >= 28.
   if (!(goog.userAgent.WEBKIT && select.multiple) ||
+      (goog.userAgent.product.CHROME && bot.userAgent.isProductVersion(28)) ||
       (goog.userAgent.product.ANDROID && bot.userAgent.isProductVersion(4))) {
     bot.events.fire(select, bot.events.EventType.CHANGE);
   }
@@ -6427,7 +6548,7 @@ bot.Device.isForm_ = function(node) {
 
 /**
  * Submits the specified form. Unlike the public function, it expects to be
- * given a <form> element and fails if it is not.
+ * given a form element and fails if it is not.
  * @param {!Element} form The form to submit.
  * @protected
  */
@@ -6680,7 +6801,8 @@ bot.Device.EventEmitter.prototype.fireHtmlEvent = function(target, type) {
  * @return {boolean} Whether the event fired successfully; false if cancelled.
  * @protected
  */
-bot.Device.EventEmitter.prototype.fireKeyboardEvent = function(target, type, args) {
+bot.Device.EventEmitter.prototype.fireKeyboardEvent = function(
+    target, type, args) {
   return bot.events.fire(target, type, args);
 };
 
@@ -6694,7 +6816,8 @@ bot.Device.EventEmitter.prototype.fireKeyboardEvent = function(target, type, arg
  * @return {boolean} Whether the event fired successfully; false if cancelled.
  * @protected
  */
-bot.Device.EventEmitter.prototype.fireMouseEvent = function(target, type, args) {
+bot.Device.EventEmitter.prototype.fireMouseEvent = function(
+    target, type, args) {
   return bot.events.fire(target, type, args);
 };
 
@@ -6708,13 +6831,15 @@ bot.Device.EventEmitter.prototype.fireMouseEvent = function(target, type, args) 
  * @return {boolean} Whether the event fired successfully; false if cancelled.
  * @protected
  */
-bot.Device.EventEmitter.prototype.fireTouchEvent = function(target, type, args) {
+bot.Device.EventEmitter.prototype.fireTouchEvent = function(
+    target, type, args) {
   return bot.events.fire(target, type, args);
 };
 
 
 /**
- * Fires an MSPointer event given the state of the device and the given arguments.
+ * Fires an MSPointer event given the state of the device and the given
+ * arguments.
  *
  * @param {!Element} target The element on which to fire the event.
  * @param {bot.events.EventType} type MSPointer event type.
@@ -6722,7 +6847,8 @@ bot.Device.EventEmitter.prototype.fireTouchEvent = function(target, type, args) 
  * @return {boolean} Whether the event fired successfully; false if cancelled.
  * @protected
  */
-bot.Device.EventEmitter.prototype.fireMSPointerEvent = function(target, type, args) {
+bot.Device.EventEmitter.prototype.fireMSPointerEvent = function(
+    target, type, args) {
   return bot.events.fire(target, type, args);
 };
 // Copyright 2012 WebDriver committers
@@ -7031,6 +7157,33 @@ bot.userAgent.IE_DOC_PRE10 = goog.userAgent.IE &&
  */
 bot.userAgent.ANDROID_PRE_GINGERBREAD = goog.userAgent.product.ANDROID &&
     !bot.userAgent.isProductVersion(2.3);
+
+
+/**
+ * Whether the current browser is Android pre-icecreamsandwich
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.ANDROID_PRE_ICECREAMSANDWICH = goog.userAgent.product.ANDROID &&
+    !bot.userAgent.isProductVersion(4);
+
+
+/**
+ * Whether the current browser is Safari 6.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.SAFARI_6 = goog.userAgent.product.SAFARI &&
+    bot.userAgent.isProductVersion(6);
+
+
+/**
+ * Whether the current browser is Windows Phone.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.WINDOWS_PHONE = goog.userAgent.IE &&
+    goog.userAgent.getUserAgentString().indexOf('IEMobile') != -1;
 // Copyright 2012 Software Freedom Conservancy
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -7060,80 +7213,20 @@ goog.require('goog.color.names');
 /**
  * Returns a property, with a standardized color if it contains a
  * convertible color.
- * @param {string} propertyName Name of the CSS property in selector-case.
+ * @param {string} propertyName Name of the CSS property in camelCase.
  * @param {string} propertyValue The value of the CSS property.
  * @return {string} The value, in a standardized format
  *    if it is a color property.
  */
 bot.color.standardizeColor = function(propertyName, propertyValue) {
-  if (bot.color.isColorProperty(propertyName) &&
-      bot.color.isConvertibleColor(propertyValue)) {
-    return bot.color.standardizeToRgba_(propertyValue);
-  }
-  return propertyValue;
-};
-
-
-/**
- * Returns a color in RGBA format - rgba(r, g, b, a).
- * @param {string} propertyValue The value of the CSS property.
- * @return {string} The value, in RGBA format.
- * @private
- */
-bot.color.standardizeToRgba_ = function(propertyValue) {
-  var rgba = bot.color.parseRgbaColor(propertyValue);
-  if (!rgba.length) {
-    rgba = bot.color.convertToRgba_(propertyValue);
-    bot.color.addAlphaIfNecessary_(rgba);
-  }
-  if (rgba.length != 4) {
+  if (!goog.array.contains(bot.color.COLOR_PROPERTIES_, propertyName)) {
     return propertyValue;
   }
-  return bot.color.toRgbaStyle_(rgba);
-};
-
-
-/**
- * Coverts a color to RGBA.
- * @param {string} propertyValue The value of the CSS property.
- * @return {!Array.<number>} array containing [r, g, b, a]
- *  with r, g, b as ints in [0, 255] and a as a float in [0, 1].
- * @private
- */
-bot.color.convertToRgba_ = function(propertyValue) {
-  var rgba = bot.color.parseRgbColor_(propertyValue);
-  if (rgba.length) {
-    return rgba;
-  }
-  var hex = goog.color.names[propertyValue.toLowerCase()];
-  hex = (!hex) ? bot.color.prependHashIfNecessary_(propertyValue) : hex;
-  if (bot.color.isValidHexColor_(hex)) {
-    rgba = bot.color.hexToRgb(bot.color.normalizeHex(hex));
-    if (rgba.length) {
-      return rgba;
-    }
-  }
-  return [];
-};
-
-
-/**
- * Determines if the given string is a color that can be converted to RGBA.
- * Browsers can return colors in the following formats:
- * RGB, RGBA, Hex, NamedColor
- * So only those are supported by this module and therefore considered
- * convertible.
- *
- * @param {string} str Potential color string.
- * @return {boolean} True if str is in a format that can be converted to RGBA.
- */
-bot.color.isConvertibleColor = function(str) {
-  return !!(bot.color.isValidHexColor_(
-      bot.color.prependHashIfNecessary_(str)) ||
-      bot.color.parseRgbColor_(str).length ||
-      goog.color.names && goog.color.names[str.toLowerCase()] ||
-      bot.color.parseRgbaColor(str).length
-  );
+  var rgba =
+      bot.color.maybeParseRgbaColor_(propertyValue) ||
+      bot.color.maybeParseRgbColor_(propertyValue) ||
+      bot.color.maybeConvertHexOrColorName_(propertyValue);
+  return rgba ? 'rgba(' + rgba.join(', ') + ')' : propertyValue;
 };
 
 
@@ -7144,29 +7237,18 @@ bot.color.isConvertibleColor = function(str) {
  *
  * http://www.w3.org/TR/CSS/#properties
  *
- * Used by bot.color.isColorProperty()
  * @const
  * @private {!Array.<string>}
  */
 bot.color.COLOR_PROPERTIES_ = [
-  'background-color',
-  'border-top-color',
-  'border-right-color',
-  'border-bottom-color',
-  'border-left-color',
+  'backgroundColor',
+  'borderTopColor',
+  'borderRightColor',
+  'borderBottomColor',
+  'borderLeftColor',
   'color',
-  'outline-color'
+  'outlineColor'
 ];
-
-
-/**
- * Determines if the given property can contain a color.
- * @param {string} str CSS property name.
- * @return {boolean} True if str is a property that can contain a color.
- */
-bot.color.isColorProperty = function(str) {
-  return goog.array.contains(bot.color.COLOR_PROPERTIES_, str);
-};
 
 
 /**
@@ -7178,34 +7260,32 @@ bot.color.HEX_TRIPLET_RE_ = /#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])/;
 
 
 /**
- * Normalize an hex representation of a color
- * @param {string} hexColor an hex color string.
- * @return {string} hex color in the format '#rrggbb' with all lowercase
- *     literals.
- */
-bot.color.normalizeHex = function(hexColor) {
-  if (!bot.color.isValidHexColor_(hexColor)) {
-    throw Error("'" + hexColor + "' is not a valid hex color");
-  }
-  if (hexColor.length == 4) { // of the form #RGB
-    hexColor = hexColor.replace(bot.color.HEX_TRIPLET_RE_, '#$1$1$2$2$3$3');
-  }
-  return hexColor.toLowerCase();
-};
-
-
-/**
  * Converts a hex representation of a color to RGB.
- * @param {string} hexColor Color to convert.
- * @return {!Array} array containing [r, g, b] as ints in [0, 255].
+ * @param {string} hexOrColorName Color to convert.
+ * @return {Array} array containing [r, g, b, 1] as ints in [0, 255] or null
+ *     for invalid colors.
+ * @private
  */
-bot.color.hexToRgb = function(hexColor) {
-  hexColor = bot.color.normalizeHex(hexColor);
-  var r = parseInt(hexColor.substr(1, 2), 16);
-  var g = parseInt(hexColor.substr(3, 2), 16);
-  var b = parseInt(hexColor.substr(5, 2), 16);
+bot.color.maybeConvertHexOrColorName_ = function(hexOrColorName) {
+  hexOrColorName = hexOrColorName.toLowerCase();
+  var hex = goog.color.names[hexOrColorName.toLowerCase()];
+  if (!hex) {
+    hex = hexOrColorName.charAt(0) == '#' ?
+        hexOrColorName : '#' + hexOrColorName;
+    if (hex.length == 4) { // of the form #RGB
+      hex = hex.replace(bot.color.HEX_TRIPLET_RE_, '#$1$1$2$2$3$3');
+    }
 
-  return [r, g, b];
+    if (!bot.color.VALID_HEX_COLOR_RE_.test(hex)) {
+      return null;
+    }
+  }
+
+  var r = parseInt(hex.substr(1, 2), 16);
+  var g = parseInt(hex.substr(3, 2), 16);
+  var b = parseInt(hex.substr(5, 2), 16);
+
+  return [r, g, b, 1];
 };
 
 
@@ -7218,41 +7298,7 @@ bot.color.VALID_HEX_COLOR_RE_ = /^#(?:[0-9a-f]{3}){1,2}$/i;
 
 
 /**
- * Checks if a string is a valid hex color.  We expect strings of the format
- * #RRGGBB (ex: #1b3d5f) or #RGB (ex: #3CA == #33CCAA).
- * @param {string} str String to check.
- * @return {boolean} Whether the string is a valid hex color.
- * @private
- */
-bot.color.isValidHexColor_ = function(str) {
-  return bot.color.VALID_HEX_COLOR_RE_.test(str);
-};
-
-
-/**
- * Helper for isNormalizedHexColor_.
- * @private {!RegExp}
- * @const
- */
-bot.color.NORMALIZED_HEX_COLOR_RE_ = /^#[0-9a-f]{6}$/;
-
-
-/**
- * Checks if a string is a normalized hex color.
- * We expect strings of the format #RRGGBB (ex: #1b3d5f)
- * using only lowercase letters.
- * @param {string} str String to check.
- * @return {boolean} Whether the string is a normalized hex color.
- * @private
- */
-bot.color.isNormalizedHexColor_ = function(str) {
-  return bot.color.NORMALIZED_HEX_COLOR_RE_.test(str);
-};
-
-
-/**
  * Regular expression for matching and capturing RGBA style strings.
- * Helper for parseRgbaColor.
  * @private {!RegExp}
  * @const
  */
@@ -7265,10 +7311,11 @@ bot.color.RGBA_COLOR_RE_ =
  * format '(r, g, b, a)', or 'rgba(r, g, b, a)', where r, g, b are ints in
  * [0, 255] and a is a float in [0, 1].
  * @param {string} str String to check.
- * @return {!Array.<number>} the integers [r, g, b, a] for valid colors or the
- *     empty array for invalid colors.
+ * @return {Array.<number>} the integers [r, g, b, a] for valid colors or null
+ *     for invalid colors.
+ * @private
  */
-bot.color.parseRgbaColor = function(str) {
+bot.color.maybeParseRgbaColor_ = function(str) {
   // Each component is separate (rather than using a repeater) so we can
   // capture the match. Also, we explicitly set each component to be either 0,
   // or start with a non-zero, to prevent octal numbers from slipping through.
@@ -7285,13 +7332,12 @@ bot.color.parseRgbaColor = function(str) {
       return [r, g, b, a];
     }
   }
-  return [];
+  return null;
 };
 
 
 /**
- * Regular expression for matching and capturing RGB style strings. Helper for
- * parseRgbColor_.
+ * Regular expression for matching and capturing RGB style strings.
  * @private {!RegExp}
  * @const
  */
@@ -7304,11 +7350,11 @@ bot.color.RGB_COLOR_RE_ =
  * '(r, g, b)', or 'rgb(r, g, b)', where each color component is an int in
  * [0, 255].
  * @param {string} str String to check.
- * @return {!Array.<number>} the integers [r, g, b] for valid colors or the
- *     empty array for invalid colors.
+ * @return {Array.<number>} the integers [r, g, b, 1] for valid colors or null
+ *     for invalid colors.
  * @private
  */
-bot.color.parseRgbColor_ = function(str) {
+bot.color.maybeParseRgbColor_ = function(str) {
   // Each component is separate (rather than using a repeater) so we can
   // capture the match. Also, we explicitly set each component to be either 0,
   // or start with a non-zero, to prevent octal numbers from slipping through.
@@ -7320,52 +7366,11 @@ bot.color.parseRgbColor_ = function(str) {
     if (r >= 0 && r <= 255 &&
         g >= 0 && g <= 255 &&
         b >= 0 && b <= 255) {
-      return [r, g, b];
+      return [r, g, b, 1];
     }
   }
-  return [];
+  return null;
 };
-
-
-/**
- * Takes a string a prepends a '#' sign if one doesn't exist.
- * Small helper method for use by bot.color and friends.
- * @param {string} str String to check.
- * @return {string} The value passed in, prepended with a '#' if it didn't
- *     already have one.
- * @private
- */
-bot.color.prependHashIfNecessary_ = function(str) {
-  return str.charAt(0) == '#' ? str : '#' + str;
-};
-
-
-/**
- * Takes an array and appends a 1 to it if the array only contains 3 elements.
- * @param {!Array.<number>} arr The array to check.
- * @return {!Array.<number>} The same array with a 1 appended
- *  if it only contained 3 elements.
- * @private
- */
-bot.color.addAlphaIfNecessary_ = function(arr) {
-  if (arr.length == 3) {
-    arr.push(1);
-  }
-  return arr;
-};
-
-
-/**
- * Takes an array of [r, g, b, a] and converts it into a string appropriate for
- * CSS styles.
- * @param {!Array.<number>} rgba An array with four elements.
- * @return {string} string of the form 'rgba(r, g, b, a)'.
- * @private
- */
-bot.color.toRgbaStyle_ = function(rgba) {
-  return 'rgba(' + rgba.join(', ') + ')';
-};
-
 // Copyright 2010 WebDriver committers
 // Copyright 2010 Google Inc.
 //
@@ -7428,7 +7433,7 @@ bot.Keyboard = function(opt_state) {
     // If a state is passed, let's assume we were passed an object with
     // the correct properties.
     goog.array.forEach(opt_state['pressed'], function(key) {
-      this.setKeyPressed_(key, true);
+      this.setKeyPressed_(/** @type {!bot.Keyboard.Key} */ (key), true);
     }, this);
 
     this.currentPos_ = opt_state['currentPos'];
@@ -7451,7 +7456,8 @@ bot.Keyboard.CHAR_TO_KEY_ = {};
  * character to is in the CHAR_TO_KEY_ map. Using this factory function instead
  * of the new keyword, also helps reduce the size of the compiled Js fragment.
  *
- * @param {?number|{gecko: ?number, ieWebkit: ?number, opera: ?number}} code
+ * @param {null|number|
+ *         {gecko: (?number), ieWebkit: (?number), opera: (?number)}} code
  *     Either a single keycode or a record of per-browser keycodes.
  * @param {string=} opt_char Character when shift is not pressed.
  * @param {string=} opt_shiftChar Character when shift is pressed.
@@ -7731,7 +7737,7 @@ bot.Keyboard.KEY_TO_MODIFIER_ = (function(modifiersMap) {
 /**
  * Set the modifier state if the provided key is one, otherwise just add
  * to the list of pressed keys.
- * @param {bot.Keyboard.Key} key The key to update.
+ * @param {!bot.Keyboard.Key} key The key to update.
  * @param {boolean} isPressed Whether the key is pressed.
  * @private
  */
@@ -7764,7 +7770,7 @@ bot.Keyboard.NEW_LINE_ =
 /**
  * Returns whether the key is currently pressed.
  *
- * @param {bot.Keyboard.Key} key Key.
+ * @param {!bot.Keyboard.Key} key Key.
  * @return {boolean} Whether the key is pressed.
  */
 bot.Keyboard.prototype.isPressed = function(key) {
@@ -7812,7 +7818,7 @@ bot.Keyboard.prototype.pressKey = function(key) {
 
 /**
  * Whether the given key currently requires a keypress.
- * TODO(user): Make this dependent on the state of the modifier keys.
+ * TODO: Make this dependent on the state of the modifier keys.
  *
  * @param {bot.Keyboard.Key} key Key.
  * @return {boolean} Whether it requires a keypress event.
@@ -8484,8 +8490,8 @@ goog.require('goog.userAgent');
  * supports having one button pressed at a time.
  * @param {bot.Mouse.State=} opt_state The mouse's initial state.
  * @param {bot.Device.ModifiersState=} opt_modifiersState State of the keyboard.
- * @param {bot.Device.EventEmitter=} opt_eventEmitter An object that should be used to fire events.
- *
+ * @param {bot.Device.EventEmitter=} opt_eventEmitter An object that should be
+ *     used to fire events.
  * @constructor
  * @extends {bot.Device}
  */
@@ -8572,11 +8578,13 @@ bot.Mouse.NO_BUTTON_VALUE_INDEX_ = 3;
  * Maps mouse events to an array of button argument value for each mouse button.
  * The array is indexed by the bot.Mouse.Button values. It encodes this table,
  * where each cell contains the (left/middle/right/none) button values.
+ * <pre>
  *               click/    mouseup/   mouseout/  mousemove  contextmenu
  *               dblclick  mousedown  mouseover
  * IE_DOC_PRE9   0 0 0 X   1 4 2 X    0 0 0 0    1 4 2 0    X X 0 X
  * WEBKIT/IE9    0 1 2 X   0 1 2 X    0 1 2 0    0 1 2 0    X X 2 X
  * GECKO/OPERA   0 1 2 X   0 1 2 X    0 0 0 0    0 0 0 0    X X 2 X
+ * </pre>
  * @private {!Object.<bot.events.EventType, !Array.<?number>>}
  * @const
  */
@@ -8652,7 +8660,7 @@ bot.Mouse.prototype.fireMousedown_ = function() {
   // On some browsers, a mouse down event on an OPTION or SELECT element cause
   // the SELECT to open, blocking further JS execution. This is undesirable,
   // and so needs to be detected. We always focus in this case.
-  // TODO(simon): This is a nasty way to avoid locking the browser
+  // TODO: This is a nasty way to avoid locking the browser
   var isFirefox3 = goog.userAgent.GECKO && !bot.userAgent.isProductVersion(4);
   var blocksOnMousedown = (goog.userAgent.WEBKIT || isFirefox3) &&
       (bot.dom.isElement(this.getElement(), goog.dom.TagName.OPTION) ||
@@ -8718,11 +8726,14 @@ bot.Mouse.prototype.releaseButton = function() {
   this.maybeToggleOption();
   this.fireMouseEvent_(bot.events.EventType.MOUSEUP);
 
-  // TODO(user): Middle button can also trigger click.
+  // TODO: Middle button can also trigger click.
   if (this.buttonPressed_ == bot.Mouse.Button.LEFT &&
       this.getElement() == this.elementPressed_) {
-    this.clickElement(this.clientXY_,
-        this.getButtonValue_(bot.events.EventType.CLICK));
+    if (!(bot.userAgent.WINDOWS_PHONE &&
+        bot.dom.isElement(this.elementPressed_, goog.dom.TagName.OPTION))) {
+      this.clickElement(this.clientXY_,
+          this.getButtonValue_(bot.events.EventType.CLICK));
+    }
     this.maybeDoubleClickElement_();
     if (bot.userAgent.IE_DOC_10 &&
         this.buttonPressed_ == bot.Mouse.Button.LEFT &&
@@ -8731,7 +8742,7 @@ bot.Mouse.prototype.releaseButton = function() {
           new goog.math.Coordinate(0, 0), 0, bot.Device.MOUSE_MS_POINTER_ID,
           MSPointerEvent.MSPOINTER_TYPE_MOUSE, false);
     }
-  // TODO(user): In Linux, this fires after mousedown event.
+  // TODO: In Linux, this fires after mousedown event.
   } else if (this.buttonPressed_ == bot.Mouse.Button.RIGHT) {
     this.fireMouseEvent_(bot.events.EventType.CONTEXTMENU);
   }
@@ -9153,7 +9164,10 @@ bot.Touchscreen.prototype.fireTouchReleaseEvents_ = function() {
     this.fireMouseEvent(bot.events.EventType.MOUSEUP, this.clientXY_, 0);
 
     // Special click logic to follow links and to perform form actions.
-    this.clickElement(this.clientXY_, /* button value */ 0);
+    if (!(bot.userAgent.WINDOWS_PHONE &&
+        bot.dom.isElement(this.getElement(), goog.dom.TagName.OPTION))) {
+       this.clickElement(this.clientXY_, /* button value */ 0);
+    }
   }
 };
 
@@ -9237,7 +9251,10 @@ bot.Touchscreen.fireSingleReleasePointer_ = function(ts, element, coords, id,
   // Fire a click.
   if (!ts.hasMovedAfterPress_) {
     ts.maybeToggleOption();
-    ts.clickElement(ts.clientXY_, 0, id);
+    if (!(bot.userAgent.WINDOWS_PHONE &&
+        bot.dom.isElement(element, goog.dom.TagName.OPTION))) {
+      ts.clickElement(ts.clientXY_, 0, id);
+    }
   }
 
   if (bot.dom.isSelectable(element)) {
@@ -9397,9 +9414,10 @@ goog.require('bot.locators.xpath');
 goog.require('bot.userAgent');
 goog.require('goog.array');
 goog.require('goog.dom');
+goog.require('goog.dom.DomHelper');
 goog.require('goog.dom.NodeType');
 goog.require('goog.dom.TagName');
-goog.require('goog.math.Box');
+goog.require('goog.math');
 goog.require('goog.math.Coordinate');
 goog.require('goog.math.Rect');
 goog.require('goog.string');
@@ -9414,8 +9432,16 @@ goog.require('goog.userAgent');
  * @return {Element} The active element, if any.
  */
 bot.dom.getActiveElement = function(nodeOrWindow) {
-  return goog.dom.getActiveElement(
+  var active = goog.dom.getActiveElement(
       goog.dom.getOwnerDocument(nodeOrWindow));
+  // IE has the habit of returning an empty object from
+  // goog.dom.getActiveElement instead of null.
+  if (goog.userAgent.IE &&
+      active &&
+      typeof active.nodeType === 'undefined') {
+    return null;
+  }
+  return active;
 };
 
 
@@ -9748,7 +9774,7 @@ bot.dom.TEXTUAL_INPUT_TYPES_ = [
 
 
 /**
- * TODO(user): Add support for designMode elements.
+ * TODO: Add support for designMode elements.
  *
  * @param {!Element} element The element to check.
  * @return {boolean} Whether the element accepts user-typed text.
@@ -9802,7 +9828,7 @@ bot.dom.isContentEditable = function(element) {
 
 
 /**
- * TODO(user): Merge isTextual into this function and move to bot.dom.
+ * TODO: Merge isTextual into this function and move to bot.dom.
  * For Puppet, requires adding support to getVisibleText for grabbing
  * text from all textual elements.
  *
@@ -9861,7 +9887,7 @@ bot.dom.getInlineStyle = function(elem, styleName) {
  * http://code.google.com/p/doctype/wiki/ArticleComputedStyleVsCascadedStyle
  *
  * @param {!Element} elem Element to get the style value from.
- * @param {string} propertyName Name of the CSS property in selector-case.
+ * @param {string} propertyName Name of the CSS property.
  * @return {?string} The value of the style property, or null.
  */
 bot.dom.getEffectiveStyle = function(elem, propertyName) {
@@ -9876,7 +9902,7 @@ bot.dom.getEffectiveStyle = function(elem, propertyName) {
   if (style === null) {
     return null;
   }
-  return bot.color.standardizeColor(propertyName, style);
+  return bot.color.standardizeColor(styleName, style);
 };
 
 
@@ -10001,36 +10027,13 @@ bot.dom.isShown = function(elem, opt_ignoreOpacity) {
   }
 
   // Elements that are hidden by overflow are not shown.
-  if (bot.dom.getOverflowState(elem) == bot.dom.OverflowState.HIDDEN) {
-    return false;
+  function hiddenByOverflow(e) {
+    return bot.dom.getOverflowState(e) == bot.dom.OverflowState.HIDDEN &&
+        goog.array.every(e.childNodes, function(n) {
+          return !bot.dom.isElement(n) || hiddenByOverflow(n);
+        });
   }
-
-  function isTransformHiding(e) {
-    var transform = bot.dom.getEffectiveStyle(e, '-o-transform') ||
-                    bot.dom.getEffectiveStyle(e, '-webkit-transform') ||
-                    bot.dom.getEffectiveStyle(e, '-ms-transform') ||
-                    bot.dom.getEffectiveStyle(e, '-moz-transform') ||
-                    bot.dom.getEffectiveStyle(e, 'transform');
-
-    // Not all browsers know what a transform is so if we have a returned value
-    // lets carry on checking up the tree just in case. If we ask for the
-    // transform matrix and look at the details there it will return the centre
-    // of the element
-    if (transform && transform !== "none") {
-      var locOfElement = goog.style.getClientPosition(e);
-      var rect = bot.dom.getClientRect(e);
-      if ((locOfElement.x + (rect.width)) >= 0 &&
-          (locOfElement.y + (rect.height)) >= 0){
-        return true;
-      } else {
-        return false;
-      }
-    } else {
-      var parent = bot.dom.getParentElement(e);
-      return !parent || isTransformHiding(parent);
-    }
-  }
-  return isTransformHiding(elem);
+  return !hiddenByOverflow(elem);
 };
 
 
@@ -10051,47 +10054,28 @@ bot.dom.OverflowState = {
 /**
  * Returns the overflow state of the given element.
  *
+ * If an optional coordinate or rectangle region is provided, returns the
+ * overflow state of that region relative to the element. A coordinate is
+ * treated as a 1x1 rectangle whose top-left corner is the coordinate.
+ *
  * @param {!Element} elem Element.
+ * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
+ *     Coordinate or rectangle relative to the top-left corner of the element.
  * @return {bot.dom.OverflowState} Overflow state of the element.
  */
-bot.dom.getOverflowState = function(elem) {
-  var elemRect = bot.dom.getClientRect(elem);
+bot.dom.getOverflowState = function(elem, opt_region) {
+  var region = bot.dom.getClientRegion(elem, opt_region);
   var ownerDoc = goog.dom.getOwnerDocument(elem);
   var htmlElem = ownerDoc.documentElement;
-  var bodyElem = ownerDoc.body
-      || htmlElem; // SVG case
+  var bodyElem = ownerDoc.body;
   var htmlOverflowStyle = bot.dom.getEffectiveStyle(htmlElem, 'overflow');
-
-  // Return the x and y overflow styles for the given element.
-  function getOverflowStyles(e) {
-    // When the <html> element has an overflow style of 'visible', it assumes
-    // the overflow style of the body, and the body is really overflow:visible.
-    var overflowElem = e;
-    if (htmlOverflowStyle == 'visible') {
-      if (e == htmlElem) {
-        overflowElem = bodyElem;
-      } else if (e == bodyElem) {
-        return {x: 'visible', y: 'visible'};
-      }
-    }
-    var overflow = {
-      x: bot.dom.getEffectiveStyle(overflowElem, 'overflow-x'),
-      y: bot.dom.getEffectiveStyle(overflowElem, 'overflow-y')
-    };
-    // The <html> element is really only ever 'auto' or 'hidden'. CSS cannot
-    // force a scrollbar (so no genuine 'scroll' style) and it cannot force the
-    // viewport to expand to the content (so no genuine 'visible' style).
-    if (e == htmlElem) {
-      overflow.x = overflow.x == 'hidden' ? 'hidden' : 'auto';
-      overflow.y = overflow.y == 'hidden' ? 'hidden' : 'auto';
-    }
-    return overflow;
-  }
+  var treatAsFixedPosition;
 
   // Return the closest ancestor that the given element may overflow.
   function getOverflowParent(e) {
     var position = bot.dom.getEffectiveStyle(e, 'position');
     if (position == 'fixed') {
+      treatAsFixedPosition = true;
       // Fixed-position element may only overflow the viewport.
       return htmlElem;
     } else {
@@ -10122,22 +10106,99 @@ bot.dom.getOverflowState = function(elem) {
     }
   }
 
+  // Return the x and y overflow styles for the given element.
+  function getOverflowStyles(e) {
+    // When the <html> element has an overflow style of 'visible', it assumes
+    // the overflow style of the body, and the body is really overflow:visible.
+    var overflowElem = e;
+    if (htmlOverflowStyle == 'visible') {
+      // Note: bodyElem will be null/undefined in SVG documents.
+      if (e == htmlElem && bodyElem) {
+        overflowElem = bodyElem;
+      } else if (e == bodyElem) {
+        return {x: 'visible', y: 'visible'};
+      }
+    }
+    var overflow = {
+      x: bot.dom.getEffectiveStyle(overflowElem, 'overflow-x'),
+      y: bot.dom.getEffectiveStyle(overflowElem, 'overflow-y')
+    };
+    // The <html> element cannot have a genuine 'visible' overflow style,
+    // because the viewport can't expand; 'visible' is really 'auto'.
+    if (e == htmlElem) {
+      overflow.x = overflow.x == 'visible' ? 'auto' : overflow.x;
+      overflow.y = overflow.y == 'visible' ? 'auto' : overflow.y;
+    }
+    return overflow;
+  }
+
+  // Returns the scroll offset of the given element.
+  function getScroll(e) {
+    if (e == htmlElem) {
+      return new goog.dom.DomHelper(ownerDoc).getDocumentScroll();
+    } else {
+      return new goog.math.Coordinate(e.scrollLeft, e.scrollTop);
+    }
+  }
+
   // Check if the element overflows any ancestor element.
   for (var container = getOverflowParent(elem);
        !!container;
        container = getOverflowParent(container)) {
-    var containerRect = bot.dom.getClientRect(container);
     var containerOverflow = getOverflowStyles(container);
 
+    // If the container has overflow:visible, the element cannot overflow it.
+    if (containerOverflow.x == 'visible' && containerOverflow.y == 'visible') {
+      continue;
+    }
+
+    var containerRect = bot.dom.getClientRect(container);
+
+    // Zero-sized containers without overflow:visible hide all descendants.
+    if (containerRect.width == 0 || containerRect.height == 0) {
+      return bot.dom.OverflowState.HIDDEN;
+    }
+
+    // Check "underflow": if an element is to the left or above the container
+    var underflowsX = region.right < containerRect.left;
+    var underflowsY = region.bottom < containerRect.top;
+    if ((underflowsX && containerOverflow.x == 'hidden') ||
+        (underflowsY && containerOverflow.y == 'hidden')) {
+      return bot.dom.OverflowState.HIDDEN;
+    } else if ((underflowsX && containerOverflow.x != 'visible') ||
+               (underflowsY && containerOverflow.y != 'visible')) {
+      // When the element is positioned to the left or above a container, we
+      // have to distinguish between the element being completely outside the
+      // container and merely scrolled out of view within the container.
+      var containerScroll = getScroll(container);
+      var unscrollableX = region.right < containerRect.left - containerScroll.x;
+      var unscrollableY = region.bottom < containerRect.top - containerScroll.y;
+      if ((unscrollableX && containerOverflow.x != 'visible') ||
+          (unscrollableY && containerOverflow.x != 'visible')) {
+        return bot.dom.OverflowState.HIDDEN;
+      }
+      var containerState = bot.dom.getOverflowState(container);
+      return containerState == bot.dom.OverflowState.HIDDEN ?
+          bot.dom.OverflowState.HIDDEN : bot.dom.OverflowState.SCROLL;
+    }
+
     // Check "overflow": if an element is to the right or below a container
-    var overflowsX = elemRect.left >= containerRect.left + containerRect.width;
-    var overflowsY = elemRect.top >= containerRect.top + containerRect.height;
+    var overflowsX = region.left >= containerRect.left + containerRect.width;
+    var overflowsY = region.top >= containerRect.top + containerRect.height;
     if ((overflowsX && containerOverflow.x == 'hidden') ||
         (overflowsY && containerOverflow.y == 'hidden')) {
-      // The element is definitely hidden by overflow.
       return bot.dom.OverflowState.HIDDEN;
     } else if ((overflowsX && containerOverflow.x != 'visible') ||
                (overflowsY && containerOverflow.y != 'visible')) {
+      // If the element has fixed position and falls outside the scrollable area
+      // of the document, then it is hidden.
+      if (treatAsFixedPosition) {
+        var docScroll = getScroll(container);
+        if ((region.left >= htmlElem.scrollWidth - docScroll.x) ||
+            (region.right >= htmlElem.scrollHeight - docScroll.y)) {
+          return bot.dom.OverflowState.HIDDEN;
+        }
+      }
       // If the element can be scrolled into view of the parent, it has a scroll
       // state; unless the parent itself is entirely hidden by overflow, in
       // which it is also hidden by overflow.
@@ -10153,11 +10214,23 @@ bot.dom.getOverflowState = function(elem) {
 
 
 /**
+ * A regular expression to match the CSS transform matrix syntax.
+ * @private {!RegExp}
+ * @const
+ */
+bot.dom.CSS_TRANSFORM_MATRIX_REGEX_ =
+    new RegExp('matrix\\(([\\d\\.\\-]+), ([\\d\\.\\-]+), ' +
+               '([\\d\\.\\-]+), ([\\d\\.\\-]+), ' +
+               '([\\d\\.\\-]+)(?:px)?, ([\\d\\.\\-]+)(?:px)?\\)');
+
+
+/**
  * Gets the client rectangle of the DOM element. It often returns the same value
  * as Element.getBoundingClientRect, but is "fixed" for various scenarios:
  * 1. Like goog.style.getClientPosition, it adjusts for the inset border in IE.
  * 2. Gets a rect for <map>'s and <area>'s relative to the image using them.
  * 3. Gets a rect for SVG elements representing their true bounding box.
+ * 4. Defines the client rect of the <html> element to be the window viewport.
  *
  * @param {!Element} elem The element to use.
  * @return {!goog.math.Rect} The interaction box of the element.
@@ -10166,45 +10239,88 @@ bot.dom.getClientRect = function(elem) {
   var imageMap = bot.dom.maybeFindImageMap_(elem);
   if (imageMap) {
     return imageMap.rect;
-  } else if (goog.isFunction(elem['getBBox'])) {
-    // Special case for SVG elements.
-    try {
-      var svgRect = elem['getBBox']();
-      return new goog.math.Rect(
-          svgRect.x, svgRect.y, svgRect.width, svgRect.height);
-    } catch (err) {
-      if (goog.userAgent.GECKO &&
-          (err.name === "NS_ERROR_FAILURE" ||
-           goog.string.contains(err.message,
-               'Component returned failure code: 0x80004005'))) {
-        // Working around https://bugzilla.mozilla.org/show_bug.cgi?id=612118
-        return new goog.math.Rect(0, 0, 0, 0);
-      } else {
-        throw err;
-      }
-    }
   } else if (bot.dom.isElement(elem, goog.dom.TagName.HTML)) {
     // Define the client rect of the <html> element to be the viewport.
     var doc = goog.dom.getOwnerDocument(elem);
     var viewportSize = goog.dom.getViewportSize(goog.dom.getWindow(doc));
     return new goog.math.Rect(0, 0, viewportSize.width, viewportSize.height);
   } else {
-    // getClientPosition accounts for inset borders on IE.
-    var pos = goog.style.getClientPosition(elem);
-    var offsetWidth = elem.offsetWidth;
-    var offsetHeight = elem.offsetHeight;
-    // Have to duplicate some code from Closure here, because it doesn't
-    // make goog.style.getSizeWithDisplay_ or getBoundingRect_ public.
-    if (goog.userAgent.WEBKIT && !offsetWidth && !offsetHeight &&
-        elem.getBoundingClientRect) {
-      // Fall back to calling getBoundingClientRect when offsetWidth or
-      // offsetHeight are undefined or are zero in WebKit browsers. This
-      // ensures we return the right size for <div>'s with display:inline.
-      var clientRect = elem.getBoundingClientRect();
-      offsetWidth = clientRect.right - clientRect.left;
-      offsetHeight = clientRect.bottom - clientRect.top;
+    var nativeRect;
+    try {
+      // TODO: in IE and Firefox, getBoundingClientRect includes stroke width,
+      // but getBBox does not.
+      nativeRect = elem.getBoundingClientRect();
+    } catch (e) {
+      // On IE < 9, calling getBoundingClientRect on an orphan element raises
+      // an "Unspecified Error". All other browsers return zeros.
+      return new goog.math.Rect(0, 0, 0, 0);
     }
-    return new goog.math.Rect(pos.x, pos.y, offsetWidth, offsetHeight);
+
+    var rect = new goog.math.Rect(nativeRect.left, nativeRect.top,
+        nativeRect.right - nativeRect.left, nativeRect.bottom - nativeRect.top);
+
+    // In IE, the element can additionally be offset by a border around the
+    // documentElement or body element that we have to subtract.
+    if (goog.userAgent.IE && elem.ownerDocument.body) {
+      var doc = goog.dom.getOwnerDocument(elem);
+      rect.left -= doc.documentElement.clientLeft + doc.body.clientLeft;
+      rect.top -= doc.documentElement.clientTop + doc.body.clientTop;
+    }
+
+    // Opera sometimes falsely report zero size bounding rects.
+    if (goog.userAgent.OPERA) {
+      if (rect.width == 0 && elem.offsetWidth > 0) {
+        rect.width = elem.offsetWidth;
+      }
+      if (rect.height == 0 && elem.offsetHeight > 0) {
+        rect.height = elem.offsetHeight;
+      }
+    }
+
+    // On Gecko < 12, getBoundingClientRect does not account for CSS transforms.
+    // TODO: Remove this when we drop support for FF3.6 and FF10.
+    if (goog.userAgent.GECKO && !bot.userAgent.isEngineVersion(12)) {
+      transformLegacyFirefoxClientRect(elem);
+    }
+
+    return rect;
+  }
+
+  function transformLegacyFirefoxClientRect(container) {
+    var win = goog.dom.getWindow(goog.dom.getOwnerDocument(container));
+    var transform = win.getComputedStyle(container, null)['MozTransform'];
+    var matches = transform.match(bot.dom.CSS_TRANSFORM_MATRIX_REGEX_);
+
+    if (matches) {
+      var a = parseFloat(matches[1]), b = parseFloat(matches[2]),
+          c = parseFloat(matches[3]), d = parseFloat(matches[4]),
+          x = parseFloat(matches[5]), y = parseFloat(matches[6]);
+      var right = rect.left + rect.width, bottom = rect.top + rect.height;
+      var leftXa = rect.left * a, rightXa = right * a,
+          leftXb = rect.left * b, rightXb = right * b,
+          topXc = rect.top * c, bottomXc = bottom * c,
+          topXd = rect.top * d, bottomXd = bottom * d;
+      var topLeftX = leftXa + topXc + x,
+          topLeftY = leftXb + topXd + y,
+          topRightX = rightXa + topXc + x,
+          topRightY = rightXb + topXd + y,
+          bottomLeftX = leftXa + bottomXc + x,
+          bottomLeftY = leftXb + bottomXd + y,
+          bottomRightX = rightXa + bottomXc + x,
+          bottomRightY = rightXb + bottomXd + y;
+      rect.left = Math.min(topLeftX, topRightX, bottomLeftX, bottomRightX);
+      rect.top = Math.min(topLeftY, topRightY, bottomLeftY, bottomRightY);
+      var newRight = Math.max(topLeftX, topRightX, bottomLeftX, bottomRightX);
+      var newBottom = Math.max(topLeftY, topRightY, bottomLeftY, bottomRightY);
+      rect.width = newRight - rect.left;
+      rect.height = newBottom - rect.top;
+    }
+
+    // The computed transform style not not take into account parent transforms.
+    var parentContainer = bot.dom.getParentElement(container);
+    if (parentContainer) {
+      transformLegacyFirefoxClientRect(parentContainer);
+    }
   }
 };
 
@@ -10237,11 +10353,11 @@ bot.dom.maybeFindImageMap_ = function(elem) {
 
     // The "//*" XPath syntax can confuse the closure compiler, so we use
     // the "/descendant::*" syntax instead.
-    // TODO(user): Try to find a reproducible case for the compiler bug.
-    // TODO(user): Restrict to applet, img, input:image, and object nodes.
+    // TODO: Try to find a reproducible case for the compiler bug.
+    // TODO: Restrict to applet, img, input:image, and object nodes.
     var imageXpath = '/descendant::*[@usemap = "#' + map.name + '"]';
 
-    // TODO(user): Break dependency of bot.locators on bot.dom,
+    // TODO: Break dependency of bot.locators on bot.dom,
     // so bot.locators.findElement can be called here instead.
     image = bot.locators.xpath.single(imageXpath, mapDoc);
 
@@ -10296,60 +10412,32 @@ bot.dom.getAreaRelativeRect_ = function(area) {
 
 
 /**
- * Checks whether the element is currently scrolled into the parent's overflow
- * region, such that the offset given, relative to the top-left corner of the
- * element, is currently in the overflow region.
+ * Gets the element's client rectangle as a box, optionally clipped to the
+ * given coordinate or rectangle relative to the client's position. A coordinate
+ * is treated as a 1x1 rectangle whose top-left corner is the coordinate.
  *
- * @param {!Element} element The element to check.
- * @param {!goog.math.Coordinate=} opt_coords Coordinate in the element,
- *     relative to the top-left corner of the element, to check. If none are
- *     specified, checks that the center of the element is in in the overflow.
- * @return {boolean} Whether the coordinates specified, relative to the element,
- *     are scrolled in the parent overflow.
+ * @param {!Element} elem The element.
+ * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
+ *     Coordinate or rectangle relative to the top-left corner of the element.
+ * @return {!goog.math.Box} The client region box.
  */
-bot.dom.isInParentOverflow = function(element, opt_coords) {
-  var parent = goog.style.getOffsetParent(element);
-  var parentNode = goog.userAgent.GECKO || goog.userAgent.IE ||
-      goog.userAgent.OPERA ? bot.dom.getParentElement(element) : parent;
+bot.dom.getClientRegion = function(elem, opt_region) {
+  var region = bot.dom.getClientRect(elem).toBox();
 
-  // Gecko will skip the BODY tag when calling getOffsetParent. However, the
-  // combination of the overflow values on the BODY _and_ HTML tags determine
-  // whether scroll bars are shown, so we need to guarantee that both values
-  // are checked.
-  if ((goog.userAgent.GECKO || goog.userAgent.IE || goog.userAgent.OPERA) &&
-      bot.dom.isElement(parentNode, goog.dom.TagName.BODY)) {
-    parent = parentNode;
+  if (opt_region) {
+    var rect = opt_region instanceof goog.math.Rect ? opt_region :
+        new goog.math.Rect(opt_region.x, opt_region.y, 1, 1);
+    region.left = goog.math.clamp(
+        region.left + rect.left, region.left, region.right);
+    region.top = goog.math.clamp(
+        region.top + rect.top, region.top, region.bottom);
+    region.right = goog.math.clamp(
+        region.left + rect.width, region.left, region.right);
+    region.bottom = goog.math.clamp(
+        region.top + rect.height, region.top, region.bottom);
   }
 
-  if (parent && (bot.dom.getEffectiveStyle(parent, 'overflow') == 'scroll' ||
-                 bot.dom.getEffectiveStyle(parent, 'overflow') == 'auto')) {
-    var parentRect = bot.dom.getClientRect(parent);
-    var elementRect = bot.dom.getClientRect(element);
-    var offsetX, offsetY;
-    if (opt_coords) {
-      offsetX = opt_coords.x;
-      offsetY = opt_coords.y;
-    } else {
-      offsetX = elementRect.width / 2;
-      offsetY = elementRect.height / 2;
-    }
-    var elementPointX = elementRect.left + offsetX;
-    var elementPointY = elementRect.top + offsetY;
-    if (elementPointX >= parentRect.left + parentRect.width) {
-      return true;
-    }
-    if (elementPointX <= parentRect.left) {
-      return true;
-    }
-    if (elementPointY >= parentRect.top + parentRect.height) {
-      return true;
-    }
-    if (elementPointY <= parentRect.top) {
-      return true;
-    }
-    return bot.dom.isInParentOverflow(parent);
-  }
-  return false;
+  return region;
 };
 
 
@@ -10395,7 +10483,7 @@ bot.dom.appendVisibleTextLinesFromElement_ = function(elem, lines) {
     return /** @type {string|undefined} */ (goog.array.peek(lines)) || '';
   }
 
-  // TODO(user): Add case here for textual form elements.
+  // TODO: Add case here for textual form elements.
   if (bot.dom.isElement(elem, goog.dom.TagName.BR)) {
     lines.push('');
   } else {
@@ -10413,7 +10501,7 @@ bot.dom.appendVisibleTextLinesFromElement_ = function(elem, lines) {
     var previousElementSibling = goog.dom.getPreviousElementSibling(elem);
     var prevDisplay = (previousElementSibling) ?
         bot.dom.getEffectiveStyle(previousElementSibling, 'display') : '';
-    // TODO(dawagner): getEffectiveStyle should mask this for us
+    // TODO: getEffectiveStyle should mask this for us
     var thisFloat = bot.dom.getEffectiveStyle(elem, 'float') ||
         bot.dom.getEffectiveStyle(elem, 'cssFloat') ||
         bot.dom.getEffectiveStyle(elem, 'styleFloat');
@@ -10493,9 +10581,14 @@ bot.dom.INLINE_DISPLAY_BOXES_ = [
  */
 bot.dom.appendVisibleTextLinesFromTextNode_ = function(textNode, lines,
     whitespace, textTransform) {
-  // First, replace all zero-width spaces. Do this before regularizing spaces
-  // as the zero-width space is, by definition, a space.
-  var text = textNode.nodeValue.replace(/\u200b/g, '');
+  // First, remove zero-width characters. Do this before regularizing spaces as
+  // the zero-width space is both zero-width and a space, but we do not want to
+  // make it visible by converting it to a regular space.
+  // The replaced characters are:
+  //   U+200B: Zero-width space
+  //   U+200E: Left-to-right mark
+  //   U+200F: Right-to-left mark
+  var text = textNode.nodeValue.replace(/[\u200b\u200e\u200f]/g, '');
 
   // Canonicalize the new lines, and then collapse new lines
   // for the whitespace styles that collapse. See:
@@ -10542,7 +10635,7 @@ bot.dom.appendVisibleTextLinesFromTextNode_ = function(textNode, lines,
  * @return {number} Opacity between 0 and 1.
  */
 bot.dom.getOpacity = function(elem) {
-  // TODO(bsilverberg): Does this need to deal with rgba colors?
+  // TODO: Does this need to deal with rgba colors?
   if (!bot.userAgent.IE_DOC_PRE10) {
     return bot.dom.getOpacityNonIE_(elem);
   } else {
@@ -10589,286 +10682,6 @@ bot.dom.getOpacityNonIE_ = function(elem) {
   }
   return elemOpacity;
 };
-
-
-/**
- * This function calculates the amount of scrolling necessary to bring the
- * target location into view.
- *
- * @param {number} targetLocation The target location relative to the current
- *     viewport.
- * @param {number} viewportDimension The size of the current viewport.
- * @return {number} Returns the scroll offset necessary to bring the given
- *     target location into view.
- * @private
- */
-bot.dom.calculateViewportScrolling_ =
-    function(targetLocation, viewportDimension) {
-
-  if (targetLocation >= viewportDimension) {
-    // Scroll until the target location appears on the right/bottom side of
-    // the viewport.
-    return targetLocation - (viewportDimension - 1);
-  }
-
-  if (targetLocation < 0) {
-    // Scroll until the target location appears on the left/top side of the
-    // viewport.
-    return targetLocation;
-  }
-
-  // The location is already within the viewport. No scrolling necessary.
-  return 0;
-};
-
-
-/**
- * This function takes a relative location according to the current viewport. If
- * this location is not visible in the viewport, it scrolls the location into
- * view. The function returns the new relative location after scrolling.
- *
- * @param {!goog.math.Coordinate} targetLocation The target location relative
- *     to (0, 0) coordinate of the viewport.
- * @param {Window=} opt_currentWindow The current browser window.
- * @return {!goog.math.Coordinate} The target location within the viewport
- *     after scrolling.
- */
-bot.dom.getInViewLocation =
-    function(targetLocation, opt_currentWindow) {
-  var currentWindow = opt_currentWindow || bot.getWindow();
-  var viewportSize = goog.dom.getViewportSize(currentWindow);
-
-  var xScrolling = bot.dom.calculateViewportScrolling_(
-      targetLocation.x,
-      viewportSize.width);
-
-  var yScrolling = bot.dom.calculateViewportScrolling_(
-      targetLocation.y,
-      viewportSize.height);
-
-  var scrollOffset =
-      goog.dom.getDomHelper(currentWindow.document).getDocumentScroll();
-
-  if (xScrolling != 0 || yScrolling != 0) {
-    currentWindow.scrollBy(xScrolling, yScrolling);
-  }
-
-  // It is difficult to determine the size of the web page in some browsers.
-  // We check if the scrolling we intended to do really happened. If not we
-  // assume that the target location is not on the web page.
-  var newScrollOffset =
-      goog.dom.getDomHelper(currentWindow.document).getDocumentScroll();
-
-  if ((scrollOffset.x + xScrolling != newScrollOffset.x) ||
-      (scrollOffset.y + yScrolling != newScrollOffset.y)) {
-    throw new bot.Error(bot.ErrorCode.MOVE_TARGET_OUT_OF_BOUNDS,
-        'The target location (' + (targetLocation.x + scrollOffset.x) +
-        ', ' + (targetLocation.y + scrollOffset.y) + ') is not on the ' +
-        'webpage.');
-  }
-
-  var inViewLocation = new goog.math.Coordinate(
-      targetLocation.x - xScrolling,
-      targetLocation.y - yScrolling);
-
-  // The target location should be within the viewport after scrolling.
-  // This is assertion code. We do not expect them ever to become true.
-  if (0 > inViewLocation.x || inViewLocation.x >= viewportSize.width) {
-    throw new bot.Error(bot.ErrorCode.MOVE_TARGET_OUT_OF_BOUNDS,
-        'The target location (' +
-        inViewLocation.x + ', ' + inViewLocation.y +
-        ') should be within the viewport (' +
-        viewportSize.width + ':' + viewportSize.height +
-        ') after scrolling.');
-  }
-
-  if (0 > inViewLocation.y || inViewLocation.y >= viewportSize.height) {
-    throw new bot.Error(bot.ErrorCode.MOVE_TARGET_OUT_OF_BOUNDS,
-        'The target location (' +
-        inViewLocation.x + ', ' + inViewLocation.y +
-        ') should be within the viewport (' +
-        viewportSize.width + ':' + viewportSize.height +
-        ') after scrolling.');
-  }
-
-  return inViewLocation;
-};
-
-
-/**
- * Scrolls the scrollable element so that the region is fully visible.
- * If the region is too large, it will be aligned to the top-left of the
- * scrollable element. The region should be relative to the scrollable
- * element's current scroll position.
- *
- * @param {!goog.math.Rect} region The region to use.
- * @param {!Element} scrollable The scrollable element to scroll.
- * @private
- */
-bot.dom.scrollRegionIntoView_ = function(region, scrollable) {
-  scrollable.scrollLeft += Math.min(
-      region.left, Math.max(region.left - region.width, 0));
-  scrollable.scrollTop += Math.min(
-      region.top, Math.max(region.top - region.height, 0));
-};
-
-
-/**
- * Scrolls the region of an element into the container's view. If the
- * region is too large to fit in the view, it will be aligned to the
- * top-left of the container.
- *
- * The element and container should be attached to the current document.
- *
- * @param {!Element} elem The element to use.
- * @param {!goog.math.Rect} elemRegion The region relative to the element to be
- *     scrolled into view.
- * @param {!Element} container A container of the given element.
- * @private
- */
-bot.dom.scrollElementRegionIntoContainerView_ = function(elem, elemRegion,
-                                                         container) {
-  // Based largely from goog.style.scrollIntoContainerView.
-  var elemPos = goog.style.getPageOffset(elem);
-  var containerPos = goog.style.getPageOffset(container);
-  var containerBorder = goog.style.getBorderBox(container);
-
-  // Relative pos. of the element's border box to the container's content box.
-  var relX = elemPos.x + elemRegion.left - containerPos.x -
-             containerBorder.left;
-  var relY = elemPos.y + elemRegion.top - containerPos.y - containerBorder.top;
-
-  // How much the element can move in the container.
-  var spaceX = container.clientWidth - elemRegion.width;
-  var spaceY = container.clientHeight - elemRegion.height;
-
-  bot.dom.scrollRegionIntoView_(new goog.math.Rect(relX, relY, spaceX, spaceY),
-                                container);
-};
-
-
-/**
- * Scrolls the element into the client's view. If the element or region is
- * too large to fit in the view, it will be aligned to the top-left of the
- * container.
- *
- * The element should be attached to the current document.
- *
- * @param {!Element} elem The element to use.
- * @param {!goog.math.Rect} elemRegion The region relative to the element to be
- *     scrolled into view.
- */
-bot.dom.scrollElementRegionIntoClientView = function(elem, elemRegion) {
-  var doc = goog.dom.getOwnerDocument(elem);
-
-  // Scroll the containers.
-  for (var container = bot.dom.getParentElement(elem);
-       container && container != doc.body && container != doc.documentElement;
-       container = bot.dom.getParentElement(container)) {
-    bot.dom.scrollElementRegionIntoContainerView_(elem, elemRegion, container);
-  }
-
-  // Scroll the actual window.
-  var elemPageOffset = goog.style.getPageOffset(elem);
-
-  var viewportSize = goog.dom.getDomHelper(doc).getViewportSize();
-
-  var region = new goog.math.Rect(
-      elemPageOffset.x + elemRegion.left - (doc.body ? doc.body.scrollLeft : 0),
-      elemPageOffset.y + elemRegion.top - (doc.body ? doc.body.scrollTop : 0),
-      viewportSize.width - elemRegion.width,
-      viewportSize.height - elemRegion.height);
-
-  bot.dom.scrollRegionIntoView_(region, doc.body || doc.documentElement);
-};
-
-
-/**
- * Scrolls the element into the client's view and returns its position
- * relative to the client viewport. If the element or region is too
- * large to fit in the view, it will be aligned to the top-left of the
- * container.
- *
- * The element should be attached to the current document.
- *
- * @param {!Element} elem The element to use.
- * @param {!goog.math.Rect=} opt_elemRegion The region relative to the element
- *     to be scrolled into view.
- * @return {!goog.math.Coordinate} The coordinate of the element in client
- *     space.
- */
-bot.dom.getLocationInView = function(elem, opt_elemRegion) {
-  var elemRegion;
-  if (opt_elemRegion) {
-    elemRegion = new goog.math.Rect(
-        opt_elemRegion.left, opt_elemRegion.top,
-        opt_elemRegion.width, opt_elemRegion.height);
-  } else {
-    elemRegion = new goog.math.Rect(0, 0, elem.offsetWidth, elem.offsetHeight);
-  }
-  bot.dom.scrollElementRegionIntoClientView(elem, elemRegion);
-
-  // This is needed for elements that are split across multiple lines.
-  var rect = elem.getClientRects ? elem.getClientRects()[0] : null;
-  var elemClientPos = rect ?
-      new goog.math.Coordinate(rect.left, rect.top) :
-      bot.dom.getClientRect(elem);
-  return new goog.math.Coordinate(elemClientPos.x + elemRegion.left,
-                                  elemClientPos.y + elemRegion.top);
-};
-
-
-/**
- * Checks whether the element is currently scrolled in to view, such that the
- * offset given, relative to the top-left corner of the element, is currently
- * displayed in the viewport.
- *
- * @param {!Element} element The element to check.
- * @param {!goog.math.Coordinate=} opt_coords Coordinate in the element,
- *     relative to the top-left corner of the element, to check. If none are
- *     specified, checks that any part of the element is in view.
- * @return {boolean} Whether the coordinates specified, relative to the element,
- *     are scrolled in to view.
- */
-bot.dom.isScrolledIntoView = function(element, opt_coords) {
-  var ownerWindow = goog.dom.getWindow(goog.dom.getOwnerDocument(element));
-  var topWindow = ownerWindow.top;
-  var elSize = goog.style.getSize(element);
-
-  for (var win = ownerWindow;; win = win.parent) {
-    var scroll = goog.dom.getDomHelper(win.document).getDocumentScroll();
-    var size = goog.dom.getViewportSize(win);
-    var viewportRect = new goog.math.Rect(scroll.x,
-                                          scroll.y,
-                                          size.width,
-                                          size.height);
-
-    var elCoords = goog.style.getFramedPageOffset(element, win);
-    var elementRect = new goog.math.Rect(elCoords.x,
-                                         elCoords.y,
-                                         elSize.width,
-                                         elSize.height);
-    if (!goog.math.Rect.intersects(viewportRect, elementRect)) {
-      return false;
-    }
-    if (win == topWindow) {
-      break;
-    }
-  }
-
-  var visibleBox = goog.style.getVisibleRectForElement(element);
-  if (!visibleBox) {
-    return false;
-  }
-  if (opt_coords) {
-    var elementOffset = goog.style.getPageOffset(element);
-    var desiredPoint = goog.math.Coordinate.sum(elementOffset, opt_coords);
-    return visibleBox.contains(desiredPoint);
-  } else {
-    var elementBox = goog.style.getBounds(element).toBox();
-    return goog.math.Box.intersects(visibleBox, elementBox);
-  }
-};
 // Copyright 2010 WebDriver committers
 // Copyright 2010 Google Inc.
 //
@@ -10903,14 +10716,10 @@ goog.require('bot.Touchscreen');
 goog.require('bot.dom');
 goog.require('bot.events');
 goog.require('bot.events.EventType');
-goog.require('bot.userAgent');
 goog.require('goog.array');
-goog.require('goog.dom');
 goog.require('goog.math.Coordinate');
-goog.require('goog.math.Rect');
 goog.require('goog.math.Vec2');
 goog.require('goog.style');
-goog.require('goog.userAgent');
 
 
 /**
@@ -11008,8 +10817,16 @@ bot.action.focusOnElement = function(element) {
  */
 bot.action.type = function(
     element, values, opt_keyboard, opt_persistModifiers) {
-  bot.action.checkShown_(element);
-  bot.action.checkInteractable_(element);
+  // If the element has already been brought into focus somewhow, typing is
+  // always allowed to proceed. Otherwise, we require the element be in an
+  // "interactable" state. For example, an element that is hidden by overflow
+  // can be typed on, so long as the user first tabs to it or the app calls
+  // focus() on the element first.
+  if (element != bot.dom.getActiveElement(element)) {
+    bot.action.checkInteractable_(element);
+    bot.action.scrollIntoView(element);
+  }
+
   var keyboard = opt_keyboard || new bot.Keyboard();
   keyboard.moveCursor(element);
 
@@ -11028,7 +10845,7 @@ bot.action.type = function(
         }
       });
     } else if (goog.array.contains(bot.Keyboard.MODIFIERS, value)) {
-      if (keyboard.isPressed(value)) {
+      if (keyboard.isPressed(/** @type {!bot.Keyboard.Key} */ (value))) {
         keyboard.releaseKey(value);
       } else {
         keyboard.pressKey(value);
@@ -11422,14 +11239,9 @@ bot.action.multiTouchAction_ = function(element, transformStart, transformHalf,
  */
 bot.action.prepareToInteractWith_ = function(element, opt_coords) {
   bot.action.checkShown_(element);
+  bot.action.scrollIntoView(element, opt_coords || undefined);
 
-  // Unlike element.scrollIntoView(), this scrolls the minimal amount
-  // necessary, not scrolling at all if the element is already in view.
-  var doc = goog.dom.getOwnerDocument(element);
-  goog.style.scrollIntoContainerView(element,
-      goog.userAgent.WEBKIT ? doc.body : doc.documentElement);
-
-  // NOTE(user): Ideally, we would check that any provided coordinates fall
+  // NOTE: Ideally, we would check that any provided coordinates fall
   // within the bounds of the element, but this has proven difficult, because:
   // (1) Browsers sometimes lie about the true size of elements, e.g. when text
   // overflows the bounding box of an element, browsers report the size of the
@@ -11514,57 +11326,61 @@ bot.action.LegacyDevice_.findAncestorForm = function(element) {
  * Scrolls the given {@code element} in to the current viewport. Aims to do the
  * minimum scrolling necessary, but prefers too much scrolling to too little.
  *
+ * If an optional coordinate or rectangle region is provided, scrolls that
+ * region relative to the element into view. A coordinate is treated as a 1x1
+ * region whose top-left corner is positioned at that coordinate.
+ *
  * @param {!Element} element The element to scroll in to view.
- * @param {!goog.math.Coordinate=} opt_coords Offset relative to the top-left
- *     corner of the element, to ensure is scrolled in to view.
+ * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
+ *     Region relative to the top-left corner of the element.
  * @return {boolean} Whether the element is in view after scrolling.
  */
-bot.action.scrollIntoView = function(element, opt_coords) {
-  if (!bot.dom.isScrolledIntoView(element, opt_coords)) {
-    // Some elements may not have a scrollIntoView function - for example,
-    // elements under an SVG element. Call those only if they exist.
-    if (element.scrollIntoView) {
-      element.scrollIntoView();
-    }
-    // In Opera 10, scrollIntoView only scrolls the element into the viewport of
-    // its immediate parent window, so we explicitly scroll the ancestor frames
-    // into view of their respective windows. Note that scrolling the top frame
-    // first --- and so on down to the element itself --- does not work, because
-    // Opera 10 apparently treats element.scrollIntoView() as a noop when it
-    // immediately follows a scrollIntoView() call on its parent frame.
-    if (goog.userAgent.OPERA && !bot.userAgent.isEngineVersion(11)) {
-      var win = goog.dom.getWindow(goog.dom.getOwnerDocument(element));
-      for (var frame = win.frameElement; frame; frame = win.frameElement) {
-        frame.scrollIntoView();
-        win = goog.dom.getWindow(goog.dom.getOwnerDocument(frame));
-      }
-    }
+bot.action.scrollIntoView = function(element, opt_region) {
+  // If the element is already in view, return true; if hidden, return false.
+  var overflow = bot.dom.getOverflowState(element, opt_region);
+  if (overflow != bot.dom.OverflowState.SCROLL) {
+    return overflow == bot.dom.OverflowState.NONE;
   }
-  if (opt_coords) {
-    var rect = new goog.math.Rect(opt_coords.x, opt_coords.y, 1, 1);
-    bot.dom.scrollElementRegionIntoClientView(element, rect);
-  }
-  var isInView = bot.dom.isScrolledIntoView(element, opt_coords);
-  if (!isInView && opt_coords) {
-    // It's possible that the element has been scrolled in to view, but the
-    // coords passed aren't in view; if this is the case, scroll those
-    // coordinates into view.
-    var elementRect = bot.dom.getClientRect(element);
-    var desiredPointInViewport = goog.math.Coordinate.sum(
-        new goog.math.Coordinate(elementRect.left, elementRect.top),
-        opt_coords);
-    try {
-      bot.dom.getInViewLocation(
-          desiredPointInViewport,
-          goog.dom.getWindow(goog.dom.getOwnerDocument(element)));
-      isInView = true;
-    } catch (ex) {
-      // Point couldn't be scrolled into view.
-      isInView = false;
+
+  // Some elements may not have a scrollIntoView function - for example,
+  // elements under an SVG element. Call those only if they exist.
+  if (element.scrollIntoView) {
+    element.scrollIntoView();
+    if (bot.dom.OverflowState.NONE ==
+        bot.dom.getOverflowState(element, opt_region)) {
+      return true;
     }
   }
 
-  return isInView;
+  // There may have not been a scrollIntoView function, or the specified
+  // coordinate may not be in view, so scroll "manually".
+  var region = bot.dom.getClientRegion(element, opt_region);
+  for (var container = bot.dom.getParentElement(element);
+       container;
+       container = bot.dom.getParentElement(container)) {
+    scrollClientRegionIntoContainerView(container);
+  }
+  return bot.dom.OverflowState.NONE ==
+      bot.dom.getOverflowState(element, opt_region);
+
+  function scrollClientRegionIntoContainerView(container) {
+    // Based largely from goog.style.scrollIntoContainerView.
+    var containerRect = bot.dom.getClientRect(container);
+    var containerBorder = goog.style.getBorderBox(container);
+
+    // Relative position of the region to the container's content box.
+    var relX = region.left - containerRect.left - containerBorder.left;
+    var relY = region.top - containerRect.top - containerBorder.top;
+
+    // How much the region can move in the container. Use the container's
+    // clientWidth/Height, not containerRect, to account for the scrollbar.
+    var spaceX = container.clientWidth + region.left - region.right;
+    var spaceY = container.clientHeight + region.top - region.bottom;
+
+    // Scroll the element into view of the container.
+    container.scrollLeft += Math.min(relX, Math.max(relX - spaceX, 0));
+    container.scrollTop += Math.min(relY, Math.max(relY - spaceY, 0));
+  }
 };
 // Copyright 2010 WebDriver committers
 // Copyright 2010 Google Inc.
@@ -11587,7 +11403,7 @@ bot.action.scrollIntoView = function(element, opt_coords) {
  * Instead, it is intended to be used in its compiled form when injecting
  * script from another language (e.g. C++).
  *
- * TODO(jleyba): Add an example
+ * TODO: Add an example
  */
 
 goog.provide('bot.inject');
@@ -11707,12 +11523,11 @@ bot.inject.wrapValue = function(value) {
  * @param {Document=} opt_doc The document whose cache to retrieve wrapped
  *     elements from. Defaults to the current document.
  * @return {*} The unwrapped value.
- * @private
  */
-bot.inject.unwrapValue_ = function(value, opt_doc) {
+bot.inject.unwrapValue = function(value, opt_doc) {
   if (goog.isArray(value)) {
     return goog.array.map(/**@type {goog.array.ArrayLike}*/ (value),
-        function(v) { return bot.inject.unwrapValue_(v, opt_doc); });
+        function(v) { return bot.inject.unwrapValue(v, opt_doc); });
   } else if (goog.isObject(value)) {
     if (typeof value == 'function') {
       return value;
@@ -11729,7 +11544,7 @@ bot.inject.unwrapValue_ = function(value, opt_doc) {
     }
 
     return goog.object.map(value, function(val) {
-      return bot.inject.unwrapValue_(val, opt_doc);
+      return bot.inject.unwrapValue(val, opt_doc);
     });
   }
   return value;
@@ -11784,7 +11599,8 @@ bot.inject.recompileFunction_ = function(fn, theWindow) {
  * @param {!(Function|string)} fn Either the function to execute, or a string
  *     defining the body of an anonymous function that should be executed. This
  *     function should only contain references to symbols defined in the context
- *     of the current window.
+ *     of the target window ({@code opt_window}). Any references to symbols
+ *     defined in this context will likely generate a ReferenceError.
  * @param {Array.<*>} args An array of wrapped script arguments, as defined by
  *     the WebDriver wire protocol.
  * @param {boolean=} opt_stringify Whether the result should be returned as a
@@ -11800,7 +11616,7 @@ bot.inject.executeScript = function(fn, args, opt_stringify, opt_window) {
   var ret;
   try {
     fn = bot.inject.recompileFunction_(fn, win);
-    var unwrappedArgs = /**@type {Object}*/ (bot.inject.unwrapValue_(args,
+    var unwrappedArgs = /**@type {Object}*/ (bot.inject.unwrapValue(args,
         win.document));
     ret = bot.inject.wrapResponse(fn.apply(null, unwrappedArgs));
   } catch (ex) {
@@ -11829,8 +11645,11 @@ bot.inject.executeScript = function(fn, args, opt_stringify, opt_window) {
  * from an external source. It handles wrapping and unwrapping of input/output
  * values.
  *
- * @param {(function()|string)} fn Either the function to execute, or a string
- *     defining the body of an anonymous function that should be executed.
+ * @param {(!Function|string)} fn Either the function to execute, or a string
+ *     defining the body of an anonymous function that should be executed. This
+ *     function should only contain references to symbols defined in the context
+ *     of the target window ({@code opt_window}). Any references to symbols
+ *     defined in this context will likely generate a ReferenceError.
  * @param {Array.<*>} args An array of wrapped script arguments, as defined by
  *     the WebDriver wire protocol.
  * @param {number} timeout The amount of time, in milliseconds, the script
@@ -11878,7 +11697,7 @@ bot.inject.executeAsyncScript = function(fn, args, timeout, onDone,
 
   fn = bot.inject.recompileFunction_(fn, win);
 
-  args = /** @type {Array.<*>} */ (bot.inject.unwrapValue_(args, win.document));
+  args = /** @type {Array.<*>} */ (bot.inject.unwrapValue(args, win.document));
   args.push(goog.partial(sendResponse, bot.ErrorCode.SUCCESS));
 
   if (win.addEventListener) {
@@ -11935,11 +11754,11 @@ bot.inject.wrapResponse = function(value) {
  * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol#Failed_Commands
  */
 bot.inject.wrapError = function(err) {
-  // TODO(user): Parse stackTrace
+  // TODO: Parse stackTrace
   return {
     'status': goog.object.containsKey(err, 'code') ?
         err['code'] : bot.ErrorCode.UNKNOWN_ERROR,
-    // TODO(user): Parse stackTrace
+    // TODO: Parse stackTrace
     'value': {
       'message': err.message
     }
@@ -12082,6 +11901,7 @@ goog.require('bot.Error');
 goog.require('bot.ErrorCode');
 goog.require('bot.events');
 goog.require('bot.userAgent');
+goog.require('goog.dom');
 goog.require('goog.dom.DomHelper');
 goog.require('goog.math.Coordinate');
 goog.require('goog.math.Size');
@@ -12277,7 +12097,7 @@ bot.window.getFrame_ = function(win) {
 bot.window.getSize = function(opt_win) {
   var win = opt_win || bot.getWindow();
   var frame = bot.window.getFrame_(win);
-  if (bot.userAgent.ANDROID_PRE_GINGERBREAD) {
+  if (bot.userAgent.ANDROID_PRE_ICECREAMSANDWICH) {
     if (frame) {
       // Early Android browsers do not account for border width.
       var box = goog.style.getBorderBox(frame);
@@ -12378,13 +12198,54 @@ bot.window.getPosition = function(opt_win) {
 /**
  * Set the position of the window.
  *
- * @param {!goog.math.Coordinate} targetPosition The target position.
+ * @param {!goog.math.Coordinate} position The target position.
  * @param {!Window=} opt_win Window to set the position of. Defaults to
  *   bot.getWindow().
  */
-bot.window.setPosition = function(targetPosition, opt_win) {
+bot.window.setPosition = function(position, opt_win) {
   var win = opt_win || bot.getWindow();
-  win.moveTo(targetPosition.x, targetPosition.y);
+  win.moveTo(position.x, position.y);
+};
+
+
+/**
+ * Scrolls the given position into the viewport, using the minimal amount of
+ * scrolling necessary to being the coordinate into view.
+ *
+ * @param {!goog.math.Coordinate} position The position to scroll into view.
+ * @param {!Window=} opt_win Window to apply position to. Defaults to
+ *   bot.getWindow().
+ */
+bot.window.scrollIntoView = function(position, opt_win) {
+  var win = opt_win || bot.getWindow();
+  var viewport = goog.dom.getViewportSize(win);
+  var scroll = bot.window.getScroll(win);
+
+  // Scroll the minimal amount to bring the position into view.
+  var targetScroll = new goog.math.Coordinate(
+      newScrollDim(position.x, scroll.x, viewport.width),
+      newScrollDim(position.y, scroll.y, viewport.height));
+  if (!goog.math.Coordinate.equals(targetScroll, scroll)) {
+    bot.window.setScroll(targetScroll, win);
+  }
+
+  // It is difficult to determine the size of the web page in some browsers.
+  // We check if the scrolling we intended to do really happened. If not we
+  // assume that the target location is not on the web page.
+  if (!goog.math.Coordinate.equals(targetScroll, bot.window.getScroll(win))) {
+    throw new bot.Error(bot.ErrorCode.MOVE_TARGET_OUT_OF_BOUNDS,
+        'The target scroll location ' + targetScroll + ' is not on the page.');
+  }
+
+  function newScrollDim(positionDim, scrollDim, viewportDim) {
+    if (positionDim < scrollDim) {
+      return positionDim;
+    } else if (positionDim >= scrollDim + viewportDim) {
+      return positionDim - viewportDim + 1;
+    } else {
+      return scrollDim;
+    }
+  }
 };
 
 
@@ -13492,7 +13353,7 @@ bot.events.isSynthetic = function(event) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO(simon): Add support for using sizzle to locate elements
+// TODO: Add support for using sizzle to locate elements
 
 goog.provide('bot.locators.css');
 
@@ -13674,7 +13535,7 @@ goog.require('wgxpath');
  * @see http://www.w3.org/TR/DOM-Level-3-XPath/xpath.html#XPathResult
  * @private
  */
-// TODO(berrada): Move this enum back to bot.locators.xpath namespace.
+// TODO: Move this enum back to bot.locators.xpath namespace.
 // The problem is that we alias bot.locators.xpath in locators.js, while
 // we set the flag --collapse_properties (http://goo.gl/5W6cP).
 // The compiler should have thrown the error anyways, it's a bug that it fails
@@ -13714,7 +13575,7 @@ bot.locators.xpath.evaluate_ = function(node, path, resultType) {
   var doc = goog.dom.getOwnerDocument(node);
 
   // Let the wgxpath library be compiled away unless we are on IE or Android.
-  // TODO(user): Restrict this to just IE when we drop support for Froyo.
+  // TODO: Restrict this to just IE when we drop support for Froyo.
   if (goog.userAgent.IE || goog.userAgent.product.ANDROID) {
     wgxpath.install(goog.dom.getWindow(doc));
   }
@@ -14515,11 +14376,11 @@ bot.storage.database.executeSql = function(databaseName, query, args,
   var queryCallback = function(tx, result) {
     var wrappedResult = new bot.storage.database.ResultSet(result);
     queryResultCallback(tx, wrappedResult);
-  }
+  };
 
   var transactionCallback = function(tx) {
     tx.executeSql(query, args, queryCallback, opt_queryErrorCallback);
-  }
+  };
 
   db.transaction(transactionCallback, txErrorCallback,
       opt_txSuccessCallback);
@@ -15067,10 +14928,9 @@ goog.provide('webdriver.atoms.element');
 goog.require('bot.Keyboard.Keys');
 goog.require('bot.action');
 goog.require('bot.dom');
-goog.require('goog.dom');
+goog.require('goog.array');
 goog.require('goog.dom.TagName');
-goog.require('goog.math');
-goog.require('goog.string');
+goog.require('goog.math.Coordinate');
 goog.require('goog.style');
 goog.require('webdriver.Key');
 
@@ -15252,6 +15112,27 @@ webdriver.atoms.element.getLocation = function(element) {
     return null;
   }
   return goog.style.getBounds(element);
+};
+
+
+/**
+ * Scrolls the element into the client's view and returns its position
+ * relative to the client viewport. If the element or region is too
+ * large to fit in the view, it will be aligned to the top-left of the
+ * container.
+ *
+ * The element should be attached to the current document.
+ *
+ * @param {!Element} elem The element to use.
+ * @param {!goog.math.Rect=} opt_elemRegion The region relative to the element
+ *     to be scrolled into view.
+ * @return {!goog.math.Coordinate} The coordinate of the element in client
+ *     space.
+ */
+webdriver.atoms.element.getLocationInView = function(elem, opt_elemRegion) {
+  bot.action.scrollIntoView(elem, opt_elemRegion);
+  var region = bot.dom.getClientRegion(elem, opt_elemRegion);
+  return new goog.math.Coordinate(region.left, region.top);
 };
 
 
@@ -15462,7 +15343,6 @@ goog.provide('webdriver.atoms.inputs');
 goog.require('bot.Keyboard');
 goog.require('bot.Mouse');
 goog.require('bot.action');
-goog.require('goog.array');
 goog.require('goog.dom');
 goog.require('goog.math.Coordinate');
 goog.require('goog.style');
@@ -15475,11 +15355,12 @@ goog.require('webdriver.atoms.element');
  * @param {Element} element The element to send the keyboard input to, or
  *     {@code null} to use the document's active element.
  * @param {!Array.<string>} keys The keys to type on the element.
- * @param {Array.<!bot.Keyboard.Key>=} opt_state The keyboard to use, or
- *     construct one.
+ * @param {{currentPos: number, pressed: !Array.<!bot.Keyboard.Key>}=} opt_state
+ *     The predefined keyboard state to use.
  * @param {boolean=} opt_persistModifiers Whether modifier keys should remain
  *     pressed when this function ends.
- * @return {Array.<!bot.Keyboard.Key>} The keyboard state.
+ * @return {{currentPos: number, pressed: !Array.<!bot.Keyboard.Key>}} The
+ *     keyboard state.
  */
 webdriver.atoms.inputs.sendKeys = function(
     element, keys, opt_state, opt_persistModifiers) {
@@ -16028,6 +15909,7 @@ webdriver.atoms.inject.storage.database.executeSql =
 goog.provide('webdriver.atoms.inject.dom');
 
 goog.require('bot.dom');
+goog.require('bot.userAgent');
 goog.require('webdriver.atoms.element');
 goog.require('webdriver.atoms.inject');
 
@@ -16035,60 +15917,81 @@ goog.require('webdriver.atoms.inject');
 /**
  * Gets the visisble text for the given element.
  * @param {{bot.inject.ELEMENT_KEY: string}} element The element to query.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} The visible text wrapped in a JSON string as defined by the
  *     WebDriver wire protocol.
  */
-webdriver.atoms.inject.dom.getText = function(element) {
-  return webdriver.atoms.inject.executeScript(bot.dom.getVisibleText,
-      [element]);
+webdriver.atoms.inject.dom.getText = function(element, opt_window) {
+  return webdriver.atoms.inject.dom.executeDomFunction_(
+      bot.dom.getVisibleText, [element], opt_window);
 };
 
 
 /**
  * @param {{bot.inject.ELEMENT_KEY: string}} element The element to query.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} A boolean describing whether the element is
  *     checked or selected wrapped in a JSON string as defined by
  *     the wire protocol.
  */
-webdriver.atoms.inject.dom.isSelected = function(element) {
-  return webdriver.atoms.inject.executeScript(bot.dom.isSelected, [element]);
+webdriver.atoms.inject.dom.isSelected = function(element, opt_window) {
+  return webdriver.atoms.inject.dom.executeDomFunction_(
+      bot.dom.isSelected, [element], opt_window);
 };
 
 
 /**
  * @param {{bot.inject.ELEMENT_KEY: string}} element The element to query.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} The coordinates of the top left corner in a JSON
  *     string as defined by the wire protocol.
  */
-webdriver.atoms.inject.dom.getTopLeftCoordinates = function(element) {
-  return webdriver.atoms.inject.executeScript(bot.dom.getLocationInView,
-      [element]);
+webdriver.atoms.inject.dom.getTopLeftCoordinates =
+    function(element, opt_window) {
+  return webdriver.atoms.inject.dom.executeDomFunction_(
+      webdriver.atoms.element.getLocationInView, [element], opt_window);
 };
 
 
 /**
  * @param {{bot.inject.ELEMENT_KEY: string}} element The element to query.
  * @param {string} attribute The attribute to look up.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} The requested attribute value in a JSON string
  *     as defined by the wire protocol.
  */
-webdriver.atoms.inject.dom.getAttributeValue = function(element, attribute) {
-  return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.element.getAttribute, [element, attribute]);
+webdriver.atoms.inject.dom.getAttributeValue =
+    function(element, attribute, opt_window) {
+  return webdriver.atoms.inject.dom.executeDomFunction_(
+      webdriver.atoms.element.getAttribute, [element, attribute], opt_window);
 };
 
 
 /**
  * @param {{bot.inject.ELEMENT_KEY: string}} element The element to query.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} The element size in a JSON string as
  *     defined by the wire protocol.
  */
-webdriver.atoms.inject.dom.getSize = function(element) {
-  return webdriver.atoms.inject.executeScript(getSize, [element]);
+webdriver.atoms.inject.dom.getSize = function(element, opt_window) {
+  return webdriver.atoms.inject.dom.executeDomFunction_(
+      getSize, [element], opt_window);
 
   function getSize(e) {
     var rect = bot.dom.getClientRect(e);
-    return {'width': rect.width, 'height': rect.height};
+    var height = rect.height;
+    var width = rect.width;
+    if (!bot.userAgent.IE_DOC_PRE10) {
+      // On IE10, getBoundingClientRect returns floating point values.
+      width = Math.floor(width);
+      height = Math.floor(height);
+    }
+    return { 'width': width, 'height': height };
   }
 };
 
@@ -16096,35 +15999,65 @@ webdriver.atoms.inject.dom.getSize = function(element) {
 /**
  * @param {{bot.inject.ELEMENT_KEY: string}} element The element to query.
  * @param {string} property The property to look up.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} The value of the requested CSS property in a JSON
  *     string as defined by the wire protocol.
  */
 webdriver.atoms.inject.dom.getValueOfCssProperty =
-    function(element, property) {
-  return webdriver.atoms.inject.executeScript(bot.dom.getEffectiveStyle,
-      [element, property]);
+    function(element, property, opt_window) {
+  return webdriver.atoms.inject.dom.executeDomFunction_(
+      bot.dom.getEffectiveStyle, [element, property], opt_window);
 };
 
 
 /**
  * @param {{bot.inject.ELEMENT_KEY: string}} element The element to query.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} A boolean describing whether the element is enabled
  *     in a JSON string as defined by the wire protocol.
  */
-webdriver.atoms.inject.dom.isEnabled = function(element) {
-  return webdriver.atoms.inject.executeScript(bot.dom.isEnabled, [element]);
+webdriver.atoms.inject.dom.isEnabled = function(element, opt_window) {
+  return webdriver.atoms.inject.dom.executeDomFunction_(
+      bot.dom.isEnabled, [element], opt_window);
 };
 
 
 /**
  * @param {{bot.inject.ELEMENT_KEY: string}} element The element to check.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} true if the element is visisble, false otherwise.
  *     The result is wrapped in a JSON string as defined by the wire
  *     protocol.
  */
-webdriver.atoms.inject.dom.isDisplayed = function(element) {
-  return webdriver.atoms.inject.executeScript(bot.dom.isShown,
-      [element, /*ignoreOpacity=*/true]);
+webdriver.atoms.inject.dom.isDisplayed = function(element, opt_window) {
+  return webdriver.atoms.inject.dom.executeDomFunction_(
+      bot.dom.isShown, [element, /*ignoreOpacity=*/true], opt_window);
+};
+
+
+/**
+ * @param {Function} fn The function to call.
+ * @param {Array.<*>} args An array of function arguments for the function.
+ * @param {{WINDOW: string}=} opt_window The window context for
+ *     the execution of the function.
+ * @return {string} The serialized JSON wire protocol result of the function.
+ */
+webdriver.atoms.inject.dom.executeDomFunction_ =
+    function(fn, args, opt_window) {
+  var response;
+  try {
+    var targetWindow = webdriver.atoms.inject.getWindow(opt_window);
+    var unwrappedArgs = /**@type {Object}*/(bot.inject.unwrapValue(args,
+        targetWindow.document));
+    var functionResult = fn.apply(null, unwrappedArgs);
+    response = bot.inject.wrapResponse(functionResult);
+  } catch (ex) {
+    response = bot.inject.wrapError(ex);
+  }
+  return goog.json.serialize(response);
 };
 // Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
@@ -16148,24 +16081,26 @@ webdriver.atoms.inject.dom.isDisplayed = function(element) {
 goog.provide('webdriver.atoms.inject.locators');
 
 goog.require('bot.locators');
+goog.require('bot.inject');
 goog.require('webdriver.atoms.inject');
+
 
 /**
  * Finds an element by using the given lookup strategy.
  * @param {string} strategy The strategy to use to locate the element.
  * @param {string} using The locator to use.
- * @param {(Document|Element)=} opt_root The document or element to perform
- *     the search under. If not specified, will use {@code document}
- *     as the root.
- * @return {string} The result wrapped
- *     in a JSON string as defined by the WebDriver wire protocol.
+ * @param {?{ELEMENT: string}=} opt_root The WebElement reference for the
+ *     element to perform the search under. If not specified, will use
+ *     {@code document} for the target page.
+ * @param {{WINDOW: string}=} opt_window The serialized window object for the
+ *     page to find the element in. The referenced window must exist in the
+ *     page executing this script's cache.
+ * @return {string} A JSON serialized {@link bot.response.ResponseObject}.
  */
-webdriver.atoms.inject.locators.findElement =
-    function(strategy, using, opt_root) {
-  var locator = {};
-  locator[strategy] = using;
-  return webdriver.atoms.inject.executeScript(bot.locators.findElement,
-      [locator, opt_root]);
+webdriver.atoms.inject.locators.findElement = function(
+    strategy, using, opt_root, opt_window) {
+  return webdriver.atoms.inject.locators.performSearch_(
+      strategy, using, bot.locators.findElement, opt_root, opt_window);
 };
 
 
@@ -16173,18 +16108,65 @@ webdriver.atoms.inject.locators.findElement =
  * Finds all elements by using the given lookup strategy.
  * @param {string} strategy The strategy to use to locate the element.
  * @param {string} using The locator to use.
- * @param {(Document|Element)=} opt_root The document or element to perform
- *     the search under. If not specified, will use {@code document}
- *     as the root.
- * @return {string} The result wrapped
- *     in a JSON string as defined by the WebDriver wire protocol.
+ * @param {?{ELEMENT: string}=} opt_root The WebElement reference for the
+ *     element to perform the search under. If not specified, will use
+ *     {@code document} for the target page.
+ * @param {{WINDOW: string}=} opt_window The serialized window object for the
+ *     page to find the element in. The referenced window must exist in the
+ *     page executing this script's cache.
+ * @return {string} A JSON serialized {@link bot.response.ResponseObject}.
  */
-webdriver.atoms.inject.locators.findElements =
-    function(strategy, using, opt_root) {
+webdriver.atoms.inject.locators.findElements = function(
+    strategy, using, opt_root, opt_window) {
+  return webdriver.atoms.inject.locators.performSearch_(
+      strategy, using, bot.locators.findElements, opt_root, opt_window);
+};
+
+
+/**
+ * Performs a search for one or more elements.
+ * @param {string} strategy The strategy to use to locate the element.
+ * @param {string} target The locator to use.
+ * @param {(function(!Object, (Document|Element)=): Element|
+ *          function(!Object, (Document|Element)=): !goog.array.ArrayLike)}
+ *     searchFn The search function to invoke.
+ * @param {?{ELEMENT: string}=} opt_root The WebElement reference for the
+ *     element to perform the search under. If not specified, will use
+ *     {@code document} for the target page.
+ * @param {{WINDOW: string}=} opt_window The serialized window object for the
+ *     page to find the element in. The referenced window must exist in the
+ *     page executing this script's cache.
+ * @return {string} A JSON serialized {@link bot.response.ResponseObject}.
+ * @private
+ */
+webdriver.atoms.inject.locators.performSearch_ = function(
+    strategy, target, searchFn, opt_root, opt_window) {
   var locator = {};
-  locator[strategy] = using;
-  return webdriver.atoms.inject.executeScript(bot.locators.findElements,
-      [locator, opt_root]);
+  locator[strategy] = target;
+
+  var response;
+  try {
+    // Step 1: find the window we are locating the element in.
+    var targetWindow = webdriver.atoms.inject.getWindow(opt_window);
+
+    // Step 2: decode the root of our search.
+    var root;
+    if (opt_root) {
+      root = /** @type {!Element} */ (bot.inject.cache.getElement(
+          opt_root[bot.inject.ELEMENT_KEY], targetWindow.document));
+    } else {
+      root = targetWindow.document;
+    }
+
+    // Step 3: perform the search.
+    var found = searchFn(locator, root);
+
+    // Step 4: encode our response.
+    response = bot.inject.wrapResponse(found);
+  } catch (ex) {
+    response = bot.inject.wrapError(ex);
+  }
+  return goog.json.serialize(response);
 };
 // Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
@@ -16217,14 +16199,14 @@ goog.require('bot.inject.cache');
  *
  * @param {!(string|Function)} fn The function to execute.
  * @param {Array.<*>} args Array of arguments to pass to fn.
- * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
- *     object to be read from the cache.
+ * @param {{WINDOW: string}=} opt_window The serialized window object to be
+ *     read from the cache.
  * @return {string} The response object, serialized and returned in string
  *     format.
  */
 webdriver.atoms.inject.executeScript = function(fn, args, opt_window) {
   return /**@type {string}*/(bot.inject.executeScript(fn, args, true,
-      webdriver.atoms.inject.getWindow_(opt_window)));
+      webdriver.atoms.inject.getWindow(opt_window)));
 };
 
 
@@ -16236,26 +16218,29 @@ webdriver.atoms.inject.executeScript = function(fn, args, opt_window) {
  * @param {function(string)|function(!bot.response.ResponseObject)} onDone
  *     The function to call when the given {@code fn} invokes its callback,
  *     or when an exception or timeout occurs. This will always be called.
- * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
+ * @param {{WINDOW: string}=} opt_window The serialized window
  *     object to be read from the cache.
  */
 webdriver.atoms.inject.executeAsyncScript =
     function(fn, args, timeout, onDone, opt_window) {
   bot.inject.executeAsyncScript(
       fn, args, timeout, onDone, true,
-      webdriver.atoms.inject.getWindow_(opt_window));
+      webdriver.atoms.inject.getWindow(opt_window));
 };
 
 
 /**
- * Get the window to use.
+ * Decodes a serialized {WINDOW: string} object using the current document's
+ * cache.
  *
- * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
- *     object to be read from the cache.
+ * @param {{WINDOW: string}=} opt_window The serialized window object to be
+ *     read from the cache. If undefined, this function will trivially return
+ *     the current window.
  * @return {!Window} A reference to a window.
- * @private
+ * @throws {bot.Error} If the serialized window cannot be found in the current
+ *     document's cache.
  */
-webdriver.atoms.inject.getWindow_ = function(opt_window) {
+webdriver.atoms.inject.getWindow = function(opt_window) {
   var win;
   if (opt_window) {
     win = bot.inject.cache.getElement(opt_window[bot.inject.WINDOW_KEY]);
@@ -16319,7 +16304,6 @@ webdriver.atoms.inject.storage.appcache.getStatus = function() {
 goog.provide('webdriver.atoms.inject.action');
 
 goog.require('bot.action');
-goog.require('goog.dom.selection');
 goog.require('webdriver.atoms.element');
 goog.require('webdriver.atoms.inject');
 
@@ -16329,11 +16313,13 @@ goog.require('webdriver.atoms.inject');
  *
  * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
  * @param {!Array.<string>} keys The keys to type.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} A stringified {@link bot.response.ResponseObject}.
  */
-webdriver.atoms.inject.action.type = function(element, keys) {
-  return webdriver.atoms.inject.executeScript(webdriver.atoms.element.type,
-      [element, keys]);
+webdriver.atoms.inject.action.type = function(element, keys, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(
+      webdriver.atoms.element.type, [element, keys], opt_window);
 };
 
 
@@ -16341,11 +16327,14 @@ webdriver.atoms.inject.action.type = function(element, keys) {
  * Submits the form containing the given element.
  *
  * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} A stringified {@link bot.response.ResponseObject}.
  * @deprecated Click on a submit button or type ENTER in a text box instead.
  */
-webdriver.atoms.inject.action.submit = function(element) {
-  return webdriver.atoms.inject.executeScript(bot.action.submit, [element]);
+webdriver.atoms.inject.action.submit = function(element, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.submit,
+      [element], opt_window);
 };
 
 
@@ -16353,11 +16342,14 @@ webdriver.atoms.inject.action.submit = function(element) {
  * Clear an element.
  *
  * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to clear.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} A stringified {@link bot.response.ResponseObject}.
  * @see bot.action.clear
  */
-webdriver.atoms.inject.action.clear = function(element) {
-  return webdriver.atoms.inject.executeScript(bot.action.clear, [element]);
+webdriver.atoms.inject.action.clear = function(element, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.clear,
+      [element], opt_window);
 };
 
 
@@ -16365,13 +16357,38 @@ webdriver.atoms.inject.action.clear = function(element) {
  * Click an element.
  *
  * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to click.
+ * @param {{WINDOW: string}=} opt_window The optional window
+ *     containing the element.
  * @return {string} A stringified {@link bot.response.ResponseObject}.
  * @see bot.action.click
  */
-webdriver.atoms.inject.action.click = function(element) {
-  return webdriver.atoms.inject.executeScript(bot.action.click, [element]);
+webdriver.atoms.inject.action.click = function (element, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.click,
+      [element], opt_window);
 };
 
+
+/**
+ * @param {Function} fn The function to call.
+ * @param {Array.<*>} args An array of function arguments for the function.
+ * @param {{WINDOW: string}=} opt_window The window context for
+ *     the execution of the function.
+ * @return {string} The serialized JSON wire protocol result of the function.
+ */
+webdriver.atoms.inject.action.executeActionFunction_ =
+    function (fn, args, opt_window) {
+  var response;
+  try {
+    var targetWindow = webdriver.atoms.inject.getWindow(opt_window);
+    var unwrappedArgs = /**@type {Object}*/(bot.inject.unwrapValue(args,
+        targetWindow.document));
+    var functionResult = fn.apply(null, unwrappedArgs);
+    response = bot.inject.wrapResponse(functionResult);
+  } catch (ex) {
+    response = bot.inject.wrapError(ex);
+  }
+  return goog.json.serialize(response);
+};
 // Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
 //
@@ -16687,8 +16704,10 @@ phantomjs.atoms.inject.dom.isDisplayed = function(element) {
  *     string as defined by the wire protocol.
  */
 phantomjs.atoms.inject.dom.getLocationInView = function(element) {
-  return phantomjs.atoms.inject.executeScript(bot.dom.getLocationInView,
-      [element]);
+  return phantomjs.atoms.inject.executeScript(
+      webdriver.atoms.element.getLocationInView,
+      [element]
+  );
 };
 
 phantomjs.atoms.inject.dom.getLocation = function(element) {

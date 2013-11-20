@@ -185,21 +185,21 @@ js_deps(name = "build_atoms",
 
     ":get_frame_index",
 
-    "//javascript/webdriver/atoms/inject:set_local_storage_item",
-    "//javascript/webdriver/atoms/inject:get_local_storage_item",
-    "//javascript/webdriver/atoms/inject:get_local_storage_keys",
-    "//javascript/webdriver/atoms/inject:remove_local_storage_item",
-    "//javascript/webdriver/atoms/inject:clear_local_storage",
-    "//javascript/webdriver/atoms/inject:get_local_storage_size",
+    "//javascript/webdriver/atoms/fragments/inject:set_local_storage_item",
+    "//javascript/webdriver/atoms/fragments/inject:get_local_storage_item",
+    "//javascript/webdriver/atoms/fragments/inject:get_local_storage_keys",
+    "//javascript/webdriver/atoms/fragments/inject:remove_local_storage_item",
+    "//javascript/webdriver/atoms/fragments/inject:clear_local_storage",
+    "//javascript/webdriver/atoms/fragments/inject:get_local_storage_size",
 
-    "//javascript/webdriver/atoms/inject:set_session_storage_item",
-    "//javascript/webdriver/atoms/inject:get_session_storage_item",
-    "//javascript/webdriver/atoms/inject:get_session_storage_keys",
-    "//javascript/webdriver/atoms/inject:remove_session_storage_item",
-    "//javascript/webdriver/atoms/inject:clear_session_storage",
-    "//javascript/webdriver/atoms/inject:get_session_storage_size",
+    "//javascript/webdriver/atoms/fragments/inject:set_session_storage_item",
+    "//javascript/webdriver/atoms/fragments/inject:get_session_storage_item",
+    "//javascript/webdriver/atoms/fragments/inject:get_session_storage_keys",
+    "//javascript/webdriver/atoms/fragments/inject:remove_session_storage_item",
+    "//javascript/webdriver/atoms/fragments/inject:clear_session_storage",
+    "//javascript/webdriver/atoms/fragments/inject:get_session_storage_size",
 
 
-    "//javascript/webdriver/atoms/inject:get_appcache_status",
-    "//javascript/webdriver/atoms/inject:active_element"
+    "//javascript/webdriver/atoms/fragments/inject:get_appcache_status",
+    "//javascript/webdriver/atoms/fragments/inject:active_element"
   ])

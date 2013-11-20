@@ -1,40 +1,7 @@
-2013-08-04 12:52:11
+2013-11-19 21:00:44
 
-commit 0acce3ba7ebcbc399ac7c9e38311390e0f7e6cfd (HEAD, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
-Author: Alexandr Savchuk <a.u.savchuk@gmail.com>
-Date:   Sat Jul 20 17:33:17 2013 +0400
+commit 75bf44b8d8e39dec54c5e38be170e45818459172 (HEAD, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: Samit Badle <Samit.Badle@gmail.com>
+Date:   Mon Nov 18 11:48:59 2013 +0100
 
-    Fix hang of hub when node machine is not available.
-    
-    This is happened because of:
-    1. before session creation an proxy may be checked for availability -
-    http client used for this check has too big connection and socket timeouts.
-    2. before node is became down/unregistered a node is checked for avaialability twice -
-    http client used for this check has too big connection and socket timeouts.
-    
-    As result under the load if node machine is not available
-    it leads to that hub may hung up at processing new session requests.
-    
-    Done:
-    1. grid http client is customized to accept socket and connection timeouts.
-    2. new hub configuration setting 'downPollingLimit' is available -
-    defines number of tries to get node status after which node is marked as down.
-    Default value is 2.
-    3. new hub configuration setting 'nodeStatusCheckTimeout' is available -
-    defines socket and connection timeouts which are used during checking of availability.
-    Default value is 0, which means that default values from grid http client will be used:
-    for connection timeout - 120sec, for socket timeout - 3hours.
-    4. unify and cleanup code, improve logging
-    5. set up socket and connection timeout to value of 'browserTimeout' preference
-    for http client which is used for requests to node.
-    6. update e2e grid tests
-    
-    After these changes user can define the following intervals:
-    * time of checking node status - by 'nodeStatusCheckTimeout' setting,
-    * time of notavailable node marked as down - by 'downPollingLimit',
-    'nodeStatusCheckTimeout' and 'nodePolling' settings.
-    It is around of downPollingLimit * (nodeStatusCheckTimeout   nodePolling) milleseconds.
-    * (after node is marked as down) time after that node is unregistered from hub -
-    by 'unregisterIfStillDownAfter' setting.
-    
-    This should fixes issue #5942.
+    adding shortcut key for adding a new test case in Selenium IDE

@@ -131,8 +131,10 @@ phantomjs.atoms.inject.dom.isDisplayed = function(element) {
  *     string as defined by the wire protocol.
  */
 phantomjs.atoms.inject.dom.getLocationInView = function(element) {
-  return phantomjs.atoms.inject.executeScript(bot.dom.getLocationInView,
-      [element]);
+  return phantomjs.atoms.inject.executeScript(
+      webdriver.atoms.element.getLocationInView,
+      [element]
+  );
 };
 
 phantomjs.atoms.inject.dom.getLocation = function(element) {
