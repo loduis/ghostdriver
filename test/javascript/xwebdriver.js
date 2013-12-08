@@ -3,8 +3,8 @@ var webdriver = require('selenium-webdriver'),
     checkResponse = base.require('bot.response').checkResponse,
     Command   = webdriver.Command,
     CommandName = webdriver.CommandName,
-    http        = webdriver.http,
-    HttpClient  = webdriver.http.HttpClient,
+    http        = require('selenium-webdriver/http'),
+    HttpClient  = http.HttpClient,
     Executor    = http.Executor,
     promise     = webdriver.promise;
 
@@ -216,7 +216,7 @@ function getSessions(url, callback) {
  * @return {!webdriver.promise.Promise.<!Object>} A promise that resolves with
  *     a hash of the server status.
  */
-webdriver.http.util.getSessions = function(url) {
+http.util.getSessions = function(url) {
   return promise.checkedNodeCall(getSessions.bind(null, url));
 };
 
@@ -332,6 +332,6 @@ webdriver.WebDriver.prototype.sessionStorage = function() {
 
 
 webdriver.Command = Command;
-webdriver.http.Executor = Executor;
-
+//webdriver.http.Executor = Executor;
+webdriver.http = http;
 module.exports = webdriver;

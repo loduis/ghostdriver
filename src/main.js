@@ -28,14 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 var ghostdriver = require('./lib/ghostdriver');
 
 try {
-  if (ghostdriver.start()) {
-    console.log('Ghost Driver running on port ' + ghostdriver.args.port);
-  } else {
-    throw new Error("ERROR: Could not start Ghost Driver");
-    ghostdriver.exit();
-  }
+  ghostdriver.start();
 } catch (e) {
-  console.log(e.message);
-  throw new Error("ERROR: Could not start Ghost Driver");
-  ghostdriver.exit();
+  ghostdriver.stop(e.message);
 }

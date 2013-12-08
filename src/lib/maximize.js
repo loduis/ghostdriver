@@ -1,8 +1,5 @@
 var platform, spawn;
 
-
-
-
 function maximize(callback) {
   spawn = spawn || require('child_process').spawn;
   platform = platform || require('system').os.name;

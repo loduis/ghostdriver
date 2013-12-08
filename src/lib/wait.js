@@ -2,7 +2,7 @@ function Wait(window) {
   this._window = window;
 }
 
-(function (wait) {
+(function (wait, phantom) {
 
   var _loadTimerId = null,
       _finishTimerId = null,
@@ -40,14 +40,28 @@ function Wait(window) {
 
   function _resourceReceived(res) {
     if (res.stage === 'end') {
-      console.log(res.id + ': ' + res.url);
+      console.log(res.id + ': /' + res.status + ' ' + res.url);
       // inline image status is null
       if (res.url.indexOf('data:image/') === 0) {
         res.status = 200;
       }
+      if (res.status === null) {
+        this._resources[res.id] = {
+          url: res.url,
+          status: 200
+        };
+      }
+      /*
+      if (res.status === null) {
+        phantom.exit(1);
+      }*/
       // redirect not register stage start
       // simulate start stage
-      if (this._resources[res.id] === undefined && res.status === 301) {
+      if (this._resources[res.id] === undefined) {
+        /*
+          {"contentType":"image/png","headers":[{"name":"Server","value":"Apache/2.2"},{"name":"Content-Type","value":"image/png"},{"name":"Date","value":"Fri, 22 Nov 2013 20:41:18 GMT"},{"name":"Accept-Ranges","value":"bytes"},{"name":"Content-Length","value":"11595"},{"name":"Connection","value":"Keep-Alive"},{"name":"X-Cache-Info","value":"cached"}],"id":168,"redirectURL":null,"stage":"end","status":200,"statusText":"OK","time":"2013-11-22T20:54:35.576Z","url":"http://www.myabakus.org/images/app/sprite.png"}
+        */
+        console.log(JSON.stringify(res));
         this._resources[res.id] = {
           url: res.url,
           status: -1
@@ -61,7 +75,8 @@ function Wait(window) {
         302, // tempory redirect
         301, // Moved Permanently
         304,
-        408 // time out
+        408, // Request timeout
+        504 // Gateway timeout
       ];
       // inline images has status null
       if (res.status && validStatus.indexOf(res.status) === -1) {
@@ -275,7 +290,7 @@ function Wait(window) {
   };
 
 
-})(Wait.prototype);
+})(Wait.prototype, phantom);
 
 
 module.exports = Wait;

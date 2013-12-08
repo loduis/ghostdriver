@@ -1058,11 +1058,6 @@ router.post('/session', function (request, response) {
         request
       );
     }
-    /*
-    response.redirect(
-      303,
-      'http://' + request.headers.Host + '/wd/hub/session/' + session.getId()
-    );*/
   } else {
     response.error.missingCommandParameter(
       'desiredCapabilities',

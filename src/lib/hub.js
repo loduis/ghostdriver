@@ -59,11 +59,11 @@ function _nodeConf(ip, port, hub) {
 function _open(page, hub, status) {
   if(status !== 'success') {
       console.log("Unable to contact grid " + hub + ": " + status);
-      ghostdriver.exit();
+      ghostdriver.stop();
   }
   if(page.framePlainText !== 'ok') {
       console.log("Problem registering with grid " + hub + ": " + page.content);
-      ghostdriver.exit();
+      ghostdriver.stop();
   }
   console.log(
     "Registered with grid hub: " + hub + " (" + page.framePlainText + ")"

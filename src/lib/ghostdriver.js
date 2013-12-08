@@ -27,7 +27,6 @@ ghostdriver.args = function (args) {
   }
 
   return config;
-
 }(system.args);
 
 ghostdriver.session = function () {
@@ -90,13 +89,7 @@ ghostdriver.hub = function () {
   };
 }();
 
-
-ghostdriver.router = function() {
-
-
-}();
-
-ghostdriver.start = function () {
+ghostdriver.start = function (message) {
   var server   = require('webserver').create(),
       listen   = server.listen(this.args.port, router.dispatch);
   if (listen) {
@@ -106,11 +99,17 @@ ghostdriver.start = function () {
     if (this.args.hub) {
       this.hub.register();
     }
+  } else {
+    throw new Error('ERROR: Could not start Ghost Driver');
   }
+  console.log('Ghost Driver running on port ' + this.args.port);
   return listen;
 };
 
-ghostdriver.exit = function () {
+ghostdriver.stop = function (message) {
+  if (message) {
+    throw new Error(message);
+  }
   phantom.exit(1);
 };
 

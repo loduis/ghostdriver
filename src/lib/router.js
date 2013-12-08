@@ -69,13 +69,6 @@ function _verb(method, path, callback) {
 router.parse = function(request) {
   var url = request.url,
       method = request.method ;
-  // fixed hub
-  /*
-  if (url.indexOf('/wd/hub') === 0) {
-    url = url.replace('/wd/hub', '');
-  }*/
-  request.url = url;
-
   if (method === 'POST' || method === 'DELETE') {
     try {
         var post = request.hasOwnProperty('postRaw') ?
@@ -112,46 +105,47 @@ router.dispatch = function (request, response) {
     callback.call(ghostdriver, request, response);
   } else {
     try {
-    // params in the rest url
-    var params  = request.params,
-        session   = ghostdriver.session.get(params.sessionId);
-    if (params.sessionId === null) {
-      response.error.variableResourceNotFound(request);
-    } else if (callback.numArguments === 4) {
-      var window = session.getWindow(params.windowHandle);
-      if (window === null) {
-        response.error.noSuchWindow(
-          'the currently selected window has been closed',
-          session,
-          request
-        );
-      } else {
-        var element = window;
-        if (params.id !== undefined) {
-          element = new window.Element(params.id);
+      // params in the rest url
+      var params  = request.params,
+          session   = ghostdriver.session.get(params.sessionId);
+      if (params.sessionId === null) {
+        response.error.variableResourceNotFound(request);
+      } else if (callback.numArguments === 4) {
+        var window = session.getWindow(params.windowHandle);
+        if (window === null) {
+          response.error.noSuchWindow(
+            'the currently selected window has been closed',
+            session,
+            request
+          );
+        } else {
+          var element = window;
+          if (params.id !== undefined) {
+            element = new window.Element(params.id);
+          }
+          callback.call(
+            ghostdriver,
+            element,
+            session,
+            request,
+            response
+          );
         }
+      } else {
         callback.call(
           ghostdriver,
-          element,
           session,
           request,
           response
         );
       }
-    } else {
-      callback.call(
-        ghostdriver,
-        session,
-        request,
-        response
-      );
+    } catch (e) {
+      console.log(JSON.stringify(e));
     }
-  } catch (e) {
-    console.log(JSON.stringify(e));
-  }
   }
 };
 
+// add rest method to router
 for (var method in _routes) {
   router[method.toLowerCase()] = _verb.bind(router, method);
 }
