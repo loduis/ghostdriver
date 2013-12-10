@@ -1,7 +1,7 @@
-2013-11-19 21:00:44
+2013-12-10 10:33:04
 
-commit 75bf44b8d8e39dec54c5e38be170e45818459172 (HEAD, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
-Author: Samit Badle <Samit.Badle@gmail.com>
-Date:   Mon Nov 18 11:48:59 2013 +0100
+commit bd32d4e7247a32d801b3d2d4f84a4e7384300378 (HEAD, tag: refs/tags/selenium-2.38.0)
+Author: Jim Evans <james.h.evans.jr@gmail.com>
+Date:   Thu Dec 5 10:42:50 2013 -0500
 
-    adding shortcut key for adding a new test case in Selenium IDE
+    Updating Java CHANGELOG

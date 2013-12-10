@@ -367,8 +367,12 @@ router.post('/session/:sessionId/element/:id/value',
           var timeout = session.getPageLoadTimeout();
           value = value.join('');
           fs = fs || require('fs');
-          if (tagName === 'input' && type &&
-                              type.toLowerCase() === 'file' && fs.exists(value)) {
+          if (
+            tagName === 'input' &&
+            type &&
+            type.toLowerCase() === 'file' &&
+            fs.exists(value)
+          ) {
             element.filePicker(value, timeout, function (status, result) {
               if (status === 'success') {
                 response.success(session.getId());
