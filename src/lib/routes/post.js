@@ -865,27 +865,19 @@ router.post('/session/:sessionId/timeouts/implicit_wait',
  */
 router.post('/session/:sessionId/timeouts',
   function (session, request, response) {
-    var parmas = request.body;
-    if (typeof parmas.type === undefined) {
+    var
+      params = request.body,
+      callback;
+    if (
+        typeof params.type === undefined || (
+          callback = session.findTimeout(params.type)
+        )
+    ) {
       response.error.missingCommandParameter('type', request);
-    } else if (typeof parmas.ms !== 'number') {
+    } else if (typeof params.ms !== 'number') {
       response.error.missingCommandParameter('ms', request);
     } else {
-      var TIMEOUT_NAMES = session.TIMEOUT_NAMES;
-      switch(parmas.type) {
-        case TIMEOUT_NAMES.SCRIPT:
-          session.setScriptTimeout(parmas.ms);
-          break;
-        case TIMEOUT_NAMES.ASYNC_SCRIPT:
-          session.setAsyncScriptTimeout(parmas.ms);
-          break;
-        case TIMEOUT_NAMES.IMPLICIT:
-          session.setImplicitTimeout(parmas.ms);
-          break;
-        case TIMEOUT_NAMES.PAGE_LOAD:
-          session.setPageLoadTimeout(parmas.ms);
-          break;
-      }
+      callback(params.ms);
       response.success(session.getId());
     }
 });

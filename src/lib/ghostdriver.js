@@ -100,7 +100,7 @@ ghostdriver.start = function (message) {
       this.hub.register();
     }
   } else {
-    throw new Error('ERROR: Could not start Ghost Driver');
+    this.stop('ERROR: Could not start Ghost Driver');
   }
   console.log('Ghost Driver running on port ' + this.args.port);
   return listen;
@@ -108,7 +108,7 @@ ghostdriver.start = function (message) {
 
 ghostdriver.stop = function (message) {
   if (message) {
-    throw new Error(message);
+    console.log(message);
   }
   phantom.exit(1);
 };

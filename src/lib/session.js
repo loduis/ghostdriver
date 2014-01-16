@@ -42,6 +42,7 @@ function _getCap(desiredCapabilities, property) {
           desiredCapabilities[property];
 }
 
+/*
 function _onLoadFinished(session, status) {
   var windows = session._windows, window, key;
   if (this.statusCode === 500) {
@@ -71,6 +72,7 @@ function _onLoadFinished(session, status) {
     window.fire('load', window.status, null);
   }
 }
+*/
 
 function _onClosing(session) {
   var handle = this.handle;
@@ -217,16 +219,8 @@ function Session(desiredCapabilities) {
     return false;
   };
 
-  session.setPageLoadTimeout = function (ms) {
-    this._setTimeout(_TIMEOUT_NAMES.PAGE_LOAD, ms);
-  };
-
   session.setImplicitTimeout = function(ms) {
     this._setTimeout(_TIMEOUT_NAMES.IMPLICIT, ms);
-  };
-
-  session.setScriptTimeout = function(ms) {
-    this._setTimeout(_TIMEOUT_NAMES.SCRIPT, ms);
   };
 
   session.setAsyncScriptTimeout = function(ms) {
@@ -249,6 +243,12 @@ function Session(desiredCapabilities) {
     return this._timeouts[_TIMEOUT_NAMES.ASYNC_SCRIPT];
   };
 
+  session.findTimeout = function (type) {
+    if (this._timeouts.hasOwnProperty(type)) {
+      return this._setTimeout.bind(this, type);
+    }
+  };
+
   session.close = function () {
     var id = this.getId();
     for (var handle in this._windows) {
@@ -265,8 +265,6 @@ function Session(desiredCapabilities) {
         this._timeouts[type] = ms;
     }
   };
-
-  session.TIMEOUT_NAMES = _TIMEOUT_NAMES;
 
 })(Session.prototype);
 
