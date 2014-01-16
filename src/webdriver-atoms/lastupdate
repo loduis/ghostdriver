@@ -1,7 +1,7 @@
-2013-12-10 10:33:04
+2014-01-16 06:14:43
 
-commit bd32d4e7247a32d801b3d2d4f84a4e7384300378 (HEAD, tag: refs/tags/selenium-2.38.0)
+commit 14fa800511cc5d66d426e08b0b2ab926c7ed7398 (HEAD, tag: refs/tags/selenium-2.39.0)
 Author: Jim Evans <james.h.evans.jr@gmail.com>
-Date:   Thu Dec 5 10:42:50 2013 -0500
+Date:   Mon Dec 16 11:26:02 2013 -0500
 
-    Updating Java CHANGELOG
+    Updating .NET CHANGELOG for 2.39.0 release
