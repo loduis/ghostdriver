@@ -1,5 +1,6 @@
 var _WebPage      = require('webpage'),
     _Alert        = require('./alert'),
+    _Wait         = require('./wait'),
     _Storage      = require('./storage'),
     _defineGetter = require('./getter'),
     _uuid         = require('./uuid'),
@@ -56,10 +57,11 @@ function Window(settings, page) {
   // instance for manage alert.
   this.alert    = new _Alert(this);
 
-  // instance of wait
+  this.wait     = new _Wait(this);
+  /*
   _defineGetter(this, 'wait', function (Wait) {
     return new Wait(this);
-  });
+  });*/
 
   // instance for manage event mouse
   _defineGetter(this, 'event', function (Event) {

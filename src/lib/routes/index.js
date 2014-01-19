@@ -1,12 +1,9 @@
-function _create(router) {
-  global['router'] = router;
-  require('./get');
-  require('./post');
-  require('./delete');
-  router = global['router'];
-  delete global['router'];
+exports.create = function (router) {
+
+  require('./get')(router);
+  require('./post')(router);
+  require('./delete')(router);
 
   return router;
-}
+};
 
-exports.create = _create;

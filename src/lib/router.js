@@ -98,50 +98,41 @@ router.dispatch = function (request, response) {
   // extends the response object method
   _Response.extend(response);
   // format url al request for callback
-  var callback = router.parse(request);
+  var
+    callback = router.parse(request),
+    args = [];
   if (callback === undefined) {
-    response.error.invalidCommandMethod(request);
-  } else if (callback.numArguments === 2) {
-    callback.call(ghostdriver, request, response);
-  } else {
-    try {
-      // params in the rest url
-      var params  = request.params,
-          session   = ghostdriver.session.get(params.sessionId);
-      if (params.sessionId === null) {
-        response.error.variableResourceNotFound(request);
-      } else if (callback.numArguments === 4) {
-        var window = session.getWindow(params.windowHandle);
-        if (window === null) {
-          response.error.noSuchWindow(
-            'the currently selected window has been closed',
-            session,
-            request
-          );
-        } else {
-          var element = window;
-          if (params.id !== undefined) {
-            element = new window.Element(params.id);
-          }
-          callback.call(
-            ghostdriver,
-            element,
-            session,
-            request,
-            response
-          );
-        }
-      } else {
-        callback.call(
-          ghostdriver,
+    return response.error.invalidCommandMethod(request);
+  } else if (callback.numArguments > 2) {
+    // params in the rest url
+    var params  = request.params,
+        session   = ghostdriver.session.get(params.sessionId);
+    if (params.sessionId === null) {
+      return response.error.variableResourceNotFound(request);
+    }
+    args.unshift(session);
+    if (callback.numArguments === 4) {
+      var window = session.getWindow(params.windowHandle);
+      if (window === null) {
+        return response.error.noSuchWindow(
+          'the currently selected window has been closed',
           session,
-          request,
-          response
+          request
         );
       }
-    } catch (e) {
-      console.log(JSON.stringify(e));
+      var element = window;
+      if (params.id !== undefined) {
+        element = new window.Element(params.id);
+      }
+      // parametro elemento
+      args.unshift(element);
     }
+  }
+  args.push(request, response);
+  try {
+    callback.apply(ghostdriver, args);
+  } catch (e) {
+    ghostdriver.log(JSON.stringify(e));
   }
 };
 

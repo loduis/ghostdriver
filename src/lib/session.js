@@ -42,42 +42,9 @@ function _getCap(desiredCapabilities, property) {
           desiredCapabilities[property];
 }
 
-/*
-function _onLoadFinished(session, status) {
-  var windows = session._windows, window, key;
-  if (this.statusCode === 500) {
-    console.log('FATAL ERROR: ' + status);
-    window.render('error_' + status);
-    phantom.exit(1);
-  }
-  for (key in windows) {
-    window = windows[key];
-    // phantomjs bug
-    // window.open('url_post', 'target');
-    // <form action="post" action="url_post" target="target">
-    // form.submit()
-    // for this phantomjs submit two request
-    // this request has url about:blank
-    // after url load this url is the window url
-    // debe haber una mejor manera de ajustar eso
-    if (window.loading || (window.popup && window.url === 'about:blank')) {
-      return;
-    }
-  }
-  this.status = status;
-  // disable loading in the wait
-  this.wait.notify('finished');
-  for (key in windows) {
-    window = windows[key];
-    window.fire('load', window.status, null);
-  }
-}
-*/
-
 function _onClosing(session) {
   var handle = this.handle;
   if (session._windows.hasOwnProperty(handle)) {
-    //session._windows[handle].fire('load', 'success');
     delete session._windows[handle];
   }
 }
@@ -85,10 +52,7 @@ function _onClosing(session) {
 function _createWindow(session, pageSettings, page) {
   var window = new _Window(pageSettings, page);
   session._windows[window.handle] = window;
-  //window.on('loadFinished', _onLoadFinished.bind(window, session));
   window.on('closing', _onClosing.bind(window, session));
-  // need for popup finished event
-  window.popup = page !== undefined;
 
   return window;
 }

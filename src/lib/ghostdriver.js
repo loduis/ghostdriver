@@ -21,7 +21,8 @@ ghostdriver.args = function (args) {
     result = regexp.exec(args[i]);
     if (result !== null &&
         result.length === 3 &&
-        config.hasOwnProperty(result[1])) {
+        config.hasOwnProperty(result[1])
+    ) {
       config[result[1]] = result[2];
     }
   }
@@ -102,7 +103,9 @@ ghostdriver.start = function (message) {
   } else {
     this.stop('ERROR: Could not start Ghost Driver');
   }
-  console.log('Ghost Driver running on port ' + this.args.port);
+
+  this.log('Ghost Driver running on port ' + this.args.port);
+
   return listen;
 };
 
@@ -111,6 +114,10 @@ ghostdriver.stop = function (message) {
     console.log(message);
   }
   phantom.exit(1);
+};
+
+ghostdriver.log = function (message) {
+  console.log(message);
 };
 
 module.exports = ghostdriver;

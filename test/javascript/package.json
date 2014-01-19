@@ -11,8 +11,8 @@
     "should": "latest",
     "selenium-webdriver": "latest",
     "mocha": "latest",
-    "express": "~3.2.1",
-    "jade": "~0.30.0"
+    "express": "latest",
+    "jade": "latest"
   },
   "scripts": {
     "test": "make test"

@@ -38,6 +38,11 @@ function Wait(window) {
     };
   }
 
+  function _resourceError(res) {
+    console.log(JSON.stringify(res));
+    //phantom.exit(1);
+  }
+
   function _resourceReceived(res) {
     if (res.stage === 'end') {
       console.log(res.id + ': /' + res.status + ' ' + res.url);
@@ -51,17 +56,9 @@ function Wait(window) {
           status: 200
         };
       }
-      /*
-      if (res.status === null) {
-        phantom.exit(1);
-      }*/
       // redirect not register stage start
       // simulate start stage
       if (this._resources[res.id] === undefined) {
-        /*
-          {"contentType":"image/png","headers":[{"name":"Server","value":"Apache/2.2"},{"name":"Content-Type","value":"image/png"},{"name":"Date","value":"Fri, 22 Nov 2013 20:41:18 GMT"},{"name":"Accept-Ranges","value":"bytes"},{"name":"Content-Length","value":"11595"},{"name":"Connection","value":"Keep-Alive"},{"name":"X-Cache-Info","value":"cached"}],"id":168,"redirectURL":null,"stage":"end","status":200,"statusText":"OK","time":"2013-11-22T20:54:35.576Z","url":"http://www.myabakus.org/images/app/sprite.png"}
-        */
-        console.log(JSON.stringify(res));
         this._resources[res.id] = {
           url: res.url,
           status: -1
@@ -157,12 +154,14 @@ function Wait(window) {
         this.off('loadFinished');
         this.off('resourceReceived');
         this.off('resourceRequested');
+        this.off('resourceError');
         callback.apply(this, _slice.call(arguments));
       });
       // una vez cargada registra los eventos.
       this.on('loadStarted', _loadStarted.bind(this, retry));
       this.on('resourceReceived', _resourceReceived);
       this.on('resourceRequested', _resourceRequested);
+      this.on('resourceError', _resourceError);
       execute.call(this);
       _loadTimerId = setTimeout(
         _loadLoop.bind(this, retry, _now() + timeout),
@@ -204,11 +203,13 @@ function Wait(window) {
       this.on(':event', function() {
         this.off('resourceReceived');
         this.off('resourceRequested');
+        this.off('resourceError');
         this.off('event');
         callback.apply(this, _slice.call(arguments));
       });
       this.on('resourceReceived', _resourceReceived);
       this.on('resourceRequested', _resourceRequested);
+      this.on('resourceError', _resourceError);
       var result = execute.call(this);
       setTimeout(_fireEvent.bind(this, result, retry, timeout), 0);
     }
@@ -221,6 +222,7 @@ function Wait(window) {
       this.on(':load', function(){
         this.off('resourceReceived');
         this.off('resourceRequested');
+        this.off('resourceError');
         this.off('load');
         this.off('loadFinished');
         callback.apply(this, _slice.call(arguments));
@@ -228,6 +230,7 @@ function Wait(window) {
       if (execute) {
         this.on('resourceReceived', _resourceReceived);
         this.on('resourceRequested', _resourceRequested);
+        this.on('resourceError', _resourceError);
         this.on('loadFinished', _loadFinished.bind(this, retry));
         execute.call(this);
         _loadTimerId = setTimeout(

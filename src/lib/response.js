@@ -60,17 +60,8 @@ function writeAndClose(status, contentType, body) {
     this.close();
 }
 
-
-function redirect(status, url) {
-  this.statusCode = status;
-  this.setHeader('Location', url);
-  this.closeGracefully();
-}
-
-
 function extend(response) {
   response.success           = success;
-  response.redirect          = redirect;
   response.basedOnResult     = basedOnResult;
   response.writeAndClose     = writeAndClose;
   _error.response            = response;
@@ -82,86 +73,3 @@ function extend(response) {
 module.exports = {
   extend: extend
 };
-
-/*
-
-  var _error = require('./error');
-
-function WebServerResponse(original) {
-  this._response = original;
-  this.error     = _error;
-}
-
-(function(response) {
-
-  function body(sessionId, value, statusCode) {
-    return {
-        'sessionId' : sessionId || null,
-        'status'    : statusCode || 0, //< '0' is Success
-        'value'     : typeof value === 'undefined' ? {} : value
-    };
-  }
-
-  response.redirect = function (status, url) {
-    this._response.statusCode = status;
-    this._response.setHeader('Location', url);
-    this._response.closeGracefully();
-  };
-
-  response.writeAndClose = function (status, contentType, body) {
-    this._response.statusCode = status;
-    if (contentType.indexOf('json') !== -1) {
-      body = JSON.stringify(body);
-      this._response.setHeader('Cache', 'no-cache');
-    }
-    this._response.setHeader('Content-Type', contentType  + ';charset=UTF-8');
-    this._response.setHeader('Content-Length', unescape(encodeURIComponent(body)).length);
-    this._response.write(body);
-    this._response.close();
-  };
-
-  response.basedOnResult = function (result, session, request) {
-    if (result === null || !result.hasOwnProperty('status')) {
-      var tmp = result;
-      result = {};
-      result.status = 0;
-      result.value = tmp;
-    }
-
-    if (typeof result !== 'object' ||
-        typeof result.status !== 'number' ||
-        typeof result.value === 'undefined') {
-        this.error.unknownError(
-          'Command failed without producing the expected error report',
-          request,
-          session
-        );
-    } else if (result.status !== 0) {
-      this.error.failedCommand(
-        result.status,
-        result.value.message,
-        session,
-        request
-      );
-    } else {
-      this.success(session.getId(), result.value);
-    }
-  };
-
-  response.success = function (sessionId, value) {
-    if (arguments.length > 0) {
-        this.writeAndClose(
-          200,
-          'application/json',
-          body(sessionId, value)
-        );
-    } else {
-        this._response.closeGracefully();
-    }
-  };
-
-
-})(WebServerResponse.prototype);
-
-
-module.exports = WebServerResponse;*/
