@@ -92,7 +92,9 @@ ghostdriver.hub = function () {
 
 ghostdriver.start = function (message) {
   var server   = require('webserver').create(),
-      listen   = server.listen(this.args.port, router.dispatch);
+      listen   = server.listen(
+        this.args.port, {keepAlive:true}, router.dispatch
+      );
   if (listen) {
     if (server.port !== this.args.port) {
       this.args.port = server.port;
