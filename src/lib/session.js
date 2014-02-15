@@ -1,12 +1,12 @@
 const
   _uuid = require('./uuid'),
   _Window = require('./window'),
-  _capsPageSettingsPref = "phantomjs.page.settings.",
+  _capsPageSettingsPref = 'phantomjs.page.settings.',
   _TIMEOUT_NAMES = {
-      SCRIPT          : "script",
-      ASYNC_SCRIPT    : "async script",
-      IMPLICIT        : "implicit",
-      PAGE_LOAD       : "page load"
+      SCRIPT          : 'script',
+      ASYNC_SCRIPT    : 'async script',
+      IMPLICIT        : 'implicit',
+      PAGE_LOAD       : 'page load'
   },
   _max32bitInt = Math.pow(2, 31) -1,
   _defaultCapabilities = {    // TODO - Actually try to match the 'desiredCapabilities' instead of ignoring them
@@ -99,7 +99,6 @@ function Session(desiredCapabilities) {
   }
 
   this._timeouts[_TIMEOUT_NAMES.IMPLICIT] = 5;
-
 
   var window = _createWindow(this, pageSettings);
 

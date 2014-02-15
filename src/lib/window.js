@@ -25,11 +25,13 @@ function Window(settings, page) {
     x: 0,
     y: 0
   };
+  // by default this property is not present in settings
+  var httpAuth = ['userName', 'password'];
   // page settings
   settings = settings || {};
   for (var k in settings) {
       // Apply setting only if really supported by PhantomJS
-      if (this._page.settings.hasOwnProperty(k)) {
+      if (this._page.settings.hasOwnProperty(k) || httpAuth.indexOf(k) !== -1) {
           this._page.settings[k] = settings[k];
       }
   }

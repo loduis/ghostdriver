@@ -30,7 +30,17 @@ function Wait(window) {
     this.on('loadFinished', _loadFinished.bind(this, retry));
   }
 
-  function _resourceRequested(req) {
+  function _resourceRequested(req, controller) {
+    // carga sin imagenes
+    if (
+      req.url.indexOf('.gif') !== -1 ||
+      req.url.indexOf('.png') !== -1 ||
+      req.url.indexOf('.jpg') !== -1
+    ) {
+      console.log('SKIP: ' + req.url);
+      controller.abort();
+      return;
+    }
     this._loading = true;
     this._resources[req.id] = {
       url: req.url,
@@ -39,7 +49,9 @@ function Wait(window) {
   }
 
   function _resourceError(res) {
-    console.log(JSON.stringify(res));
+    if (res.errorCode !== 301) {
+      console.log(JSON.stringify(res));
+    }
     //phantom.exit(1);
   }
 
@@ -73,7 +85,8 @@ function Wait(window) {
         301, // Moved Permanently
         304,
         408, // Request timeout
-        504 // Gateway timeout
+        504, // Gateway timeout
+        401 // AUTH
       ];
       // inline images has status null
       if (res.status && validStatus.indexOf(res.status) === -1) {
