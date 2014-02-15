@@ -2,6 +2,7 @@ const
   _uuid = require('./uuid'),
   _Window = require('./window'),
   _capsPageSettingsPref = 'phantomjs.page.settings',
+  _capsPageCustomHeadersPref = 'phantomjs.page.customHeaders',
   _TIMEOUT_NAMES = {
       SCRIPT          : 'script',
       ASYNC_SCRIPT    : 'async script',
@@ -49,13 +50,44 @@ function _onClosing(session) {
   }
 }
 
-function _createWindow(session, pageSettings, page) {
-  var window = new _Window(pageSettings, page);
+function _createWindow(session, pageSettings, pageCustomHeaders, page) {
+  var window = new _Window(pageSettings, pageCustomHeaders, page);
   session._windows[window.handle] = window;
   window.on('closing', _onClosing.bind(window, session));
 
   return window;
 }
+
+var _copyTo = function () {
+  function _inSettings(k, pref) {
+      if (k === pref) {
+        return k;
+      } else if (k.indexOf(pref) === 0) {
+        var settingKey = k.substring(pref.length + 1);
+        if (settingKey.length > 0) {
+          return settingKey;
+        }
+      }
+  }
+
+  function _copyTo(k, pref, source, destination) {
+    var sk;
+    if ((sk = _inSettings(k, pref))) {
+      var settings = source[k];
+      if (k == sk) {
+        // re use var k
+        for (sk in settings) {
+          destination[sk] = settings[sk];
+        }
+      } else {
+        destination[sk] = settings;
+      }
+      return settings;
+    }
+  }
+
+  return _copyTo;
+}();
 
 function Session(desiredCapabilities) {
   desiredCapabilities = desiredCapabilities || {};
@@ -81,23 +113,13 @@ function Session(desiredCapabilities) {
     proxy                    : _getCap(desiredCapabilities, 'proxy')
   };
 
-  var k, pageSettings = {};
-
+  var k, sk, pageSettings = {}, pageCustomHeaders = {};
   for (k in desiredCapabilities) {
-      if (k === _capsPageSettingsPref) {
-        var settings = desiredCapabilities[k];
-        this._negotiatedCapabilities[k] = settings;
-        // re use var k
-        for (k in settings) {
-          pageSettings[k] = settings[k];
-        }
-      } else if (k.indexOf(_capsPageSettingsPref) === 0) {
-        settingKey = k.substring(_capsPageSettingsPref.length + 1);
-        if (settingKey.length > 0) {
-            this._negotiatedCapabilities[k] = desiredCapabilities[k];
-            pageSettings[settingKey]        = desiredCapabilities[k];
-        }
-      }
+    sk = _copyTo(k, _capsPageSettingsPref, desiredCapabilities, pageSettings) ||
+         _copyTo(k, _capsPageCustomHeadersPref, desiredCapabilities, pageCustomHeaders);
+    if (sk) {
+      this._negotiatedCapabilities[k] = sk;
+    }
   }
 
   // set time outs
@@ -107,10 +129,12 @@ function Session(desiredCapabilities) {
 
   this._timeouts[_TIMEOUT_NAMES.IMPLICIT] = 5;
 
-  var window = _createWindow(this, pageSettings);
+  var window = _createWindow(this, pageSettings, pageCustomHeaders);
 
   // handle new page popup
-  window.on('pageCreated', _createWindow.bind(window, this, pageSettings));
+  window.on('pageCreated', _createWindow.bind(
+    window, this, pageSettings, pageCustomHeaders
+  ));
 
   this._currentWindowHandle    = window.handle;
 }

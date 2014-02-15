@@ -10,7 +10,16 @@ function _capitalize(word) {
   return word.charAt(0).toUpperCase() + word.substring(1);
 }
 
-function Window(settings, page) {
+function _copyTo(source, destination, include) {
+  for (var k in source) {
+      // Apply setting only if really supported by PhantomJS
+      if (destination.hasOwnProperty(k) || (include && include.indexOf(k) !== -1)) {
+          destination[k] = source[k];
+      }
+  }
+}
+
+function Window(settings, headers, page) {
   // page instance
   this._page = page || _WebPage.create();
   // Pages lifetime will be managed by Driver, not the pages
@@ -25,16 +34,18 @@ function Window(settings, page) {
     x: 0,
     y: 0
   };
-  // by default this property is not present in settings
-  var httpAuth = ['userName', 'password'];
-  // page settings
-  settings = settings || {};
-  for (var k in settings) {
-      // Apply setting only if really supported by PhantomJS
-      if (this._page.settings.hasOwnProperty(k) || httpAuth.indexOf(k) !== -1) {
-          this._page.settings[k] = settings[k];
-      }
+
+  // Page settings
+
+  if (settings) {
+    _copyTo(settings, this._page.settings, ['userName', 'password']);
   }
+
+  // Page custom headers
+  if (headers) {
+    _copyTo(headers, this._page.customHeaders);
+  }
+
 
   var self = this, timerId;
 
