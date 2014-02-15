@@ -1,7 +1,7 @@
 const
   _uuid = require('./uuid'),
   _Window = require('./window'),
-  _capsPageSettingsPref = 'phantomjs.page.settings.',
+  _capsPageSettingsPref = 'phantomjs.page.settings',
   _TIMEOUT_NAMES = {
       SCRIPT          : 'script',
       ASYNC_SCRIPT    : 'async script',
@@ -84,12 +84,19 @@ function Session(desiredCapabilities) {
   var k, pageSettings = {};
 
   for (k in desiredCapabilities) {
-      if (k.indexOf(_capsPageSettingsPref) === 0) {
-          settingKey = k.substring(_capsPageSettingsPref.length);
-          if (settingKey.length > 0) {
-              this._negotiatedCapabilities[k] = desiredCapabilities[k];
-              pageSettings[settingKey] = desiredCapabilities[k];
-          }
+      if (k === _capsPageSettingsPref) {
+        var settings = desiredCapabilities[k];
+        this._negotiatedCapabilities[k] = settings;
+        // re use var k
+        for (k in settings) {
+          pageSettings[k] = settings[k];
+        }
+      } else if (k.indexOf(_capsPageSettingsPref) === 0) {
+        settingKey = k.substring(_capsPageSettingsPref.length + 1);
+        if (settingKey.length > 0) {
+            this._negotiatedCapabilities[k] = desiredCapabilities[k];
+            pageSettings[settingKey]        = desiredCapabilities[k];
+        }
       }
   }
 
