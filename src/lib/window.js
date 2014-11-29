@@ -137,6 +137,16 @@ function Window(settings, headers, page) {
     this.render();
     phantom.exit(1);
   });
+
+  this.on('initialized', function() {
+    if (settings.hasOwnProperty('userAgent')) {
+      this._page.evaluate(function(settings) {
+        var newNavigator = Object.create(window.navigator);
+        newNavigator.userAgent = settings.userAgent;
+        window.navigator = newNavigator;
+      }, settings);
+    }
+  });
 }
 
 (function (window){
@@ -208,6 +218,7 @@ function Window(settings, headers, page) {
   });
 
   window.executeAtomScript = function (name) {
+    // console.log(name);
     var args = _slice.call(arguments, 0);
     args[0]  = _requireAtoms(name);
     var result = this._page.evaluate.apply(this._page, args);

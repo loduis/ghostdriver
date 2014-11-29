@@ -32,9 +32,9 @@ var COMPILED = false;
 
 
 /**
- * Base namespace for the Closure library.  Checks to see goog is
- * already defined in the current scope before assigning to prevent
- * clobbering if base.js is loaded more than once.
+ * Base namespace for the Closure library.  Checks to see goog is already
+ * defined in the current scope before assigning to prevent clobbering if
+ * base.js is loaded more than once.
  *
  * @const
  */
@@ -50,15 +50,36 @@ goog.global = this;
 /**
  * A hook for overriding the define values in uncompiled mode.
  *
- * In uncompiled mode, {@code CLOSURE_DEFINES} may be defined before loading
- * base.js.  If a key is defined in {@code CLOSURE_DEFINES}, {@code goog.define}
- * will use the value instead of the default value.  This allows flags to be
- * overwritten without compilation (this is normally accomplished with the
- * compiler's "define" flag).
+ * In uncompiled mode, {@code CLOSURE_UNCOMPILED_DEFINES} may be defined before
+ * loading base.js.  If a key is defined in {@code CLOSURE_UNCOMPILED_DEFINES},
+ * {@code goog.define} will use the value instead of the default value.  This
+ * allows flags to be overwritten without compilation (this is normally
+ * accomplished with the compiler's "define" flag).
  *
  * Example:
  * <pre>
- *   var CLOSURE_DEFINES = {'goog.DEBUG', false};
+ *   var CLOSURE_UNCOMPILED_DEFINES = {'goog.DEBUG': false};
+ * </pre>
+ *
+ * @type {Object.<string, (string|number|boolean)>|undefined}
+ */
+goog.global.CLOSURE_UNCOMPILED_DEFINES;
+
+
+/**
+ * A hook for overriding the define values in uncompiled or compiled mode,
+ * like CLOSURE_UNCOMPILED_DEFINES but effective in compiled code.  In
+ * uncompiled code CLOSURE_UNCOMPILED_DEFINES takes precedence.
+ *
+ * Also unlike CLOSURE_UNCOMPILED_DEFINES the values must be number, boolean or
+ * string literals or the compiler will emit an error.
+ *
+ * While any @define value may be set, only those set with goog.define will be
+ * effective for uncompiled code.
+ *
+ * Example:
+ * <pre>
+ *   var CLOSURE_DEFINES = {'goog.DEBUG': false};
  * </pre>
  *
  * @type {Object.<string, (string|number|boolean)>|undefined}
@@ -67,9 +88,23 @@ goog.global.CLOSURE_DEFINES;
 
 
 /**
- * Builds an object structure for the provided namespace path,
- * ensuring that names that already exist are not overwritten. For
- * example:
+ * Returns true if the specified value is not undefined.
+ * WARNING: Do not use this to test if an object has a property. Use the in
+ * operator instead.
+ *
+ * @param {?} val Variable to test.
+ * @return {boolean} Whether variable is defined.
+ */
+goog.isDef = function(val) {
+  // void 0 always evaluates to undefined and hence we do not need to depend on
+  // the definition of the global variable named 'undefined'.
+  return val !== void 0;
+};
+
+
+/**
+ * Builds an object structure for the provided namespace path, ensuring that
+ * names that already exist are not overwritten. For example:
  * "a.b.c" -> a = {};a.b={};a.b.c={};
  * Used by goog.provide and goog.exportSymbol.
  * @param {string} name name of the object that this file defines.
@@ -96,7 +131,7 @@ goog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
 
   // Parentheses added to eliminate strict JS warning in Firefox.
   for (var part; parts.length && (part = parts.shift());) {
-    if (!parts.length && opt_object !== undefined) {
+    if (!parts.length && goog.isDef(opt_object)) {
       // last part and we have an object; use it
       cur[part] = opt_object;
     } else if (cur[part]) {
@@ -110,9 +145,10 @@ goog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
 
 /**
  * Defines a named value. In uncompiled mode, the value is retreived from
- * CLOSURE_DEFINES if the object is defined and has the property specified,
- * and otherwise used the defined defaultValue. When compiled, the default
- * can be overridden using compiler command-line options.
+ * CLOSURE_DEFINES or CLOSURE_UNCOMPILED_DEFINES if the object is defined and
+ * has the property specified, and otherwise used the defined defaultValue.
+ * When compiled, the default can be overridden using compiler command-line
+ * options.
  *
  * @param {string} name The distinguished name to provide.
  * @param {string|number|boolean} defaultValue
@@ -120,8 +156,13 @@ goog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
 goog.define = function(name, defaultValue) {
   var value = defaultValue;
   if (!COMPILED) {
-    if (goog.global.CLOSURE_DEFINES && Object.prototype.hasOwnProperty.call(
-        goog.global.CLOSURE_DEFINES, name)) {
+    if (goog.global.CLOSURE_UNCOMPILED_DEFINES &&
+        Object.prototype.hasOwnProperty.call(
+            goog.global.CLOSURE_UNCOMPILED_DEFINES, name)) {
+      value = goog.global.CLOSURE_UNCOMPILED_DEFINES[name];
+    } else if (goog.global.CLOSURE_DEFINES &&
+        Object.prototype.hasOwnProperty.call(
+            goog.global.CLOSURE_DEFINES, name)) {
       value = goog.global.CLOSURE_DEFINES[name];
     }
   }
@@ -169,7 +210,7 @@ goog.define('goog.LOCALE', 'en');  // default to en
  * external libraries like Prototype, Datejs, and JQuery and setting this flag
  * to false forces closure to use its own implementations when possible.
  *
- * If your javascript can be loaded by a third party site and you are wary about
+ * If your JavaScript can be loaded by a third party site and you are wary about
  * relying on non-standard implementations, specify
  * "--define goog.TRUSTED_SITE=false" to the JSCompiler.
  */
@@ -177,9 +218,20 @@ goog.define('goog.TRUSTED_SITE', true);
 
 
 /**
+ * @define {boolean} Whether a project is expected to be running in strict mode.
+ *
+ * This define can be used to trigger alternate implementations compatible with
+ * running in EcmaScript Strict mode or warn about unavailable functionality.
+ * See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions_and_function_scope/Strict_mode
+ */
+goog.define('goog.STRICT_MODE_COMPATIBLE', false);
+
+
+/**
  * Creates object stubs for a namespace.  The presence of one or more
  * goog.provide() calls indicate that the file defines the given
- * objects/namespaces.  Build tools also scan for provide/require statements
+ * objects/namespaces.  Provided objects must not be null or undefined.
+ * Build tools also scan for provide/require statements
  * to discern dependencies, build dependency files (see deps.js), etc.
  * @see goog.require
  * @param {string} name Namespace provided by this file in the form
@@ -187,11 +239,8 @@ goog.define('goog.TRUSTED_SITE', true);
  */
 goog.provide = function(name) {
   if (!COMPILED) {
-    // Ensure that the same namespace isn't provided twice. This is intended
-    // to teach new developers that 'goog.provide' is effectively a variable
-    // declaration. And when JSCompiler transforms goog.provide into a real
-    // variable declaration, the compiled JS should work the same as the raw
-    // JS--even when the raw JS uses goog.provide incorrectly.
+    // Ensure that the same namespace isn't provided twice.
+    // A goog.module/goog.provide maps a goog.require to a specific file
     if (goog.isProvided_(name)) {
       throw Error('Namespace "' + name + '" already declared.');
     }
@@ -211,12 +260,91 @@ goog.provide = function(name) {
 
 
 /**
+ * goog.module serves two purposes:
+ * - marks a file that must be loaded as a module
+ * - reserves a namespace (it can not also be goog.provided)
+ * and has three requirements:
+ * - goog.module may not be used in the same file as goog.provide.
+ * - goog.module must be the first statement in the file.
+ * - only one goog.module is allowed per file.
+ * When a goog.module annotated file is loaded, it is loaded enclosed in
+ * a strict function closure. This means that:
+ * - any variable declared in a goog.module file are private to the file,
+ * not global. Although the compiler is expected to inline the module.
+ * - The code must obey all the rules of "strict" JavaScript.
+ * - the file will be marked as "use strict"
+ *
+ * NOTE: unlike goog.provide, goog.module does not declare any symbols by
+ * itself.
+ *
+ * @param {string} name Namespace provided by this file in the form
+ *     "goog.package.part", is expected but not required.
+ */
+goog.module = function(name) {
+  if (!goog.isString(name) || !name) {
+    throw Error('Invalid module identifier');
+  }
+  if (!goog.isInModuleLoader_()) {
+    throw Error('Module ' + name + ' has been loaded incorrectly.');
+  }
+  if (goog.moduleLoaderState_.moduleName) {
+    throw Error('goog.module may only be called once per module.');
+  }
+
+  // Store the module name for the loader.
+  goog.moduleLoaderState_.moduleName = name;
+  if (!COMPILED) {
+    // Ensure that the same namespace isn't provided twice.
+    // A goog.module/goog.provide maps a goog.require to a specific file
+    if (goog.isProvided_(name)) {
+      throw Error('Namespace "' + name + '" already declared.');
+    }
+    delete goog.implicitNamespaces_[name];
+  }
+};
+
+
+/** @private {{
+ *     moduleName:(string|undefined),
+ *     exportTestMethods:boolean}|null}}
+ */
+goog.moduleLoaderState_ = null;
+
+
+/**
+ * @private
+ * @return {boolean} Whether a goog.module is currently being initialized.
+ */
+goog.isInModuleLoader_ = function() {
+  return goog.moduleLoaderState_ != null;
+};
+
+
+/**
+ * Indicate that a module's exports that are known test methods should
+ * be copied to the global object.  This makes the test methods visible to
+ * test runners that inspect the global object.
+ *
+ * TODO(johnlenz): Make the test framework aware of goog.module so
+ * that this isn't necessary. Alternately combine this with goog.setTestOnly
+ * to minimize boiler plate.
+ */
+goog.module.exportTestMethods = function() {
+  if (!goog.isInModuleLoader_()) {
+    throw new Error('goog.module.exportTestMethods must be called from ' +
+        'within a goog.module');
+  }
+  goog.moduleLoaderState_.exportTestMethods = true;
+};
+
+
+/**
  * Marks that the current file should only be used for testing, and never for
  * live code in production.
  *
- * In the case of unit tests, the message may optionally be an exact
- * namespace for the test (e.g. 'goog.stringTest'). The linter will then
- * ignore the extra provide (if not explicitly defined in the code).
+ * In the case of unit tests, the message may optionally be an exact namespace
+ * for the test (e.g. 'goog.stringTest'). The linter will then ignore the extra
+ * provide (if not explicitly defined in the code).
  *
  * @param {string=} opt_message Optional message to add to the error that's
  *     raised when used in production code.
@@ -225,9 +353,28 @@ goog.setTestOnly = function(opt_message) {
   if (COMPILED && !goog.DEBUG) {
     opt_message = opt_message || '';
     throw Error('Importing test-only code into non-debug environment' +
-                opt_message ? ': ' + opt_message : '.');
+                (opt_message ? ': ' + opt_message : '.'));
   }
 };
+
+
+/**
+ * Forward declares a symbol. This is an indication to the compiler that the
+ * symbol may be used in the source yet is not required and may not be provided
+ * in compilation.
+ *
+ * The most common usage of forward declaration is code that takes a type as a
+ * function parameter but does not need to require it. By forward declaring
+ * instead of requiring, no hard dependency is made, and (if not required
+ * elsewhere) the namespace may never be required and thus, not be pulled
+ * into the JavaScript binary. If it is required elsewhere, it will be type
+ * checked as normal.
+ *
+ *
+ * @param {string} name The namespace to forward declare in the form of
+ *     "goog.package.part".
+ */
+goog.forwardDeclare = function(name) {};
 
 
 if (!COMPILED) {
@@ -240,25 +387,33 @@ if (!COMPILED) {
    * @private
    */
   goog.isProvided_ = function(name) {
-    return !goog.implicitNamespaces_[name] && !!goog.getObjectByName(name);
+    return (name in goog.loadedModules_) ||
+        (!goog.implicitNamespaces_[name] &&
+            goog.isDefAndNotNull(goog.getObjectByName(name)));
   };
 
   /**
    * Namespaces implicitly defined by goog.provide. For example,
-   * goog.provide('goog.events.Event') implicitly declares
-   * that 'goog' and 'goog.events' must be namespaces.
+   * goog.provide('goog.events.Event') implicitly declares that 'goog' and
+   * 'goog.events' must be namespaces.
    *
-   * @type {Object}
+   * @type {Object.<string, (boolean|undefined)>}
    * @private
    */
-  goog.implicitNamespaces_ = {};
+  goog.implicitNamespaces_ = {'goog.module': true};
+
+  // NOTE: We add goog.module as an implicit namespace as goog.module is defined
+  // here and because the existing module package has not been moved yet out of
+  // the goog.module namespace. This satisifies both the debug loader and
+  // ahead-of-time dependency management.
 }
 
 
 /**
- * Returns an object based on its fully qualified external name.  If you are
- * using a compilation pass that renames property names beware that using this
- * function will not find renamed properties.
+ * Returns an object based on its fully qualified external name.  The object
+ * is not found if null or undefined.  If you are using a compilation pass that
+ * renames property names beware that using this function will not find renamed
+ * properties.
  *
  * @param {string} name The fully qualified name.
  * @param {Object=} opt_obj The object within which to look; default is
@@ -302,18 +457,17 @@ goog.globalize = function(obj, opt_global) {
  *                         this file provides.
  * @param {Array} requires An array of strings with the names of the objects
  *                         this file requires.
+ * @param {boolean=} opt_isModule Whether this dependency must be loaded as
+ *     a module as declared by goog.module.
  */
-goog.addDependency = function(relPath, provides, requires) {
+goog.addDependency = function(relPath, provides, requires, opt_isModule) {
   if (goog.DEPENDENCIES_ENABLED) {
     var provide, require;
     var path = relPath.replace(/\\/g, '/');
     var deps = goog.dependencies_;
     for (var i = 0; provide = provides[i]; i++) {
       deps.nameToPath[provide] = path;
-      if (!(path in deps.pathToNames)) {
-        deps.pathToNames[path] = {};
-      }
-      deps.pathToNames[path][provide] = true;
+      deps.pathIsModule[path] = !!opt_isModule;
     }
     for (var j = 0; require = requires[j]; j++) {
       if (!(path in deps.requires)) {
@@ -327,17 +481,17 @@ goog.addDependency = function(relPath, provides, requires) {
 
 
 
-// NOTE(nnaze): The debug DOM loader was included in base.js as an orignal
-// way to do "debug-mode" development.  The dependency system can sometimes
-// be confusing, as can the debug DOM loader's asyncronous nature.
+// NOTE(nnaze): The debug DOM loader was included in base.js as an original way
+// to do "debug-mode" development.  The dependency system can sometimes be
+// confusing, as can the debug DOM loader's asynchronous nature.
 //
-// With the DOM loader, a call to goog.require() is not blocking -- the
-// script will not load until some point after the current script.  If a
-// namespace is needed at runtime, it needs to be defined in a previous
-// script, or loaded via require() with its registered dependencies.
+// With the DOM loader, a call to goog.require() is not blocking -- the script
+// will not load until some point after the current script.  If a namespace is
+// needed at runtime, it needs to be defined in a previous script, or loaded via
+// require() with its registered dependencies.
 // User-defined namespaces may need their own deps file.  See http://go/js_deps,
 // http://go/genjsdeps, or, externally, DepsWriter.
-// http://code.google.com/closure/library/docs/depswriter.html
+// https://developers.google.com/closure/library/docs/depswriter
 //
 // Because of legacy clients, the DOM loader can't be easily removed from
 // base.js.  Work is being done to make it disableable or replaceable for
@@ -359,25 +513,39 @@ goog.define('goog.ENABLE_DEBUG_LOADER', true);
 
 
 /**
- * Implements a system for the dynamic resolution of dependencies
- * that works in parallel with the BUILD system. Note that all calls
- * to goog.require will be stripped by the JSCompiler when the
- * --closure_pass option is used.
+ * @param {string} msg
+ * @private
+ */
+goog.logToConsole_ = function(msg) {
+  if (goog.global.console) {
+    goog.global.console['error'](msg);
+  }
+};
+
+
+/**
+ * Implements a system for the dynamic resolution of dependencies that works in
+ * parallel with the BUILD system. Note that all calls to goog.require will be
+ * stripped by the JSCompiler when the --closure_pass option is used.
  * @see goog.provide
- * @param {string} name Namespace to include (as was given in goog.provide())
- *     in the form "goog.package.part".
+ * @param {string} name Namespace to include (as was given in goog.provide()) in
+ *     the form "goog.package.part".
+ * @return {?} If called within a goog.module file, the associated namespace or
+ *     module otherwise null.
  */
 goog.require = function(name) {
 
-  // if the object already exists we do not need do do anything
-  // TODO(arv): If we start to support require based on file name this has
-  //            to change
-  // TODO(arv): If we allow goog.foo.* this has to change
-  // TODO(arv): If we implement dynamic load after page load we should probably
-  //            not remove this code for the compiled output
+  // If the object already exists we do not need do do anything.
   if (!COMPILED) {
     if (goog.isProvided_(name)) {
-      return;
+      if (goog.isInModuleLoader_()) {
+        // goog.require only return a value with-in goog.module files.
+        return name in goog.loadedModules_ ?
+            goog.loadedModules_[name] :
+            goog.getObjectByName(name);
+      } else {
+        return null;
+      }
     }
 
     if (goog.ENABLE_DEBUG_LOADER) {
@@ -385,24 +553,20 @@ goog.require = function(name) {
       if (path) {
         goog.included_[path] = true;
         goog.writeScripts_();
-        return;
+        return null;
       }
     }
 
     var errorMessage = 'goog.require could not find: ' + name;
-    if (goog.global.console) {
-      goog.global.console['error'](errorMessage);
-    }
+    goog.logToConsole_(errorMessage);
 
-
-      throw Error(errorMessage);
-
+    throw Error(errorMessage);
   }
 };
 
 
 /**
- * Path for included scripts
+ * Path for included scripts.
  * @type {string}
  */
 goog.basePath = '';
@@ -416,8 +580,7 @@ goog.global.CLOSURE_BASE_PATH;
 
 
 /**
- * Whether to write out Closure's deps file. By default,
- * the deps are written.
+ * Whether to write out Closure's deps file. By default, the deps are written.
  * @type {boolean|undefined}
  */
 goog.global.CLOSURE_NO_DEPS;
@@ -431,6 +594,7 @@ goog.global.CLOSURE_NO_DEPS;
  *
  * The function is passed the script source, which is a relative URI. It should
  * return true if the script was imported, false otherwise.
+ * @type {(function(string): boolean)|undefined}
  */
 goog.global.CLOSURE_IMPORT_SCRIPT;
 
@@ -458,19 +622,16 @@ goog.identityFunction = function(opt_returnValue, var_args) {
 
 /**
  * When defining a class Foo with an abstract method bar(), you can do:
- *
  * Foo.prototype.bar = goog.abstractMethod
  *
- * Now if a subclass of Foo fails to override bar(), an error
- * will be thrown when bar() is invoked.
+ * Now if a subclass of Foo fails to override bar(), an error will be thrown
+ * when bar() is invoked.
  *
- * Note: This does not take the name of the function to override as
- * an argument because that would make it more difficult to obfuscate
- * our JavaScript code.
+ * Note: This does not take the name of the function to override as an argument
+ * because that would make it more difficult to obfuscate our JavaScript code.
  *
  * @type {!Function}
- * @throws {Error} when invoked to indicate the method should be
- *   overridden.
+ * @throws {Error} when invoked to indicate the method should be overridden.
  */
 goog.abstractMethod = function() {
   throw Error('unimplemented abstract method');
@@ -478,8 +639,8 @@ goog.abstractMethod = function() {
 
 
 /**
- * Adds a {@code getInstance} static method that always return the same instance
- * object.
+ * Adds a {@code getInstance} static method that always returns the same
+ * instance object.
  * @param {!Function} ctor The constructor for the class to add the static
  *     method to.
  */
@@ -508,6 +669,24 @@ goog.instantiatedSingletons_ = [];
 
 
 /**
+ * @define {boolean} Whether to load goog.modules using {@code eval} when using
+ * the debug loader.  This provides a better debugging experience as the
+ * source is unmodified and can be edited using Chrome Workspaces or
+ * similiar.  However in some environments the use of {@code eval} is banned
+ * so we provide an alternative.
+ */
+goog.define('goog.LOAD_MODULE_USING_EVAL', true);
+
+
+/**
+ * The registry of initialized modules:
+ * the module identifier to module exports map.
+ * @private @const {Object.<string, ?>}
+ */
+goog.loadedModules_ = {};
+
+
+/**
  * True if goog.dependencies_ is available.
  * @const {boolean}
  */
@@ -516,8 +695,8 @@ goog.DEPENDENCIES_ENABLED = !COMPILED && goog.ENABLE_DEBUG_LOADER;
 
 if (goog.DEPENDENCIES_ENABLED) {
   /**
-   * Object used to keep track of urls that have already been added. This
-   * record allows the prevention of circular dependencies.
+   * Object used to keep track of urls that have already been added. This record
+   * allows the prevention of circular dependencies.
    * @type {Object}
    * @private
    */
@@ -526,18 +705,17 @@ if (goog.DEPENDENCIES_ENABLED) {
 
   /**
    * This object is used to keep track of dependencies and other data that is
-   * used for loading scripts
+   * used for loading scripts.
    * @private
    * @type {Object}
    */
   goog.dependencies_ = {
-    pathToNames: {}, // 1 to many
-    nameToPath: {}, // 1 to 1
+    pathIsModule: {}, // 1 to 1
+    nameToPath: {}, // many to 1
     requires: {}, // 1 to many
-    // used when resolving dependencies to prevent us from
-    // visiting the file twice
+    // Used when resolving dependencies to prevent us from visiting file twice.
     visited: {},
-    written: {} // used to keep track of script files we have written
+    written: {} // Used to keep track of script files we have written.
   };
 
 
@@ -554,7 +732,7 @@ if (goog.DEPENDENCIES_ENABLED) {
 
 
   /**
-   * Tries to detect the base path of the base.js script that bootstraps Closure
+   * Tries to detect the base path of base.js script that bootstraps Closure.
    * @private
    */
   goog.findBasePath_ = function() {
@@ -584,14 +762,180 @@ if (goog.DEPENDENCIES_ENABLED) {
    * Imports a script if, and only if, that script hasn't already been imported.
    * (Must be called at execution time)
    * @param {string} src Script source.
+   * @param {string=} opt_sourceText The optionally source text to evaluate
    * @private
    */
-  goog.importScript_ = function(src) {
+  goog.importScript_ = function(src, opt_sourceText) {
     var importScript = goog.global.CLOSURE_IMPORT_SCRIPT ||
         goog.writeScriptTag_;
-    if (!goog.dependencies_.written[src] && importScript(src)) {
+    if (importScript(src, opt_sourceText)) {
       goog.dependencies_.written[src] = true;
     }
+  };
+
+
+  /** @const @private {boolean} */
+  goog.IS_OLD_IE_ = goog.global.document &&
+      goog.global.document.all && !goog.global.atob;
+
+
+  /**
+   * Given a URL initiate retrieval and execution of the module.
+   * @param {string} src Script source URL.
+   * @private
+   */
+  goog.importModule_ = function(src) {
+    // In an attempt to keep browsers from timing out loading scripts using
+    // synchronous XHRs, put each load in its own script block.
+    var bootstrap = 'goog.retrieveAndExecModule_("' + src + '");';
+
+    if (goog.importScript_('', bootstrap)) {
+      goog.dependencies_.written[src] = true;
+    }
+  };
+
+
+  /** @private {Array.<string>} */
+  goog.queuedModules_ = [];
+
+
+  /**
+   * Retrieve and execute a module.
+   * @param {string} src Script source URL.
+   * @private
+   */
+  goog.retrieveAndExecModule_ = function(src) {
+    var importScript = goog.global.CLOSURE_IMPORT_SCRIPT ||
+        goog.writeScriptTag_;
+
+    var scriptText = null;
+
+    var xhr = new goog.global['XMLHttpRequest']();
+
+    /** @this {Object} */
+    xhr.onload = function() {
+      scriptText = this.responseText;
+    };
+    xhr.open('get', src, false);
+    xhr.send();
+
+    scriptText = xhr.responseText;
+
+    if (scriptText != null) {
+      var execModuleScript = goog.wrapModule_(src, scriptText);
+      var isOldIE = goog.IS_OLD_IE_;
+      if (isOldIE) {
+        goog.queuedModules_.push(execModuleScript);
+      } else {
+        importScript(src, execModuleScript);
+      }
+      goog.dependencies_.written[src] = true;
+    } else {
+      throw new Error('load of ' + src + 'failed');
+    }
+  };
+
+
+  /**
+   * Return an appropriate module text. Suitable to insert into
+   * a script tag (that is unescaped).
+   * @param {string} srcUrl
+   * @param {string} scriptText
+   * @return {string}
+   * @private
+   */
+  goog.wrapModule_ = function(srcUrl, scriptText) {
+    if (!goog.LOAD_MODULE_USING_EVAL || !goog.isDef(goog.global.JSON)) {
+      return '' +
+          'goog.loadModule(function(exports) {' +
+          '"use strict";' +
+          scriptText +
+          '\n' + // terminate any trailing single line comment.
+          ';return exports' +
+          '});' +
+          '\n//# sourceURL=' + srcUrl + '\n';
+    } else {
+      return '' +
+          'goog.loadModule(' +
+          goog.global.JSON.stringify(
+              scriptText + '\n//# sourceURL=' + srcUrl + '\n') +
+          ');';
+    }
+  };
+
+
+  /**
+   * Load any deferred goog.module loads.
+   * @private
+   */
+  goog.loadQueuedModules_ = function() {
+    var count = goog.queuedModules_.length;
+    if (count > 0) {
+      var queue = goog.queuedModules_;
+      goog.queuedModules_ = [];
+      for (var i = 0; i < count; i++) {
+        var entry = queue[i];
+        goog.globalEval(entry);
+      }
+    }
+  };
+
+
+  /**
+   * @param {function(?):?|string} moduleDef The module definition.
+   */
+  goog.loadModule = function(moduleDef) {
+    // NOTE: we allow function definitions to be either in the from
+    // of a string to eval (which keeps the original source intact) or
+    // in a eval forbidden environment (CSP) we allow a function definition
+    // which in its body must call {@code goog.module}, and return the exports
+    // of the module.
+    try {
+      goog.moduleLoaderState_ = {
+          moduleName: undefined, exportTestMethods: false};
+      var exports;
+      if (goog.isFunction(moduleDef)) {
+        exports = moduleDef.call(goog.global, {});
+      } else if (goog.isString(moduleDef)) {
+        exports = goog.loadModuleFromSource_.call(goog.global, moduleDef);
+      } else {
+        throw Error('Invalid module definition');
+      }
+
+      if (Object.seal) {
+        Object.seal(exports);
+      }
+      var moduleName = goog.moduleLoaderState_.moduleName;
+      if (!goog.isString(moduleName) || !moduleName) {
+        throw Error('Invalid module name \"' + moduleName + '\"');
+      }
+
+      goog.loadedModules_[moduleName] = exports;
+      if (goog.moduleLoaderState_.exportTestMethods) {
+        for (var entry in exports) {
+          if (entry.indexOf('test', 0) === 0 ||
+              entry == 'tearDown' ||
+              entry == 'setup') {
+            goog.global[entry] = exports[entry];
+          }
+        }
+      }
+    } finally {
+      goog.moduleLoaderState_ = null;
+    }
+  };
+
+
+  /**
+   * @private @const {function(string):?}
+   */
+  goog.loadModuleFromSource_ = function() {
+    // NOTE: we avoid declaring parameters or local variables here to avoid
+    // masking globals or leaking values into the module definition.
+    'use strict';
+    var exports = {};
+    eval(arguments[0]);
+    return exports;
   };
 
 
@@ -599,11 +943,12 @@ if (goog.DEPENDENCIES_ENABLED) {
    * The default implementation of the import function. Writes a script tag to
    * import the script.
    *
-   * @param {string} src The script source.
+   * @param {string} src The script url.
+   * @param {string=} opt_sourceText The optionally source text to evaluate
    * @return {boolean} True if the script was imported, false otherwise.
    * @private
    */
-  goog.writeScriptTag_ = function(src) {
+  goog.writeScriptTag_ = function(src, opt_sourceText) {
     if (goog.inHtmlDocument_()) {
       var doc = goog.global.document;
 
@@ -623,8 +968,26 @@ if (goog.DEPENDENCIES_ENABLED) {
         }
       }
 
-      doc.write(
-          '<script type="text/javascript" src="' + src + '"></' + 'script>');
+      var isOldIE = goog.IS_OLD_IE_;
+
+      if (opt_sourceText === undefined) {
+        if (!isOldIE) {
+          doc.write(
+              '<script type="text/javascript" src="' +
+                  src + '"></' + 'script>');
+        } else {
+          var state = " onreadystatechange='goog.onScriptLoad_(this, " +
+              ++goog.lastNonModuleScriptIndex_ + ")' ";
+          doc.write(
+              '<script type="text/javascript" src="' +
+                  src + '"' + state + '></' + 'script>');
+        }
+      } else {
+        doc.write(
+            '<script type="text/javascript">' +
+            opt_sourceText +
+            '</' + 'script>');
+      }
       return true;
     } else {
       return false;
@@ -632,13 +995,34 @@ if (goog.DEPENDENCIES_ENABLED) {
   };
 
 
+  /** @private {number} */
+  goog.lastNonModuleScriptIndex_ = 0;
+
+
+  /**
+   * A readystatechange handler for legacy IE
+   * @param {HTMLScriptElement} script
+   * @param {number} scriptIndex
+   * @return {boolean}
+   * @private
+   */
+  goog.onScriptLoad_ = function(script, scriptIndex) {
+    // for now load the modules when we reach the last script,
+    // later allow more inter-mingling.
+    if (script.readyState == 'complete' &&
+        goog.lastNonModuleScriptIndex_ == scriptIndex) {
+      goog.loadQueuedModules_();
+    }
+    return true;
+  };
+
   /**
    * Resolves dependencies based on the dependencies added using addDependency
    * and calls importScript_ in the correct order.
    * @private
    */
   goog.writeScripts_ = function() {
-    // the scripts we need to write this time
+    // The scripts we need to write this time.
     var scripts = [];
     var seenScript = {};
     var deps = goog.dependencies_;
@@ -648,8 +1032,8 @@ if (goog.DEPENDENCIES_ENABLED) {
         return;
       }
 
-      // we have already visited this one. We can get here if we have cyclic
-      // dependencies
+      // We have already visited this one. We can get here if we have cyclic
+      // dependencies.
       if (path in deps.visited) {
         if (!(path in seenScript)) {
           seenScript[path] = true;
@@ -686,13 +1070,36 @@ if (goog.DEPENDENCIES_ENABLED) {
       }
     }
 
+    // record that we are going to load all these scripts.
     for (var i = 0; i < scripts.length; i++) {
-      if (scripts[i]) {
-        goog.importScript_(goog.basePath + scripts[i]);
+      var path = scripts[i];
+      goog.dependencies_.written[path] = true;
+    }
+
+    // If a module is loaded synchronously then we need to
+    // clear the current inModuleLoader value, and restore it when we are
+    // done loading the current "requires".
+    var moduleState = goog.moduleLoaderState_;
+    goog.moduleLoaderState_ = null;
+
+    var loadingModule = false;
+    for (var i = 0; i < scripts.length; i++) {
+      var path = scripts[i];
+      if (path) {
+        if (!deps.pathIsModule[path]) {
+          goog.importScript_(goog.basePath + path);
+        } else {
+          loadingModule = true;
+          goog.importModule_(goog.basePath + path);
+        }
       } else {
+        goog.moduleLoaderState_ = moduleState;
         throw Error('Undefined script input');
       }
     }
+
+    // restore the current "module loading state"
+    goog.moduleLoaderState_ = moduleState;
   };
 
 
@@ -780,7 +1187,7 @@ goog.typeOf = function(value) {
       if ((className == '[object Array]' ||
            // In IE all non value types are wrapped as objects across window
            // boundaries (not iframe though) so we have to do object detection
-           // for this edge case
+           // for this edge case.
            typeof value.length == 'number' &&
            typeof value.splice != 'undefined' &&
            typeof value.propertyIsEnumerable != 'undefined' &&
@@ -810,17 +1217,15 @@ goog.typeOf = function(value) {
         return 'function';
       }
 
-
     } else {
       return 'null';
     }
 
   } else if (s == 'function' && typeof value.call == 'undefined') {
-    // In Safari typeof nodeList returns 'function', and on Firefox
-    // typeof behaves similarly for HTML{Applet,Embed,Object}Elements
-    // and RegExps.  We would like to return object for those and we can
-    // detect an invalid function by making sure that the function
-    // object has a call method.
+    // In Safari typeof nodeList returns 'function', and on Firefox typeof
+    // behaves similarly for HTML{Applet,Embed,Object}, Elements and RegExps. We
+    // would like to return object for those and we can detect an invalid
+    // function by making sure that the function object has a call method.
     return 'object';
   }
   return s;
@@ -828,21 +1233,8 @@ goog.typeOf = function(value) {
 
 
 /**
- * Returns true if the specified value is not |undefined|.
- * WARNING: Do not use this to test if an object has a property. Use the in
- * operator instead.  Additionally, this function assumes that the global
- * undefined variable has not been redefined.
- * @param {*} val Variable to test.
- * @return {boolean} Whether variable is defined.
- */
-goog.isDef = function(val) {
-  return val !== undefined;
-};
-
-
-/**
- * Returns true if the specified value is |null|
- * @param {*} val Variable to test.
+ * Returns true if the specified value is null.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is null.
  */
 goog.isNull = function(val) {
@@ -851,8 +1243,8 @@ goog.isNull = function(val) {
 
 
 /**
- * Returns true if the specified value is defined and not null
- * @param {*} val Variable to test.
+ * Returns true if the specified value is defined and not null.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is defined and not null.
  */
 goog.isDefAndNotNull = function(val) {
@@ -862,8 +1254,8 @@ goog.isDefAndNotNull = function(val) {
 
 
 /**
- * Returns true if the specified value is an array
- * @param {*} val Variable to test.
+ * Returns true if the specified value is an array.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is an array.
  */
 goog.isArray = function(val) {
@@ -875,7 +1267,7 @@ goog.isArray = function(val) {
  * Returns true if the object looks like an array. To qualify as array like
  * the value needs to be either a NodeList or an object with a Number length
  * property.
- * @param {*} val Variable to test.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is an array.
  */
 goog.isArrayLike = function(val) {
@@ -885,9 +1277,9 @@ goog.isArrayLike = function(val) {
 
 
 /**
- * Returns true if the object looks like a Date. To qualify as Date-like
- * the value needs to be an object and have a getFullYear() function.
- * @param {*} val Variable to test.
+ * Returns true if the object looks like a Date. To qualify as Date-like the
+ * value needs to be an object and have a getFullYear() function.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is a like a Date.
  */
 goog.isDateLike = function(val) {
@@ -896,8 +1288,8 @@ goog.isDateLike = function(val) {
 
 
 /**
- * Returns true if the specified value is a string
- * @param {*} val Variable to test.
+ * Returns true if the specified value is a string.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is a string.
  */
 goog.isString = function(val) {
@@ -906,8 +1298,8 @@ goog.isString = function(val) {
 
 
 /**
- * Returns true if the specified value is a boolean
- * @param {*} val Variable to test.
+ * Returns true if the specified value is a boolean.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is boolean.
  */
 goog.isBoolean = function(val) {
@@ -916,8 +1308,8 @@ goog.isBoolean = function(val) {
 
 
 /**
- * Returns true if the specified value is a number
- * @param {*} val Variable to test.
+ * Returns true if the specified value is a number.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is a number.
  */
 goog.isNumber = function(val) {
@@ -926,8 +1318,8 @@ goog.isNumber = function(val) {
 
 
 /**
- * Returns true if the specified value is a function
- * @param {*} val Variable to test.
+ * Returns true if the specified value is a function.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is a function.
  */
 goog.isFunction = function(val) {
@@ -936,9 +1328,9 @@ goog.isFunction = function(val) {
 
 
 /**
- * Returns true if the specified value is an object.  This includes arrays
- * and functions.
- * @param {*} val Variable to test.
+ * Returns true if the specified value is an object.  This includes arrays and
+ * functions.
+ * @param {?} val Variable to test.
  * @return {boolean} Whether variable is an object.
  */
 goog.isObject = function(val) {
@@ -950,12 +1342,12 @@ goog.isObject = function(val) {
 
 
 /**
- * Gets a unique ID for an object. This mutates the object so that further
- * calls with the same object as a parameter returns the same value. The unique
- * ID is guaranteed to be unique across the current session amongst objects that
- * are passed into {@code getUid}. There is no guarantee that the ID is unique
- * or consistent across sessions. It is unsafe to generate unique ID for
- * function prototypes.
+ * Gets a unique ID for an object. This mutates the object so that further calls
+ * with the same object as a parameter returns the same value. The unique ID is
+ * guaranteed to be unique across the current session amongst objects that are
+ * passed into {@code getUid}. There is no guarantee that the ID is unique or
+ * consistent across sessions. It is unsafe to generate unique ID for function
+ * prototypes.
  *
  * @param {Object} obj The object to get the unique ID for.
  * @return {number} The unique ID for the object.
@@ -972,6 +1364,19 @@ goog.getUid = function(obj) {
 
 
 /**
+ * Whether the given object is alreay assigned a unique ID.
+ *
+ * This does not modify the object.
+ *
+ * @param {Object} obj The object to check.
+ * @return {boolean} Whether there an assigned unique id for the object.
+ */
+goog.hasUid = function(obj) {
+  return !!obj[goog.UID_PROPERTY_];
+};
+
+
+/**
  * Removes the unique ID from an object. This is useful if the object was
  * previously mutated using {@code goog.getUid} in which case the mutation is
  * undone.
@@ -980,8 +1385,8 @@ goog.getUid = function(obj) {
 goog.removeUid = function(obj) {
   // TODO(arv): Make the type stricter, do not accept null.
 
-  // DOM nodes in IE are not instance of Object and throws exception
-  // for delete. Instead we try to use removeAttribute
+  // In IE, DOM nodes are not instances of Object and throw an exception if we
+  // try to delete.  Instead we try to use removeAttribute.
   if ('removeAttribute' in obj) {
     obj.removeAttribute(goog.UID_PROPERTY_);
   }
@@ -995,7 +1400,7 @@ goog.removeUid = function(obj) {
 
 /**
  * Name for unique ID property. Initialized in a way to help avoid collisions
- * with other closure javascript on the same page.
+ * with other closure JavaScript on the same page.
  * @type {string}
  * @private
  */
@@ -1063,15 +1468,15 @@ goog.cloneObject = function(obj) {
 /**
  * A native implementation of goog.bind.
  * @param {Function} fn A function to partially apply.
- * @param {Object|undefined} selfObj Specifies the object which |this| should
+ * @param {Object|undefined} selfObj Specifies the object which this should
  *     point to when the function is run.
- * @param {...*} var_args Additional arguments that are partially
- *     applied to the function.
+ * @param {...*} var_args Additional arguments that are partially applied to the
+ *     function.
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
  * @private
- * @suppress {deprecated} The compiler thinks that Function.prototype.bind
- *     is deprecated because some people have declared a pure-JS version.
+ * @suppress {deprecated} The compiler thinks that Function.prototype.bind is
+ *     deprecated because some people have declared a pure-JS version.
  *     Only the pure-JS version is truly deprecated.
  */
 goog.bindNative_ = function(fn, selfObj, var_args) {
@@ -1082,10 +1487,10 @@ goog.bindNative_ = function(fn, selfObj, var_args) {
 /**
  * A pure-JS implementation of goog.bind.
  * @param {Function} fn A function to partially apply.
- * @param {Object|undefined} selfObj Specifies the object which |this| should
+ * @param {Object|undefined} selfObj Specifies the object which this should
  *     point to when the function is run.
- * @param {...*} var_args Additional arguments that are partially
- *     applied to the function.
+ * @param {...*} var_args Additional arguments that are partially applied to the
+ *     function.
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
  * @private
@@ -1115,22 +1520,22 @@ goog.bindJs_ = function(fn, selfObj, var_args) {
 /**
  * Partially applies this function to a particular 'this object' and zero or
  * more arguments. The result is a new function with some arguments of the first
- * function pre-filled and the value of |this| 'pre-specified'.<br><br>
+ * function pre-filled and the value of this 'pre-specified'.
  *
- * Remaining arguments specified at call-time are appended to the pre-
- * specified ones.<br><br>
+ * Remaining arguments specified at call-time are appended to the pre-specified
+ * ones.
  *
- * Also see: {@link #partial}.<br><br>
+ * Also see: {@link #partial}.
  *
  * Usage:
  * <pre>var barMethBound = bind(myFunction, myObj, 'arg1', 'arg2');
  * barMethBound('arg3', 'arg4');</pre>
  *
  * @param {?function(this:T, ...)} fn A function to partially apply.
- * @param {T} selfObj Specifies the object which |this| should
- *     point to when the function is run.
- * @param {...*} var_args Additional arguments that are partially
- *     applied to the function.
+ * @param {T} selfObj Specifies the object which this should point to when the
+ *     function is run.
+ * @param {...*} var_args Additional arguments that are partially applied to the
+ *     function.
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
  * @template T
@@ -1139,13 +1544,12 @@ goog.bindJs_ = function(fn, selfObj, var_args) {
 goog.bind = function(fn, selfObj, var_args) {
   // TODO(nicksantos): narrow the type signature.
   if (Function.prototype.bind &&
-      // NOTE(nicksantos): Somebody pulled base.js into the default
-      // Chrome extension environment. This means that for Chrome extensions,
-      // they get the implementation of Function.prototype.bind that
-      // calls goog.bind instead of the native one. Even worse, we don't want
-      // to introduce a circular dependency between goog.bind and
-      // Function.prototype.bind, so we have to hack this to make sure it
-      // works correctly.
+      // NOTE(nicksantos): Somebody pulled base.js into the default Chrome
+      // extension environment. This means that for Chrome extensions, they get
+      // the implementation of Function.prototype.bind that calls goog.bind
+      // instead of the native one. Even worse, we don't want to introduce a
+      // circular dependency between goog.bind and Function.prototype.bind, so
+      // we have to hack this to make sure it works correctly.
       Function.prototype.bind.toString().indexOf('native code') != -1) {
     goog.bind = goog.bindNative_;
   } else {
@@ -1164,17 +1568,17 @@ goog.bind = function(fn, selfObj, var_args) {
  * g(arg3, arg4);
  *
  * @param {Function} fn A function to partially apply.
- * @param {...*} var_args Additional arguments that are partially
- *     applied to fn.
+ * @param {...*} var_args Additional arguments that are partially applied to fn.
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
  */
 goog.partial = function(fn, var_args) {
   var args = Array.prototype.slice.call(arguments, 1);
   return function() {
-    // Prepend the bound arguments to the current arguments.
-    var newArgs = Array.prototype.slice.call(arguments);
-    newArgs.unshift.apply(newArgs, args);
+    // Clone the array (with slice()) and append additional arguments
+    // to the existing arguments.
+    var newArgs = args.slice();
+    newArgs.push.apply(newArgs, arguments);
     return fn.apply(this, newArgs);
   };
 };
@@ -1212,7 +1616,7 @@ goog.now = (goog.TRUSTED_SITE && Date.now) || (function() {
 
 
 /**
- * Evals javascript in the global scope.  In IE this uses execScript, other
+ * Evals JavaScript in the global scope.  In IE this uses execScript, other
  * browsers use goog.global.eval. If goog.global.eval does not evaluate in the
  * global scope (for example, in Safari), appends a script tag instead.
  * Throws an exception if neither execScript or eval is defined.
@@ -1287,27 +1691,26 @@ goog.cssNameMappingStyle_;
  *
  * This function works in tandem with @see goog.setCssNameMapping.
  *
- * Without any mapping set, the arguments are simple joined with a
- * hyphen and passed through unaltered.
+ * Without any mapping set, the arguments are simple joined with a hyphen and
+ * passed through unaltered.
  *
- * When there is a mapping, there are two possible styles in which
- * these mappings are used. In the BY_PART style, each part (i.e. in
- * between hyphens) of the passed in css name is rewritten according
- * to the map. In the BY_WHOLE style, the full css name is looked up in
- * the map directly. If a rewrite is not specified by the map, the
- * compiler will output a warning.
+ * When there is a mapping, there are two possible styles in which these
+ * mappings are used. In the BY_PART style, each part (i.e. in between hyphens)
+ * of the passed in css name is rewritten according to the map. In the BY_WHOLE
+ * style, the full css name is looked up in the map directly. If a rewrite is
+ * not specified by the map, the compiler will output a warning.
  *
- * When the mapping is passed to the compiler, it will replace calls
- * to goog.getCssName with the strings from the mapping, e.g.
+ * When the mapping is passed to the compiler, it will replace calls to
+ * goog.getCssName with the strings from the mapping, e.g.
  *     var x = goog.getCssName('foo');
  *     var y = goog.getCssName(this.baseClass, 'active');
  *  becomes:
  *     var x= 'foo';
  *     var y = this.baseClass + '-active';
  *
- * If one argument is passed it will be processed, if two are passed
- * only the modifier will be processed, as it is assumed the first
- * argument was generated as a result of calling goog.getCssName.
+ * If one argument is passed it will be processed, if two are passed only the
+ * modifier will be processed, as it is assumed the first argument was generated
+ * as a result of calling goog.getCssName.
  *
  * @param {string} className The class name.
  * @param {string=} opt_modifier A modifier to be appended to the class name.
@@ -1415,10 +1818,10 @@ if (!COMPILED && goog.global.CLOSURE_CSS_NAME_MAPPING) {
  * @return {string} message with placeholders filled.
  */
 goog.getMsg = function(str, opt_values) {
-  var values = opt_values || {};
-  for (var key in values) {
-    var value = ('' + values[key]).replace(/\$/g, '$$$$');
-    str = str.replace(new RegExp('\\{\\$' + key + '\\}', 'gi'), value);
+  if (opt_values) {
+    str = str.replace(/\{\$([^}]+)}/g, function(match, key) {
+      return key in opt_values ? opt_values[key] : match;
+    });
   }
   return str;
 };
@@ -1431,7 +1834,7 @@ goog.getMsg = function(str, opt_values) {
  * This is useful when introducing a new message that has not yet been
  * translated into all languages.
  *
- * This function is a compiler primtive. Must be used in the form:
+ * This function is a compiler primitive. Must be used in the form:
  * <code>var x = goog.getMsgWithFallback(MSG_A, MSG_B);</code>
  * where MSG_A and MSG_B were initialized with goog.getMsg.
  *
@@ -1446,17 +1849,14 @@ goog.getMsgWithFallback = function(a, b) {
 
 /**
  * Exposes an unobfuscated global namespace path for the given object.
- * Note that fields of the exported object *will* be obfuscated,
- * unless they are exported in turn via this function or
- * goog.exportProperty
+ * Note that fields of the exported object *will* be obfuscated, unless they are
+ * exported in turn via this function or goog.exportProperty.
  *
- * <p>Also handy for making public items that are defined in anonymous
- * closures.
+ * Also handy for making public items that are defined in anonymous closures.
  *
  * ex. goog.exportSymbol('public.path.Foo', Foo);
  *
- * ex. goog.exportSymbol('public.path.Foo.staticFunction',
- *                       Foo.staticFunction);
+ * ex. goog.exportSymbol('public.path.Foo.staticFunction', Foo.staticFunction);
  *     public.path.Foo.staticFunction();
  *
  * ex. goog.exportSymbol('public.path.Foo.prototype.myMethod',
@@ -1466,7 +1866,7 @@ goog.getMsgWithFallback = function(a, b) {
  * @param {string} publicPath Unobfuscated name to export.
  * @param {*} object Object the name should point to.
  * @param {Object=} opt_objectToExportTo The object to add the path to; default
- *     is |goog.global|.
+ *     is goog.global.
  */
 goog.exportSymbol = function(publicPath, object, opt_objectToExportTo) {
   goog.exportPath_(publicPath, object, opt_objectToExportTo);
@@ -1492,25 +1892,15 @@ goog.exportProperty = function(object, publicName, symbol) {
  * Usage:
  * <pre>
  * function ParentClass(a, b) { }
- * ParentClass.prototype.foo = function(a) { }
+ * ParentClass.prototype.foo = function(a) { };
  *
  * function ChildClass(a, b, c) {
- *   goog.base(this, a, b);
+ *   ChildClass.base(this, 'constructor', a, b);
  * }
  * goog.inherits(ChildClass, ParentClass);
  *
  * var child = new ChildClass('a', 'b', 'see');
- * child.foo(); // works
- * </pre>
- *
- * In addition, a superclass' implementation of a method can be invoked
- * as follows:
- *
- * <pre>
- * ChildClass.prototype.foo = function(a) {
- *   ChildClass.superClass_.foo.call(this, a);
- *   // other code
- * };
+ * child.foo(); // This works.
  * </pre>
  *
  * @param {Function} childCtor Child class.
@@ -1524,6 +1914,28 @@ goog.inherits = function(childCtor, parentCtor) {
   childCtor.prototype = new tempCtor();
   /** @override */
   childCtor.prototype.constructor = childCtor;
+
+  /**
+   * Calls superclass constructor/method.
+   *
+   * This function is only available if you use goog.inherits to
+   * express inheritance relationships between classes.
+   *
+   * NOTE: This is a replacement for goog.base and for superClass_
+   * property defined in childCtor.
+   *
+   * @param {!Object} me Should always be "this".
+   * @param {string} methodName The method name to call. Calling
+   *     superclass constructor can be done with the special string
+   *     'constructor'.
+   * @param {...*} var_args The arguments to pass to superclass
+   *     method/constructor.
+   * @return {*} The return value of the superclass method/constructor.
+   */
+  childCtor.base = function(me, methodName, var_args) {
+    var args = Array.prototype.slice.call(arguments, 2);
+    return parentCtor.prototype[methodName].apply(me, args);
+  };
 };
 
 
@@ -1531,36 +1943,34 @@ goog.inherits = function(childCtor, parentCtor) {
  * Call up to the superclass.
  *
  * If this is called from a constructor, then this calls the superclass
- * contructor with arguments 1-N.
+ * constructor with arguments 1-N.
  *
- * If this is called from a prototype method, then you must pass
- * the name of the method as the second argument to this function. If
- * you do not, you will get a runtime error. This calls the superclass'
- * method with arguments 2-N.
+ * If this is called from a prototype method, then you must pass the name of the
+ * method as the second argument to this function. If you do not, you will get a
+ * runtime error. This calls the superclass' method with arguments 2-N.
  *
- * This function only works if you use goog.inherits to express
- * inheritance relationships between your classes.
+ * This function only works if you use goog.inherits to express inheritance
+ * relationships between your classes.
  *
- * This function is a compiler primitive. At compile-time, the
- * compiler will do macro expansion to remove a lot of
- * the extra overhead that this function introduces. The compiler
- * will also enforce a lot of the assumptions that this function
- * makes, and treat it as a compiler error if you break them.
+ * This function is a compiler primitive. At compile-time, the compiler will do
+ * macro expansion to remove a lot of the extra overhead that this function
+ * introduces. The compiler will also enforce a lot of the assumptions that this
+ * function makes, and treat it as a compiler error if you break them.
  *
  * @param {!Object} me Should always be "this".
  * @param {*=} opt_methodName The method name if calling a super method.
  * @param {...*} var_args The rest of the arguments.
  * @return {*} The return value of the superclass method.
+ * @suppress {es5Strict} This method can not be used in strict mode, but
+ *     all Closure Library consumers must depend on this file.
  */
 goog.base = function(me, opt_methodName, var_args) {
   var caller = arguments.callee.caller;
 
-  if (goog.DEBUG) {
-    if (!caller) {
-      throw Error('arguments.caller not defined.  goog.base() expects not ' +
-                  'to be running in strict mode. See ' +
-                  'http://www.ecma-international.org/ecma-262/5.1/#sec-C');
-    }
+  if (goog.STRICT_MODE_COMPATIBLE || (goog.DEBUG && !caller)) {
+    throw Error('arguments.caller not defined.  goog.base() cannot be used ' +
+                'with strict mode code. See ' +
+                'http://www.ecma-international.org/ecma-262/5.1/#sec-C');
   }
 
   if (caller.superClass_) {
@@ -1580,8 +1990,8 @@ goog.base = function(me, opt_methodName, var_args) {
     }
   }
 
-  // If we did not find the caller in the prototype chain,
-  // then one of two things happened:
+  // If we did not find the caller in the prototype chain, then one of two
+  // things happened:
   // 1) The caller is an instance method.
   // 2) This method was not called by the right caller.
   if (me[opt_methodName] === caller) {
@@ -1596,480 +2006,846 @@ goog.base = function(me, opt_methodName, var_args) {
 
 /**
  * Allow for aliasing within scope functions.  This function exists for
- * uncompiled code - in compiled code the calls will be inlined and the
- * aliases applied.  In uncompiled code the function is simply run since the
- * aliases as written are valid JavaScript.
+ * uncompiled code - in compiled code the calls will be inlined and the aliases
+ * applied.  In uncompiled code the function is simply run since the aliases as
+ * written are valid JavaScript.
+ *
+ *
  * @param {function()} fn Function to call.  This function can contain aliases
  *     to namespaces (e.g. "var dom = goog.dom") or classes
- *    (e.g. "var Timer = goog.Timer").
+ *     (e.g. "var Timer = goog.Timer").
  */
 goog.scope = function(fn) {
   fn.call(goog.global);
 };
 
 
+/*
+ * To support uncompiled, strict mode bundles that use eval to divide source
+ * like so:
+ *    eval('someSource;//# sourceUrl sourcefile.js');
+ * We need to export the globally defined symbols "goog" and "COMPILED".
+ * Exporting "goog" breaks the compiler optimizations, so we required that
+ * be defined externally.
+ * NOTE: We don't use goog.exportSymbol here because we don't want to trigger
+ * extern generation when that compiler option is enabled.
+ */
+if (!COMPILED) {
+  goog.global['COMPILED'] = COMPILED;
+}
+
+
+
+//==============================================================================
+// goog.defineClass implementation
+//==============================================================================
+
+/**
+ * Creates a restricted form of a Closure "class":
+ *   - from the compiler's perspective, the instance returned from the
+ *     constructor is sealed (no new properties may be added).  This enables
+ *     better checks.
+ *   - the compiler will rewrite this definition to a form that is optimal
+ *     for type checking and optimization (initially this will be a more
+ *     traditional form).
+ *
+ * @param {Function} superClass The superclass, Object or null.
+ * @param {goog.defineClass.ClassDescriptor} def
+ *     An object literal describing the
+ *     the class.  It may have the following properties:
+ *     "constructor": the constructor function
+ *     "statics": an object literal containing methods to add to the constructor
+ *        as "static" methods or a function that will receive the constructor
+ *        function as its only parameter to which static properties can
+ *        be added.
+ *     all other properties are added to the prototype.
+ * @return {!Function} The class constructor.
+ */
+goog.defineClass = function(superClass, def) {
+  // TODO(johnlenz): consider making the superClass an optional parameter.
+  var constructor = def.constructor;
+  var statics = def.statics;
+  // Wrap the constructor prior to setting up the prototype and static methods.
+  if (!constructor || constructor == Object.prototype.constructor) {
+    constructor = function() {
+      throw Error('cannot instantiate an interface (no constructor defined).');
+    };
+  }
+
+  var cls = goog.defineClass.createSealingConstructor_(constructor, superClass);
+  if (superClass) {
+    goog.inherits(cls, superClass);
+  }
+
+  // Remove all the properties that should not be copied to the prototype.
+  delete def.constructor;
+  delete def.statics;
+
+  goog.defineClass.applyProperties_(cls.prototype, def);
+  if (statics != null) {
+    if (statics instanceof Function) {
+      statics(cls);
+    } else {
+      goog.defineClass.applyProperties_(cls, statics);
+    }
+  }
+
+  return cls;
+};
+
+
+/**
+ * @typedef {
+ *     !Object|
+ *     {constructor:!Function}|
+ *     {constructor:!Function, statics:(Object|function(Function):void)}}
+ */
+goog.defineClass.ClassDescriptor;
+
+
+/**
+ * @define {boolean} Whether the instances returned by
+ * goog.defineClass should be sealed when possible.
+ */
+goog.define('goog.defineClass.SEAL_CLASS_INSTANCES', goog.DEBUG);
+
+
+/**
+ * If goog.defineClass.SEAL_CLASS_INSTANCES is enabled and Object.seal is
+ * defined, this function will wrap the constructor in a function that seals the
+ * results of the provided constructor function.
+ *
+ * @param {!Function} ctr The constructor whose results maybe be sealed.
+ * @param {Function} superClass The superclass constructor.
+ * @return {!Function} The replacement constructor.
+ * @private
+ */
+goog.defineClass.createSealingConstructor_ = function(ctr, superClass) {
+  if (goog.defineClass.SEAL_CLASS_INSTANCES &&
+      Object.seal instanceof Function) {
+    // Don't seal subclasses of unsealable-tagged legacy classes.
+    if (superClass && superClass.prototype &&
+        superClass.prototype[goog.UNSEALABLE_CONSTRUCTOR_PROPERTY_]) {
+      return ctr;
+    }
+    /** @this {*} */
+    var wrappedCtr = function() {
+      // Don't seal an instance of a subclass when it calls the constructor of
+      // its super class as there is most likely still setup to do.
+      var instance = ctr.apply(this, arguments) || this;
+      instance[goog.UID_PROPERTY_] = instance[goog.UID_PROPERTY_];
+      if (this.constructor === wrappedCtr) {
+        Object.seal(instance);
+      }
+      return instance;
+    };
+    return wrappedCtr;
+  }
+  return ctr;
+};
+
+
+// TODO(johnlenz): share these values with the goog.object
+/**
+ * The names of the fields that are defined on Object.prototype.
+ * @type {!Array.<string>}
+ * @private
+ * @const
+ */
+goog.defineClass.OBJECT_PROTOTYPE_FIELDS_ = [
+  'constructor',
+  'hasOwnProperty',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  'toLocaleString',
+  'toString',
+  'valueOf'
+];
+
+
+// TODO(johnlenz): share this function with the goog.object
+/**
+ * @param {!Object} target The object to add properties to.
+ * @param {!Object} source The object to copy properites from.
+ * @private
+ */
+goog.defineClass.applyProperties_ = function(target, source) {
+  // TODO(johnlenz): update this to support ES5 getters/setters
+
+  var key;
+  for (key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      target[key] = source[key];
+    }
+  }
+
+  // For IE the for-in-loop does not contain any properties that are not
+  // enumerable on the prototype object (for example isPrototypeOf from
+  // Object.prototype) and it will also not include 'replace' on objects that
+  // extend String and change 'replace' (not that it is common for anyone to
+  // extend anything except Object).
+  for (var i = 0; i < goog.defineClass.OBJECT_PROTOTYPE_FIELDS_.length; i++) {
+    key = goog.defineClass.OBJECT_PROTOTYPE_FIELDS_[i];
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      target[key] = source[key];
+    }
+  }
+};
+
+
+/**
+ * Sealing classes breaks the older idiom of assigning properties on the
+ * prototype rather than in the constructor.  As such, goog.defineClass
+ * must not seal subclasses of these old-style classes until they are fixed.
+ * Until then, this marks a class as "broken", instructing defineClass
+ * not to seal subclasses.
+ * @param {!Function} ctr The legacy constructor to tag as unsealable.
+ */
+goog.tagUnsealableClass = function(ctr) {
+  if (!COMPILED && goog.defineClass.SEAL_CLASS_INSTANCES) {
+    ctr.prototype[goog.UNSEALABLE_CONSTRUCTOR_PROPERTY_] = true;
+  }
+};
+
+
+/**
+ * Name for unsealable tag property.
+ * @const @private {string}
+ */
+goog.UNSEALABLE_CONSTRUCTOR_PROPERTY_ = 'goog_defineClass_legacy_unsealable';
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
- * @fileoverview Context information about nodes in their nodeset.
+ * @fileoverview An abstract class representing basic expressions.
  */
 
-goog.provide('wgxpath.NodeSet');
+goog.provide('wgxpath.Expr');
 
-goog.require('goog.dom');
-goog.require('wgxpath.Node');
+goog.require('wgxpath.NodeSet');
 
 
 
 /**
- * A set of nodes sorted by their prefix order in the document.
+ * Abstract constructor for an XPath expression.
  *
+ * @param {!wgxpath.DataType} dataType The data type that the expression
+ *                                    will be evaluated into.
  * @constructor
  */
-wgxpath.NodeSet = function() {
-  // In violation of standard Closure practice, we initialize properties to
-  // immutable constants in the constructor instead of on the prototype,
-  // because we have empirically measured better performance by doing so.
+wgxpath.Expr = function(dataType) {
 
   /**
-   * A pointer to the first node in the linked list.
-   *
-   * @private
-   * @type {wgxpath.NodeSet.Entry_}
-   */
-  this.first_ = null;
-
-  /**
-   * A pointer to the last node in the linked list.
-   *
-   * @private
-   * @type {wgxpath.NodeSet.Entry_}
-   */
-  this.last_ = null;
-
-  /**
-   * Length of the linked list.
-   *
-   * @private
-   * @type {number}
-   */
-  this.length_ = 0;
-};
-
-
-
-/**
- * A entry for a node in a linked list
- *
- * @param {!wgxpath.Node} node The node to be added.
- * @constructor
- * @private
- */
-wgxpath.NodeSet.Entry_ = function(node) {
-  // In violation of standard Closure practice, we initialize properties to
-  // immutable constants in the constructor instead of on the prototype,
-  // because we have empirically measured better performance by doing so.
-
-  /**
-   * @type {!wgxpath.Node}
-   */
-  this.node = node;
-
-  /**
-   * @type {wgxpath.NodeSet.Entry_}
-   */
-  this.prev = null;
-
-  /**
-   * @type {wgxpath.NodeSet.Entry_}
-   */
-  this.next = null;
-};
-
-
-/**
- * Merges two nodesets, removing duplicates. This function may modify both
- * nodesets, and will return a reference to one of the two.
- *
- * <p> Note: We assume that the two nodesets are already sorted in DOM order.
- *
- * @param {!wgxpath.NodeSet} a The first nodeset.
- * @param {!wgxpath.NodeSet} b The second nodeset.
- * @return {!wgxpath.NodeSet} The merged nodeset.
- */
-wgxpath.NodeSet.merge = function(a, b) {
-  if (!a.first_) {
-    return b;
-  } else if (!b.first_) {
-    return a;
-  }
-  var aCurr = a.first_;
-  var bCurr = b.first_;
-  var merged = a, tail = null, next = null, length = 0;
-  while (aCurr && bCurr) {
-    if (wgxpath.Node.equal(aCurr.node, bCurr.node)) {
-      next = aCurr;
-      aCurr = aCurr.next;
-      bCurr = bCurr.next;
-    } else {
-      var compareResult = goog.dom.compareNodeOrder(
-          /** @type {!Node} */ (aCurr.node),
-          /** @type {!Node} */ (bCurr.node));
-      if (compareResult > 0) {
-        next = bCurr;
-        bCurr = bCurr.next;
-      } else {
-        next = aCurr;
-        aCurr = aCurr.next;
-      }
-    }
-    next.prev = tail;
-    if (tail) {
-      tail.next = next;
-    } else {
-      merged.first_ = next;
-    }
-    tail = next;
-    length++;
-  }
-  next = aCurr || bCurr;
-  while (next) {
-    next.prev = tail;
-    tail.next = next;
-    tail = next;
-    length++;
-    next = next.next;
-  }
-  merged.last_ = tail;
-  merged.length_ = length;
-  return merged;
-};
-
-
-/**
- * Prepends a node to this nodeset.
- *
- * @param {!wgxpath.Node} node The node to be added.
- */
-wgxpath.NodeSet.prototype.unshift = function(node) {
-  var entry = new wgxpath.NodeSet.Entry_(node);
-  entry.next = this.first_;
-  if (!this.last_) {
-    this.first_ = this.last_ = entry;
-  } else {
-    this.first_.prev = entry;
-  }
-  this.first_ = entry;
-  this.length_++;
-};
-
-
-/**
- * Adds a node to this nodeset.
- *
- * @param {!wgxpath.Node} node The node to be added.
- */
-wgxpath.NodeSet.prototype.add = function(node) {
-  var entry = new wgxpath.NodeSet.Entry_(node);
-  entry.prev = this.last_;
-  if (!this.first_) {
-    this.first_ = this.last_ = entry;
-  } else {
-    this.last_.next = entry;
-  }
-  this.last_ = entry;
-  this.length_++;
-};
-
-
-/**
- * Returns the first node of the nodeset.
- *
- * @return {?wgxpath.Node} The first node of the nodeset
-                                     if the nodeset is non-empty;
- *     otherwise null.
- */
-wgxpath.NodeSet.prototype.getFirst = function() {
-  var first = this.first_;
-  if (first) {
-    return first.node;
-  } else {
-    return null;
-  }
-};
-
-
-/**
- * Return the length of this nodeset.
- *
- * @return {number} The length of the nodeset.
- */
-wgxpath.NodeSet.prototype.getLength = function() {
-  return this.length_;
-};
-
-
-/**
- * Returns the string representation of this nodeset.
- *
- * @return {string} The string representation of this nodeset.
- */
-wgxpath.NodeSet.prototype.string = function() {
-  var node = this.getFirst();
-  return node ? wgxpath.Node.getValueAsString(node) : '';
-};
-
-
-/**
- * Returns the number representation of this nodeset.
- *
- * @return {number} The number representation of this nodeset.
- */
-wgxpath.NodeSet.prototype.number = function() {
-  return +this.string();
-};
-
-
-/**
- * Returns an iterator over this nodeset. Once this iterator is made, DO NOT
- *     add to this nodeset until the iterator is done.
- *
- * @param {boolean=} opt_reverse Whether to iterate right to left or vice versa.
- * @return {!wgxpath.NodeSet.Iterator} An iterator over the nodes.
- */
-wgxpath.NodeSet.prototype.iterator = function(opt_reverse) {
-  return new wgxpath.NodeSet.Iterator(this, !!opt_reverse);
-};
-
-
-
-/**
- * An iterator over the nodes of this nodeset.
- *
- * @param {!wgxpath.NodeSet} nodeset The nodeset to be iterated over.
- * @param {boolean} reverse Whether to iterate in ascending or descending
- *     order.
- * @constructor
- */
-wgxpath.NodeSet.Iterator = function(nodeset, reverse) {
-  // In violation of standard Closure practice, we initialize properties to
-  // immutable constants in the constructor instead of on the prototype,
-  // because we have empirically measured better performance by doing so.
-
-  /**
-   * @type {!wgxpath.NodeSet}
+   * @type {!wgxpath.DataType}
    * @private
    */
-  this.nodeset_ = nodeset;
+  this.dataType_ = dataType;
 
   /**
    * @type {boolean}
    * @private
    */
-  this.reverse_ = reverse;
+  this.needContextPosition_ = false;
 
   /**
-   * @type {wgxpath.NodeSet.Entry_}
+   * @type {boolean}
    * @private
    */
-  this.current_ = reverse ? nodeset.last_ : nodeset.first_;
+  this.needContextNode_ = false;
 
   /**
-   * @type {wgxpath.NodeSet.Entry_}
+   * @type {?{name: string, valueExpr: wgxpath.Expr}}
    * @private
    */
-  this.lastReturned_ = null;
+  this.quickAttr_ = null;
 };
 
 
 /**
- * Returns the next value of the iteration or null if passes the end.
+ * Indentation method for pretty printing.
  *
- * @return {?wgxpath.Node} The next node from this iterator.
+ * @param {*} obj The object to return a string representation for.
+ * @return {string} The string prepended with newline and two spaces.
  */
-wgxpath.NodeSet.Iterator.prototype.next = function() {
-  var current = this.current_;
-  if (current == null) {
-    return null;
-  } else {
-    var lastReturned = this.lastReturned_ = current;
-    if (this.reverse_) {
-      this.current_ = current.prev;
-    } else {
-      this.current_ = current.next;
+wgxpath.Expr.indent = function(obj) {
+  return '\n  ' + obj.toString().split('\n').join('\n  ');
+};
+
+
+/**
+ * Evaluates the expression.
+ *
+ * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
+ * @return {!(string|boolean|number|wgxpath.NodeSet)} The evaluation result.
+ */
+wgxpath.Expr.prototype.evaluate = goog.abstractMethod;
+
+
+/**
+ * @override
+ */
+wgxpath.Expr.prototype.toString = goog.abstractMethod;
+
+
+/**
+ * Returns the data type of the expression.
+ *
+ * @return {!wgxpath.DataType} The data type that the expression
+ *                            will be evaluated into.
+ */
+wgxpath.Expr.prototype.getDataType = function() {
+  return this.dataType_;
+};
+
+
+/**
+ * Returns whether the expression needs context position to be evaluated.
+ *
+ * @return {boolean} Whether context position is needed.
+ */
+wgxpath.Expr.prototype.doesNeedContextPosition = function() {
+  return this.needContextPosition_;
+};
+
+
+/**
+ * Sets whether the expression needs context position to be evaluated.
+ *
+ * @param {boolean} flag Whether context position is needed.
+ */
+wgxpath.Expr.prototype.setNeedContextPosition = function(flag) {
+  this.needContextPosition_ = flag;
+};
+
+
+/**
+ * Returns whether the expression needs context node to be evaluated.
+ *
+ * @return {boolean} Whether context node is needed.
+ */
+wgxpath.Expr.prototype.doesNeedContextNode = function() {
+  return this.needContextNode_;
+};
+
+
+/**
+ * Sets whether the expression needs context node to be evaluated.
+ *
+ * @param {boolean} flag Whether context node is needed.
+ */
+wgxpath.Expr.prototype.setNeedContextNode = function(flag) {
+  this.needContextNode_ = flag;
+};
+
+
+/**
+ * Returns the quick attribute information, if exists.
+ *
+ * @return {?{name: string, valueExpr: wgxpath.Expr}} The attribute
+ *         information.
+ */
+wgxpath.Expr.prototype.getQuickAttr = function() {
+  return this.quickAttr_;
+};
+
+
+/**
+ * Sets up the quick attribute info.
+ *
+ * @param {?{name: string, valueExpr: wgxpath.Expr}} attrInfo The attribute
+ *        information.
+ */
+wgxpath.Expr.prototype.setQuickAttr = function(attrInfo) {
+  this.quickAttr_ = attrInfo;
+};
+
+
+/**
+ * Evaluate and interpret the result as a number.
+ *
+ * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
+ * @return {number} The evaluated number value.
+ */
+wgxpath.Expr.prototype.asNumber = function(ctx) {
+  var exrs = this.evaluate(ctx);
+  if (exrs instanceof wgxpath.NodeSet) {
+    return exrs.number();
+  }
+  return +exrs;
+};
+
+
+/**
+ * Evaluate and interpret the result as a string.
+ *
+ * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
+ * @return {string} The evaluated string.
+ */
+wgxpath.Expr.prototype.asString = function(ctx) {
+  var exrs = this.evaluate(ctx);
+  if (exrs instanceof wgxpath.NodeSet) {
+    return exrs.string();
+  }
+  return '' + exrs;
+};
+
+
+/**
+ * Evaluate and interpret the result as a boolean value.
+ *
+ * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
+ * @return {boolean} The evaluated boolean value.
+ */
+wgxpath.Expr.prototype.asBool = function(ctx) {
+  var exrs = this.evaluate(ctx);
+  if (exrs instanceof wgxpath.NodeSet) {
+    return !!exrs.getLength();
+  }
+  return !!exrs;
+};
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview A recursive descent Parser.
+ */
+
+goog.provide('wgxpath.Parser');
+
+goog.require('wgxpath.BinaryExpr');
+goog.require('wgxpath.FilterExpr');
+goog.require('wgxpath.FunctionCall');
+goog.require('wgxpath.KindTest');
+goog.require('wgxpath.Literal');
+goog.require('wgxpath.NameTest');
+goog.require('wgxpath.Number');
+goog.require('wgxpath.PathExpr');
+goog.require('wgxpath.Predicates');
+goog.require('wgxpath.Step');
+goog.require('wgxpath.UnaryExpr');
+goog.require('wgxpath.UnionExpr');
+
+
+
+/**
+ * The recursive descent parser.
+ *
+ * @constructor
+ * @param {!wgxpath.Lexer} lexer The lexer.
+ * @param {function(string): ?string} nsResolver Namespace resolver.
+ */
+wgxpath.Parser = function(lexer, nsResolver) {
+
+  /**
+   * @private {!wgxpath.Lexer}
+   */
+  this.lexer_ = lexer;
+
+  /**
+   * @private {function(string): ?string}
+   */
+  this.nsResolver_ = nsResolver;
+};
+
+
+/**
+ * Apply recursive descent parsing on the input to construct an
+ * abstract syntax tree.
+ *
+ * @return {!wgxpath.Expr} The root of the constructed tree.
+ */
+wgxpath.Parser.prototype.parseExpr = function() {
+  var expr, stack = [];
+  while (true) {
+    this.checkNotEmpty_('Missing right hand side of binary expression.');
+    expr = this.parseUnaryExpr_(); // See if it's just a UnaryExpr.
+    var opString = this.lexer_.next();
+    if (!opString) {
+      break; // Done, we have only a UnaryExpr.
     }
-    return lastReturned.node;
+
+    var op = wgxpath.BinaryExpr.getOp(opString);
+    var precedence = op && op.getPrecedence();
+    if (!precedence) {
+      this.lexer_.back();
+      break;
+    }
+    // Precedence climbing
+    while (stack.length &&
+        precedence <= stack[stack.length - 1].getPrecedence()) {
+      expr = new wgxpath.BinaryExpr(stack.pop(), stack.pop(), expr);
+    }
+    stack.push(expr, op);
   }
+  while (stack.length) {
+    expr = new wgxpath.BinaryExpr(stack.pop(), stack.pop(),
+        /** @type {!wgxpath.Expr} */ (expr));
+  }
+  return /** @type {!wgxpath.Expr} */ (expr);
 };
 
 
 /**
- * Deletes the last node that was returned from this iterator.
- */
-wgxpath.NodeSet.Iterator.prototype.remove = function() {
-  var nodeset = this.nodeset_;
-  var entry = this.lastReturned_;
-  if (!entry) {
-    throw Error('Next must be called at least once before remove.');
-  }
-  var prev = entry.prev;
-  var next = entry.next;
-
-  // Modify the pointers of prev and next
-  if (prev) {
-    prev.next = next;
-  } else {
-    // If there was no prev node entry must've been first_, so update first_.
-    nodeset.first_ = next;
-  }
-  if (next) {
-    next.prev = prev;
-  } else {
-    // If there was no prev node entry must've been last_, so update last_.
-    nodeset.last_ = prev;
-  }
-  nodeset.length_--;
-  this.lastReturned_ = null;
-};
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview A class implementing the NameTest construct.
- */
-
-goog.provide('wgxpath.NameTest');
-
-goog.require('goog.dom.NodeType');
-
-
-
-/**
- * Constructs a NameTest based on the xpath grammar:
- * http://www.w3.org/TR/xpath/#NT-NameTest
+ * Checks that the lexer is not empty,
+ *     displays the given error message if it is.
  *
- * <p>If no namespace is provided, the default HTML namespace is used.
- *
- * @param {string} name Name to be tested.
- * @param {string=} opt_namespaceUri Namespace URI; defaults to HTML namespace.
- * @constructor
- * @implements {wgxpath.NodeTest}
- */
-wgxpath.NameTest = function(name, opt_namespaceUri) {
-  /**
-   * @type {string}
-   * @private
-   */
-  this.name_ = name.toLowerCase();
-
-  /**
-   * @type {string}
-   * @private
-   */
-  this.namespaceUri_ = opt_namespaceUri ? opt_namespaceUri.toLowerCase() :
-      wgxpath.NameTest.HTML_NAMESPACE_URI_;
-};
-
-
-/**
- * The default namespace URI for XHTML nodes.
- *
- * @const
- * @type {string}
  * @private
+ * @param {string} msg The error message to display.
  */
-wgxpath.NameTest.HTML_NAMESPACE_URI_ = 'http://www.w3.org/1999/xhtml';
+wgxpath.Parser.prototype.checkNotEmpty_ = function(msg) {
+  if (this.lexer_.empty()) {
+    throw Error(msg);
+  }
+};
 
 
 /**
- * @override
+ * Checks that the next token of the error message is the expected token.
+ *
+ * @private
+ * @param {string} expected The expected token.
  */
-wgxpath.NameTest.prototype.matches = function(node) {
-  var type = node.nodeType;
-  if (type != goog.dom.NodeType.ELEMENT &&
-      type != goog.dom.NodeType.ATTRIBUTE) {
-    return false;
+wgxpath.Parser.prototype.checkNextEquals_ = function(expected) {
+  var got = this.lexer_.next();
+  if (got != expected) {
+    throw Error('Bad token, expected: ' + expected + ' got: ' + got);
   }
-  if (this.name_ != '*' && this.name_ != node.nodeName.toLowerCase()) {
-    return false;
+};
+
+
+/**
+ * Checks that the next token of the error message is not the given token.
+ *
+ * @private
+ * @param {string} token The token.
+ */
+wgxpath.Parser.prototype.checkNextNotEquals_ = function(token) {
+  var next = this.lexer_.next();
+  if (next != token) {
+    throw Error('Bad token: ' + next);
+  }
+};
+
+
+/**
+ * Attempts to parse the input as a FilterExpr.
+ *
+ * @private
+ * @return {wgxpath.Expr} The root of the constructed tree.
+ */
+wgxpath.Parser.prototype.parseFilterExpr_ = function() {
+  var expr;
+  var token = this.lexer_.peek();
+  var ch = token.charAt(0);
+  switch (ch) {
+    case '$':
+      throw Error('Variable reference not allowed in HTML XPath');
+    case '(':
+      this.lexer_.next();
+      expr = this.parseExpr();
+      this.checkNotEmpty_('unclosed "("');
+      this.checkNextEquals_(')');
+      break;
+    case '"':
+    case "'":
+      expr = this.parseLiteral_();
+      break;
+    default:
+      if (!isNaN(+token)) {
+        expr = this.parseNumber_();
+      } else if (wgxpath.KindTest.isValidType(token)) {
+        return null;
+      } else if (/(?![0-9])[\w]/.test(ch) && this.lexer_.peek(1) == '(') {
+        expr = this.parseFunctionCall_();
+      } else {
+        return null;
+      }
+  }
+  if (this.lexer_.peek() != '[') {
+    return expr;
+  }
+  var predicates = new wgxpath.Predicates(this.parsePredicates_());
+  return new wgxpath.FilterExpr(expr, predicates);
+};
+
+
+/**
+ * Parses FunctionCall.
+ *
+ * @private
+ * @return {!wgxpath.FunctionCall} The parsed expression.
+ */
+wgxpath.Parser.prototype.parseFunctionCall_ = function() {
+  var funcName = this.lexer_.next();
+  var func = wgxpath.FunctionCall.getFunc(funcName);
+  this.lexer_.next();
+
+  var args = [];
+  while (this.lexer_.peek() != ')') {
+    this.checkNotEmpty_('Missing function argument list.');
+    args.push(this.parseExpr());
+    if (this.lexer_.peek() != ',') {
+      break;
+    }
+    this.lexer_.next();
+  }
+  this.checkNotEmpty_('Unclosed function argument list.');
+  this.checkNextNotEquals_(')');
+
+  return new wgxpath.FunctionCall(func, args);
+};
+
+
+/**
+ * Parses the input to construct a KindTest.
+ *
+ * @private
+ * @return {!wgxpath.KindTest} The KindTest constructed.
+ */
+wgxpath.Parser.prototype.parseKindTest_ = function() {
+  var typeName = this.lexer_.next();
+  if (!wgxpath.KindTest.isValidType(typeName)) {
+    throw Error('Invalid type name: ' + typeName);
+  }
+  this.checkNextEquals_('(');
+  this.checkNotEmpty_('Bad nodetype');
+  var ch = this.lexer_.peek().charAt(0);
+
+  var literal = null;
+  if (ch == '"' || ch == "'") {
+    literal = this.parseLiteral_();
+  }
+  this.checkNotEmpty_('Bad nodetype');
+  this.checkNextNotEquals_(')');
+  return new wgxpath.KindTest(typeName, literal);
+};
+
+
+/**
+ * Parses the input to construct a Literal.
+ *
+ * @private
+ * @return {!wgxpath.Literal} The Literal constructed.
+ */
+wgxpath.Parser.prototype.parseLiteral_ = function() {
+  var token = this.lexer_.next();
+  if (token.length < 2) {
+    throw Error('Unclosed literal string');
+  }
+  return new wgxpath.Literal(token);
+};
+
+
+/**
+ * Parses the input to construct a NameTest.
+ *
+ * @private
+ * @return {!wgxpath.NameTest} The NameTest constructed.
+ */
+wgxpath.Parser.prototype.parseNameTest_ = function() {
+  var name = this.lexer_.next();
+
+  // Check whether there's a namespace prefix.
+  var colonIndex = name.indexOf(':');
+  if (colonIndex == -1) {
+    return new wgxpath.NameTest(name);
   } else {
-    var namespaceUri = node.namespaceURI ? node.namespaceURI.toLowerCase() :
-        wgxpath.NameTest.HTML_NAMESPACE_URI_;
-    return this.namespaceUri_ == namespaceUri;
+    var namespacePrefix = name.substring(0, colonIndex);
+    var namespaceUri = this.nsResolver_(namespacePrefix);
+    if (!namespaceUri) {
+      throw Error('Namespace prefix not declared: ' + namespacePrefix);
+    }
+    name = name.substr(colonIndex + 1);
+    return new wgxpath.NameTest(name, namespaceUri);
   }
 };
 
 
 /**
- * @override
- */
-wgxpath.NameTest.prototype.getName = function() {
-  return this.name_;
-};
-
-
-/**
- * Returns the namespace URI to be matched.
+ * Parses the input to construct a Number.
  *
- * @return {string} Namespace URI.
+ * @private
+ * @return {!wgxpath.Number} The Number constructed.
  */
-wgxpath.NameTest.prototype.getNamespaceUri = function() {
-  return this.namespaceUri_;
+wgxpath.Parser.prototype.parseNumber_ = function() {
+  return new wgxpath.Number(+this.lexer_.next());
 };
 
 
 /**
- * @override
- */
-wgxpath.NameTest.prototype.toString = function() {
-  var prefix = this.namespaceUri_ == wgxpath.NameTest.HTML_NAMESPACE_URI_ ?
-      '' : this.namespaceUri_ + ':';
-  return 'Name Test: ' + prefix + this.name_;
-};
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview A class representing the string literals.
- */
-
-goog.provide('wgxpath.Literal');
-
-goog.require('wgxpath.Expr');
-
-
-
-/**
- * Constructs a string literal expression.
+ * Attempts to parse the input as a PathExpr.
  *
- * @param {string} text The text value of the literal.
- * @constructor
- * @extends {wgxpath.Expr}
+ * @private
+ * @return {!wgxpath.Expr} The root of the constructed tree.
  */
-wgxpath.Literal = function(text) {
-  wgxpath.Expr.call(this, wgxpath.DataType.STRING);
+wgxpath.Parser.prototype.parsePathExpr_ = function() {
+  var op, expr;
+  var steps = [];
+  var filterExpr;
+  if (wgxpath.PathExpr.isValidOp(this.lexer_.peek())) {
+    op = this.lexer_.next();
+    var token = this.lexer_.peek();
+    if (op == '/' && (this.lexer_.empty() ||
+        (token != '.' && token != '..' && token != '@' && token != '*' &&
+        !/(?![0-9])[\w]/.test(token)))) {
+      return new wgxpath.PathExpr.RootHelperExpr();
+    }
+    filterExpr = new wgxpath.PathExpr.RootHelperExpr();
 
-  /**
-   * @type {string}
-   * @private
-   */
-  this.text_ = text.substring(1, text.length - 1);
+    this.checkNotEmpty_('Missing next location step.');
+    expr = this.parseStep_(op);
+    steps.push(expr);
+  } else {
+    expr = this.parseFilterExpr_();
+    if (!expr) {
+      expr = this.parseStep_('/');
+      filterExpr = new wgxpath.PathExpr.ContextHelperExpr();
+      steps.push(expr);
+    } else if (!wgxpath.PathExpr.isValidOp(this.lexer_.peek())) {
+      return expr; // Done.
+    } else {
+      filterExpr = expr;
+    }
+  }
+  while (true) {
+    if (!wgxpath.PathExpr.isValidOp(this.lexer_.peek())) {
+      break;
+    }
+    op = this.lexer_.next();
+    this.checkNotEmpty_('Missing next location step.');
+    expr = this.parseStep_(op);
+    steps.push(expr);
+  }
+  return new wgxpath.PathExpr(filterExpr, steps);
 };
-goog.inherits(wgxpath.Literal, wgxpath.Expr);
 
 
 /**
- * @override
- * @return {string} The string result.
+ * Parses Step.
+ *
+ * @private
+ * @param {string} op The op for this step.
+ * @return {!wgxpath.Step} The parsed expression.
  */
-wgxpath.Literal.prototype.evaluate = function(context) {
-  return this.text_;
+wgxpath.Parser.prototype.parseStep_ = function(op) {
+  var test, step, token, predicates;
+  if (op != '/' && op != '//') {
+    throw Error('Step op should be "/" or "//"');
+  }
+  if (this.lexer_.peek() == '.') {
+    step = new wgxpath.Step(wgxpath.Step.Axis.SELF,
+        new wgxpath.KindTest('node'));
+    this.lexer_.next();
+    return step;
+  }
+  else if (this.lexer_.peek() == '..') {
+    step = new wgxpath.Step(wgxpath.Step.Axis.PARENT,
+        new wgxpath.KindTest('node'));
+    this.lexer_.next();
+    return step;
+  } else {
+    // Grab the axis.
+    var axis;
+    if (this.lexer_.peek() == '@') {
+      axis = wgxpath.Step.Axis.ATTRIBUTE;
+      this.lexer_.next();
+      this.checkNotEmpty_('Missing attribute name');
+    } else {
+      if (this.lexer_.peek(1) == '::') {
+        if (!/(?![0-9])[\w]/.test(this.lexer_.peek().charAt(0))) {
+          throw Error('Bad token: ' + this.lexer_.next());
+        }
+        var axisName = this.lexer_.next();
+        axis = wgxpath.Step.getAxis(axisName);
+        if (!axis) {
+          throw Error('No axis with name: ' + axisName);
+        }
+        this.lexer_.next();
+        this.checkNotEmpty_('Missing node name');
+      } else {
+        axis = wgxpath.Step.Axis.CHILD;
+      }
+    }
+
+    // Grab the test.
+    token = this.lexer_.peek();
+    if (!/(?![0-9])[\w]/.test(token.charAt(0))) {
+      if (token == '*') {
+        test = this.parseNameTest_();
+      } else {
+        throw Error('Bad token: ' + this.lexer_.next());
+      }
+    } else {
+      if (this.lexer_.peek(1) == '(') {
+        if (!wgxpath.KindTest.isValidType(token)) {
+          throw Error('Invalid node type: ' + token);
+        }
+        test = this.parseKindTest_();
+      } else {
+        test = this.parseNameTest_();
+      }
+    }
+    predicates = new wgxpath.Predicates(this.parsePredicates_(),
+        axis.isReverse());
+    return step || new wgxpath.Step(axis, test, predicates, op == '//');
+  }
 };
 
 
 /**
- * @override
+ * Parses and returns the predicates from the this.lexer_.
+ *
+ * @private
+ * @return {!Array.<!wgxpath.Expr>} An array of the predicates.
  */
-wgxpath.Literal.prototype.toString = function() {
-  return 'Literal: ' + this.text_;
+wgxpath.Parser.prototype.parsePredicates_ = function() {
+  var predicates = [];
+  while (this.lexer_.peek() == '[') {
+    this.lexer_.next();
+    this.checkNotEmpty_('Missing predicate expression.');
+    var predicate = this.parseExpr();
+    predicates.push(predicate);
+    this.checkNotEmpty_('Unclosed predicate expression.');
+    this.checkNextEquals_(']');
+  }
+  return predicates;
+};
+
+
+/**
+ * Attempts to parse the input as a unary expression with
+ * recursive descent parsing.
+ *
+ * @private
+ * @return {!wgxpath.Expr} The root of the constructed tree.
+ */
+wgxpath.Parser.prototype.parseUnaryExpr_ = function() {
+  if (this.lexer_.peek() == '-') {
+    this.lexer_.next();
+    return new wgxpath.UnaryExpr(this.parseUnaryExpr_());
+  } else {
+    return this.parseUnionExpr_();
+  }
+};
+
+
+/**
+ * Attempts to parse the input as a union expression with
+ * recursive descent parsing.
+ *
+ * @private
+ * @return {!wgxpath.Expr} The root of the constructed tree.
+ */
+wgxpath.Parser.prototype.parseUnionExpr_ = function() {
+  var expr = this.parsePathExpr_();
+  if (!(this.lexer_.peek() == '|')) {
+    return expr;  // Not a UnionExpr, returning as is.
+  }
+  var paths = [expr];
+  while (this.lexer_.next() == '|') {
+    this.checkNotEmpty_('Missing next union location path.');
+    paths.push(this.parsePathExpr_());
+  }
+  this.lexer_.back();
+  return new wgxpath.UnionExpr(paths);
 };
 /*  JavaScript-XPath 0.1.11
  *  (c) 2007 Cybozu Labs, Inc.
@@ -2300,6 +3076,76 @@ wgxpath.install = function(opt_win) {
   doc['createNSResolver'] = function(node) {
     return new wgxpath.XPathNSResolver_(node);
   };
+};
+/*  JavaScript-XPath 0.1.11
+ *  (c) 2007 Cybozu Labs, Inc.
+ *
+ *  JavaScript-XPath is freely distributable under the terms of an MIT-style
+ *  license. For details, see the JavaScript-XPath web site:
+ *  http://coderepos.org/share/wiki/JavaScript-XPath
+ *
+/*--------------------------------------------------------------------------*/
+
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview Exports the wgxpath.install function.
+ *
+ */
+
+goog.require('wgxpath');
+
+goog.exportSymbol('wgxpath.install', wgxpath.install);
+// This file was autogenerated by calcdeps.py
+goog.addDependency("../../../wicked-good-xpath/functionCall.js", ['wgxpath.FunctionCall'], ['goog.array', 'goog.dom', 'goog.dom.NodeType', 'goog.string', 'wgxpath.Expr', 'wgxpath.Node', 'wgxpath.NodeSet', 'wgxpath.userAgent']);
+goog.addDependency("../../../wicked-good-xpath/unaryExpr.js", ['wgxpath.UnaryExpr'], ['wgxpath.DataType', 'wgxpath.Expr']);
+goog.addDependency("../../../wicked-good-xpath/nodeset.js", ['wgxpath.NodeSet'], ['goog.dom', 'wgxpath.Node']);
+goog.addDependency("../../../wicked-good-xpath/pathExpr.js", ['wgxpath.PathExpr'], ['goog.array', 'goog.dom.NodeType', 'wgxpath.DataType', 'wgxpath.Expr', 'wgxpath.NodeSet']);
+goog.addDependency("../../../wicked-good-xpath/literal.js", ['wgxpath.Literal'], ['wgxpath.Expr']);
+goog.addDependency("../../../wicked-good-xpath/node.js", ['wgxpath.Node'], ['goog.array', 'goog.dom.NodeType', 'goog.userAgent', 'wgxpath.IEAttrWrapper', 'wgxpath.userAgent']);
+goog.addDependency("../../../wicked-good-xpath/step.js", ['wgxpath.Step'], ['goog.dom.NodeType', 'wgxpath.DataType', 'wgxpath.Expr', 'wgxpath.KindTest', 'wgxpath.Node', 'wgxpath.Predicates', 'wgxpath.userAgent']);
+goog.addDependency("../../../wicked-good-xpath/parser.js", ['wgxpath.Parser'], ['wgxpath.BinaryExpr', 'wgxpath.FilterExpr', 'wgxpath.FunctionCall', 'wgxpath.KindTest', 'wgxpath.Literal', 'wgxpath.NameTest', 'wgxpath.Number', 'wgxpath.PathExpr', 'wgxpath.Predicates', 'wgxpath.Step', 'wgxpath.UnaryExpr', 'wgxpath.UnionExpr']);
+goog.addDependency("../../../wicked-good-xpath/ieAttrWrapper.js", ['wgxpath.IEAttrWrapper'], ['goog.dom.NodeType', 'wgxpath.userAgent']);
+goog.addDependency("../../../wicked-good-xpath/test_deps.js", [], []);
+goog.addDependency("../../../wicked-good-xpath/wgxpath.install_latest.js", [], []);
+goog.addDependency("../../../wicked-good-xpath/wgxpath.install_jscompiler.js", [], []);
+goog.addDependency("../../../wicked-good-xpath/expr.js", ['wgxpath.Expr'], ['wgxpath.NodeSet']);
+goog.addDependency("../../../wicked-good-xpath/number.js", ['wgxpath.Number'], ['wgxpath.Expr']);
+goog.addDependency("../../../wicked-good-xpath/kindTest.js", ['wgxpath.KindTest'], ['goog.dom.NodeType', 'wgxpath.NodeTest']);
+goog.addDependency("../../../wicked-good-xpath/lexer.js", ['wgxpath.Lexer'], []);
+goog.addDependency("../../../wicked-good-xpath/wgxpath.js", ['wgxpath'], ['wgxpath.Context', 'wgxpath.IEAttrWrapper', 'wgxpath.Lexer', 'wgxpath.NodeSet', 'wgxpath.Parser']);
+goog.addDependency("../../../wicked-good-xpath/nameTest.js", ['wgxpath.NameTest'], ['goog.dom.NodeType']);
+goog.addDependency("../../../wicked-good-xpath/unionExpr.js", ['wgxpath.UnionExpr'], ['goog.array', 'wgxpath.DataType', 'wgxpath.Expr']);
+goog.addDependency("../../../wicked-good-xpath/userAgent.js", ['wgxpath.userAgent'], ['goog.userAgent']);
+goog.addDependency("../../../wicked-good-xpath/binaryExpr.js", ['wgxpath.BinaryExpr'], ['wgxpath.DataType', 'wgxpath.Expr', 'wgxpath.Node']);
+goog.addDependency("../../../wicked-good-xpath/export.js", [], ['wgxpath']);
+goog.addDependency("../../../wicked-good-xpath/dataType.js", ['wgxpath.DataType'], []);
+goog.addDependency("../../../wicked-good-xpath/filterExpr.js", ['wgxpath.FilterExpr'], ['wgxpath.Expr']);
+goog.addDependency("../../../wicked-good-xpath/wgxpath.install.js", [], []);
+goog.addDependency("../../../wicked-good-xpath/nodeTest.js", ['wgxpath.NodeTest'], []);
+goog.addDependency("../../../wicked-good-xpath/context.js", ['wgxpath.Context'], []);
+goog.addDependency("../../../wicked-good-xpath/predicates.js", ['wgxpath.Predicates'], ['goog.array', 'wgxpath.Context', 'wgxpath.Expr']);
+goog.addDependency("../../../wicked-good-xpath/test/test_deps.js", [], []);
+goog.addDependency("../../../wicked-good-xpath/test/test.js", ['wgxpath.test'], ['goog.dom', 'goog.dom.NodeType', 'goog.userAgent']);
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview Enumeration of internal data types.
+ */
+
+goog.provide('wgxpath.DataType');
+
+
+/**
+ * Enum for data types.
+ * @enum {number}
+ */
+wgxpath.DataType = {
+  VOID: 0,
+  NUMBER: 1,
+  BOOLEAN: 2,
+  STRING: 3,
+  NODESET: 4
 };
 // Copyright 2012 Google Inc. All Rights Reserved.
 
@@ -2638,183 +3484,120 @@ wgxpath.BinaryExpr.Op = {
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
- * @fileoverview A class implementing the xpath 1.0 subset of the
- *               KindTest construct.
+ * @fileoverview Wrapper classes for attribute nodes in old IE browsers.
  */
 
-goog.provide('wgxpath.KindTest');
+goog.provide('wgxpath.IEAttrWrapper');
 
 goog.require('goog.dom.NodeType');
-goog.require('wgxpath.NodeTest');
+goog.require('wgxpath.userAgent');
 
 
 
 /**
- * Constructs a subset of KindTest based on the xpath grammar:
- * http://www.w3.org/TR/xpath20/#prod-xpath-KindTest
+ * A wrapper for an attribute node in old IE.
  *
- * @param {string} typeName Type name to be tested.
- * @param {wgxpath.Literal=} opt_literal Optional literal for
- *        processing-instruction nodes.
+ * <p> Note: Although sourceIndex is equal to node.sourceIndex, it is
+ * denormalized into a separate parameter for performance, so that clients
+ * constructing multiple IEAttrWrappers can pass in the same sourceIndex
+ * rather than re-querying it each time.
+ *
  * @constructor
- * @implements {wgxpath.NodeTest}
+ * @extends {Attr}
+ * @param {!Node} node The attribute node.
+ * @param {!Node} parent The parent of the attribute node.
+ * @param {string} nodeName The name of the attribute node.
+ * @param {(string|number|boolean)} nodeValue The value of the attribute node.
+ * @param {number} sourceIndex The source index of the parent node.
  */
-wgxpath.KindTest = function(typeName, opt_literal) {
+wgxpath.IEAttrWrapper = function(node, parent, nodeName, nodeValue,
+    sourceIndex) {
+  /**
+   * @type {!Node}
+   * @private
+   */
+  this.node_ = node;
 
   /**
    * @type {string}
-   * @private
    */
-  this.typeName_ = typeName;
+  this.nodeName = nodeName;
 
   /**
-   * @type {wgxpath.Literal}
-   * @private
+   * @type {(string|number|boolean)}
    */
-  this.literal_ = goog.isDef(opt_literal) ? opt_literal : null;
+  this.nodeValue = nodeValue;
 
   /**
-   * @type {?goog.dom.NodeType}
-   * @private
+   * @type {goog.dom.NodeType}
    */
-  this.type_ = null;
-  switch (typeName) {
-    case 'comment':
-      this.type_ = goog.dom.NodeType.COMMENT;
-      break;
-    case 'text':
-      this.type_ = goog.dom.NodeType.TEXT;
-      break;
-    case 'processing-instruction':
-      this.type_ = goog.dom.NodeType.PROCESSING_INSTRUCTION;
-      break;
-    case 'node':
-      break;
-    default:
-      throw Error('Unexpected argument');
-  }
-};
+  this.nodeType = goog.dom.NodeType.ATTRIBUTE;
 
-
-/**
- * Checks if a type name is a valid KindTest parameter.
- *
- * @param {string} typeName The type name to be checked.
- * @return {boolean} Whether the type name is legal.
- */
-wgxpath.KindTest.isValidType = function(typeName) {
-  return typeName == 'comment' || typeName == 'text' ||
-      typeName == 'processing-instruction' || typeName == 'node';
-};
-
-
-/**
- * @override
- */
-wgxpath.KindTest.prototype.matches = function(node) {
-  return goog.isNull(this.type_) || this.type_ == node.nodeType;
-};
-
-
-/**
- * Returns the type of the node.
- *
- * @return {?number} The type of the node, or null if any type.
- */
-wgxpath.KindTest.prototype.getType = function() {
-  return this.type_;
-};
-
-
-/**
- * @override
- */
-wgxpath.KindTest.prototype.getName = function() {
-  return this.typeName_;
-};
-
-
-/**
- * @override
- */
-wgxpath.KindTest.prototype.toString = function() {
-  var text = 'Kind Test: ' + this.typeName_;
-  if (!goog.isNull(this.literal_)) {
-    text += wgxpath.Expr.indent(this.literal_);
-  }
-  return text;
-};
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview A class representing number literals.
- */
-
-goog.provide('wgxpath.Number');
-
-goog.require('wgxpath.Expr');
-
-
-
-/**
- * Constructs a number expression.
- *
- * @param {number} value The number value.
- * @constructor
- * @extends {wgxpath.Expr}
- */
-wgxpath.Number = function(value) {
-  wgxpath.Expr.call(this, wgxpath.DataType.NUMBER);
+  /**
+   * @type {!Node}
+   */
+  this.ownerElement = parent;
 
   /**
    * @type {number}
    * @private
    */
-  this.value_ = value;
-};
-goog.inherits(wgxpath.Number, wgxpath.Expr);
+  this.parentSourceIndex_ = sourceIndex;
 
-
-/**
- * @override
- * @return {number} The number result.
- */
-wgxpath.Number.prototype.evaluate = function(ctx) {
-  return this.value_;
+  /**
+   * @type {!Node}
+   */
+  this.parentNode = parent;
 };
 
 
 /**
- * @override
+ * Creates a wrapper for an attribute node in old IE.
+ *
+ * @param {!Node} parent The parent of the attribute node.
+ * @param {!Node} attr The attribute node.
+ * @param {number} sourceIndex The source index of the parent node.
+ * @return {!wgxpath.IEAttrWrapper} The constcuted wrapper.
  */
-wgxpath.Number.prototype.toString = function() {
-  return 'Number: ' + this.value_;
+wgxpath.IEAttrWrapper.forAttrOf = function(parent, attr, sourceIndex) {
+  var nodeValue = (wgxpath.userAgent.IE_DOC_PRE_8 && attr.nodeName == 'href') ?
+      parent.getAttribute(attr.nodeName, 2) : attr.nodeValue;
+  return new wgxpath.IEAttrWrapper(attr, parent, attr.nodeName, nodeValue,
+      sourceIndex);
 };
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview Constants for user agent detection.
- */
-
-goog.provide('wgxpath.userAgent');
-
-goog.require('goog.userAgent');
 
 
 /**
- * @type {boolean}
- * @const
+ * Creates a wrapper for a style attribute node in old IE.
+ *
+ * @param {!Node} parent The parent of the attribute node.
+ * @param {number} sourceIndex The source index of the parent node.
+ * @return {!wgxpath.IEAttrWrapper} The constcuted wrapper.
  */
-wgxpath.userAgent.IE_DOC_PRE_9 = goog.userAgent.IE &&
-    !goog.userAgent.isDocumentModeOrHigher(9);
+wgxpath.IEAttrWrapper.forStyleOf = function(parent, sourceIndex) {
+  return new wgxpath.IEAttrWrapper(parent.style, parent, 'style',
+      parent.style.cssText, sourceIndex);
+};
 
 
 /**
- * @type {boolean}
- * @const
+ * Returns the source index of the parent of the attribute node.
+ *
+ * @return {number} The source index of the parent.
  */
-wgxpath.userAgent.IE_DOC_PRE_8 = goog.userAgent.IE &&
-    !goog.userAgent.isDocumentModeOrHigher(8);
+wgxpath.IEAttrWrapper.prototype.getParentSourceIndex = function() {
+  return this.parentSourceIndex_;
+};
+
+
+/**
+ * Returns the attribute node contained in the wrapper.
+ *
+ * @return {!Node} The original attribute node.
+ */
+wgxpath.IEAttrWrapper.prototype.getNode = function() {
+  return this.node_;
+};
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
@@ -3308,261 +4091,596 @@ wgxpath.FunctionCall.Func = {
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
- * @fileoverview Enumeration of internal data types.
+ * @fileoverview A class representing operations on union expressions.
  */
 
-goog.provide('wgxpath.DataType');
+goog.provide('wgxpath.UnionExpr');
 
-
-/**
- * Enum for data types.
- * @enum {number}
- */
-wgxpath.DataType = {
-  VOID: 0,
-  NUMBER: 1,
-  BOOLEAN: 2,
-  STRING: 3,
-  NODESET: 4
-};
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview A class representing operations on unary expressions.
- */
-
-goog.provide('wgxpath.UnaryExpr');
-
+goog.require('goog.array');
 goog.require('wgxpath.DataType');
 goog.require('wgxpath.Expr');
 
 
 
 /**
- * Constructor for UnaryExpr.
+ * Constructor for UnionExpr.
  *
- * @param {!wgxpath.Expr} expr The unary expression.
+ * @param {!Array.<!wgxpath.Expr>} paths The paths in the union.
  * @extends {wgxpath.Expr}
  * @constructor
  */
-wgxpath.UnaryExpr = function(expr) {
-  wgxpath.Expr.call(this, wgxpath.DataType.NUMBER);
+wgxpath.UnionExpr = function(paths) {
+  wgxpath.Expr.call(this, wgxpath.DataType.NODESET);
 
   /**
+   * @type {!Array.<!wgxpath.Expr>}
    * @private
-   * @type {!wgxpath.Expr}
    */
-  this.expr_ = expr;
-
-  this.setNeedContextPosition(expr.doesNeedContextPosition());
-  this.setNeedContextNode(expr.doesNeedContextNode());
+  this.paths_ = paths;
+  this.setNeedContextPosition(goog.array.some(this.paths_, function(p) {
+    return p.doesNeedContextPosition();
+  }));
+  this.setNeedContextNode(goog.array.some(this.paths_, function(p) {
+    return p.doesNeedContextNode();
+  }));
 };
-goog.inherits(wgxpath.UnaryExpr, wgxpath.Expr);
+goog.inherits(wgxpath.UnionExpr, wgxpath.Expr);
 
 
 /**
  * @override
- * @return {number} The number result.
+ * @return {!wgxpath.NodeSet} The nodeset result.
  */
-wgxpath.UnaryExpr.prototype.evaluate = function(ctx) {
-  return -this.expr_.asNumber(ctx);
+wgxpath.UnionExpr.prototype.evaluate = function(ctx) {
+  var nodeset = new wgxpath.NodeSet();
+  goog.array.forEach(this.paths_, function(p) {
+    var result = p.evaluate(ctx);
+    if (!(result instanceof wgxpath.NodeSet)) {
+      throw Error('Path expression must evaluate to NodeSet.');
+    }
+    nodeset = wgxpath.NodeSet.merge(nodeset, result);
+  });
+  return nodeset;
 };
 
 
 /**
  * @override
  */
-wgxpath.UnaryExpr.prototype.toString = function() {
-  return 'Unary Expression: -' + wgxpath.Expr.indent(this.expr_);
+wgxpath.UnionExpr.prototype.toString = function() {
+  return goog.array.reduce(this.paths_, function(prev, curr) {
+    return prev + wgxpath.Expr.indent(curr);
+  }, 'Union Expression:');
 };
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
- * @fileoverview An abstract class representing basic expressions.
+ * @fileoverview An class representing operations on path expressions.
  */
 
-goog.provide('wgxpath.Expr');
+goog.provide('wgxpath.PathExpr');
 
+
+goog.require('goog.array');
+goog.require('goog.dom.NodeType');
+goog.require('wgxpath.DataType');
+goog.require('wgxpath.Expr');
 goog.require('wgxpath.NodeSet');
 
 
 
 /**
- * Abstract constructor for an XPath expression.
+ * Constructor for PathExpr.
  *
- * @param {!wgxpath.DataType} dataType The data type that the expression
- *                                    will be evaluated into.
+ * @param {!wgxpath.Expr} filter A filter expression.
+ * @param {!Array.<!wgxpath.Step>} steps The steps in the location path.
+ * @extends {wgxpath.Expr}
  * @constructor
  */
-wgxpath.Expr = function(dataType) {
+wgxpath.PathExpr = function(filter, steps) {
+  wgxpath.Expr.call(this, filter.getDataType());
 
   /**
-   * @type {!wgxpath.DataType}
+   * @type {!wgxpath.Expr}
    * @private
    */
-  this.dataType_ = dataType;
+  this.filter_ = filter;
 
   /**
-   * @type {boolean}
+   * @type {!Array.<!wgxpath.Step>}
    * @private
    */
-  this.needContextPosition_ = false;
+  this.steps_ = steps;
 
-  /**
-   * @type {boolean}
-   * @private
-   */
-  this.needContextNode_ = false;
-
-  /**
-   * @type {?{name: string, valueExpr: wgxpath.Expr}}
-   * @private
-   */
-  this.quickAttr_ = null;
+  this.setNeedContextPosition(filter.doesNeedContextPosition());
+  this.setNeedContextNode(filter.doesNeedContextNode());
+  if (this.steps_.length == 1) {
+    var firstStep = this.steps_[0];
+    if (!firstStep.doesIncludeDescendants() &&
+        firstStep.getAxis() == wgxpath.Step.Axis.ATTRIBUTE) {
+      var test = firstStep.getTest();
+      if (test.getName() != '*') {
+        this.setQuickAttr({
+          name: test.getName(),
+          valueExpr: null
+        });
+      }
+    }
+  }
 };
+goog.inherits(wgxpath.PathExpr, wgxpath.Expr);
+
 
 
 /**
- * Indentation method for pretty printing.
+ * Constructor for RootHelperExpr.
  *
- * @param {*} obj The object to return a string representation for.
- * @return {string} The string prepended with newline and two spaces.
+ * @extends {wgxpath.Expr}
+ * @constructor
  */
-wgxpath.Expr.indent = function(obj) {
-  return '\n  ' + obj.toString().split('\n').join('\n  ');
+wgxpath.PathExpr.RootHelperExpr = function() {
+  wgxpath.Expr.call(this, wgxpath.DataType.NODESET);
 };
+goog.inherits(wgxpath.PathExpr.RootHelperExpr, wgxpath.Expr);
 
 
 /**
- * Evaluates the expression.
+ * Evaluates the root-node helper expression.
  *
  * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
- * @return {!(string|boolean|number|wgxpath.NodeSet)} The evaluation result.
+ * @return {!wgxpath.NodeSet} The evaluation result.
  */
-wgxpath.Expr.prototype.evaluate = goog.abstractMethod;
+wgxpath.PathExpr.RootHelperExpr.prototype.evaluate = function(ctx) {
+  var nodeset = new wgxpath.NodeSet();
+  var node = ctx.getNode();
+  if (node.nodeType == goog.dom.NodeType.DOCUMENT) {
+    nodeset.add(node);
+  } else {
+    nodeset.add(/** @type {!Node} */ (node.ownerDocument));
+  }
+  return nodeset;
+};
 
 
 /**
  * @override
  */
-wgxpath.Expr.prototype.toString = goog.abstractMethod;
-
-
-/**
- * Returns the data type of the expression.
- *
- * @return {!wgxpath.DataType} The data type that the expression
- *                            will be evaluated into.
- */
-wgxpath.Expr.prototype.getDataType = function() {
-  return this.dataType_;
+wgxpath.PathExpr.RootHelperExpr.prototype.toString = function() {
+  return 'Root Helper Expression';
 };
 
 
+
 /**
- * Returns whether the expression needs context position to be evaluated.
+ * Constructor for ContextHelperExpr.
  *
- * @return {boolean} Whether context position is needed.
+ * @extends {wgxpath.Expr}
+ * @constructor
  */
-wgxpath.Expr.prototype.doesNeedContextPosition = function() {
-  return this.needContextPosition_;
+wgxpath.PathExpr.ContextHelperExpr = function() {
+  wgxpath.Expr.call(this, wgxpath.DataType.NODESET);
 };
+goog.inherits(wgxpath.PathExpr.ContextHelperExpr, wgxpath.Expr);
 
 
 /**
- * Sets whether the expression needs context position to be evaluated.
- *
- * @param {boolean} flag Whether context position is needed.
- */
-wgxpath.Expr.prototype.setNeedContextPosition = function(flag) {
-  this.needContextPosition_ = flag;
-};
-
-
-/**
- * Returns whether the expression needs context node to be evaluated.
- *
- * @return {boolean} Whether context node is needed.
- */
-wgxpath.Expr.prototype.doesNeedContextNode = function() {
-  return this.needContextNode_;
-};
-
-
-/**
- * Sets whether the expression needs context node to be evaluated.
- *
- * @param {boolean} flag Whether context node is needed.
- */
-wgxpath.Expr.prototype.setNeedContextNode = function(flag) {
-  this.needContextNode_ = flag;
-};
-
-
-/**
- * Returns the quick attribute information, if exists.
- *
- * @return {?{name: string, valueExpr: wgxpath.Expr}} The attribute
- *         information.
- */
-wgxpath.Expr.prototype.getQuickAttr = function() {
-  return this.quickAttr_;
-};
-
-
-/**
- * Sets up the quick attribute info.
- *
- * @param {?{name: string, valueExpr: wgxpath.Expr}} attrInfo The attribute
- *        information.
- */
-wgxpath.Expr.prototype.setQuickAttr = function(attrInfo) {
-  this.quickAttr_ = attrInfo;
-};
-
-
-/**
- * Evaluate and interpret the result as a number.
+ * Evaluates the context-node helper expression.
  *
  * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
- * @return {number} The evaluated number value.
+ * @return {!wgxpath.NodeSet} The evaluation result.
  */
-wgxpath.Expr.prototype.asNumber = function(ctx) {
-  var exrs = this.evaluate(ctx);
-  if (exrs instanceof wgxpath.NodeSet) {
-    return exrs.number();
-  }
-  return +exrs;
+wgxpath.PathExpr.ContextHelperExpr.prototype.evaluate = function(ctx) {
+  var nodeset = new wgxpath.NodeSet();
+  nodeset.add(ctx.getNode());
+  return nodeset;
 };
 
 
 /**
- * Evaluate and interpret the result as a string.
- *
- * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
- * @return {string} The evaluated string.
+ * @override
  */
-wgxpath.Expr.prototype.asString = function(ctx) {
-  var exrs = this.evaluate(ctx);
-  if (exrs instanceof wgxpath.NodeSet) {
-    return exrs.string();
-  }
-  return '' + exrs;
+wgxpath.PathExpr.ContextHelperExpr.prototype.toString = function() {
+  return 'Context Helper Expression';
 };
 
 
 /**
- * Evaluate and interpret the result as a boolean value.
+ * Returns whether the token is a valid PathExpr operator.
  *
- * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
- * @return {boolean} The evaluated boolean value.
+ * @param {string} token The token to be checked.
+ * @return {boolean} Whether the token is a valid operator.
  */
-wgxpath.Expr.prototype.asBool = function(ctx) {
-  var exrs = this.evaluate(ctx);
-  if (exrs instanceof wgxpath.NodeSet) {
-    return !!exrs.getLength();
+wgxpath.PathExpr.isValidOp = function(token) {
+  return token == '/' || token == '//';
+};
+
+
+/**
+ * @override
+ * @return {!wgxpath.NodeSet} The nodeset result.
+ */
+wgxpath.PathExpr.prototype.evaluate = function(ctx) {
+  var nodeset = this.filter_.evaluate(ctx);
+  if (!(nodeset instanceof wgxpath.NodeSet)) {
+    throw Error('Filter expression must evaluate to nodeset.');
   }
-  return !!exrs;
+  var steps = this.steps_;
+  for (var i = 0, l0 = steps.length; i < l0 && nodeset.getLength(); i++) {
+    var step = steps[i];
+    var reverse = step.getAxis().isReverse();
+    var iter = nodeset.iterator(reverse);
+    nodeset = null;
+    var node, next;
+    if (!step.doesNeedContextPosition() &&
+        step.getAxis() == wgxpath.Step.Axis.FOLLOWING) {
+      for (node = iter.next(); next = iter.next(); node = next) {
+        if (node.contains && !node.contains(next)) {
+          break;
+        } else {
+          if (!(next.compareDocumentPosition(/** @type {!Node} */ (node)) &
+              8)) {
+            break;
+          }
+        }
+      }
+      nodeset = step.evaluate(new
+          wgxpath.Context(/** @type {wgxpath.Node} */ (node)));
+    } else if (!step.doesNeedContextPosition() &&
+        step.getAxis() == wgxpath.Step.Axis.PRECEDING) {
+      node = iter.next();
+      nodeset = step.evaluate(new
+          wgxpath.Context(/** @type {wgxpath.Node} */ (node)));
+    } else {
+      node = iter.next();
+      nodeset = step.evaluate(new
+          wgxpath.Context(/** @type {wgxpath.Node} */ (node)));
+      while ((node = iter.next()) != null) {
+        var result = step.evaluate(new
+            wgxpath.Context(/** @type {wgxpath.Node} */ (node)));
+        nodeset = wgxpath.NodeSet.merge(nodeset, result);
+      }
+    }
+  }
+  return /** @type {!wgxpath.NodeSet} */ (nodeset);
+};
+
+
+/**
+ * @override
+ */
+wgxpath.PathExpr.prototype.toString = function() {
+  var text = 'Path Expression:';
+  text += wgxpath.Expr.indent(this.filter_);
+  if (this.steps_.length) {
+    var steps = goog.array.reduce(this.steps_, function(prev, curr) {
+      return prev + wgxpath.Expr.indent(curr);
+    }, 'Steps:');
+    text += wgxpath.Expr.indent(steps);
+  }
+  return text;
+};
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview Context information about nodes in their nodeset.
+ */
+
+goog.provide('wgxpath.NodeSet');
+
+goog.require('goog.dom');
+goog.require('wgxpath.Node');
+
+
+
+/**
+ * A set of nodes sorted by their prefix order in the document.
+ *
+ * @constructor
+ */
+wgxpath.NodeSet = function() {
+  // In violation of standard Closure practice, we initialize properties to
+  // immutable constants in the constructor instead of on the prototype,
+  // because we have empirically measured better performance by doing so.
+
+  /**
+   * A pointer to the first node in the linked list.
+   *
+   * @private
+   * @type {wgxpath.NodeSet.Entry_}
+   */
+  this.first_ = null;
+
+  /**
+   * A pointer to the last node in the linked list.
+   *
+   * @private
+   * @type {wgxpath.NodeSet.Entry_}
+   */
+  this.last_ = null;
+
+  /**
+   * Length of the linked list.
+   *
+   * @private
+   * @type {number}
+   */
+  this.length_ = 0;
+};
+
+
+
+/**
+ * A entry for a node in a linked list
+ *
+ * @param {!wgxpath.Node} node The node to be added.
+ * @constructor
+ * @private
+ */
+wgxpath.NodeSet.Entry_ = function(node) {
+  // In violation of standard Closure practice, we initialize properties to
+  // immutable constants in the constructor instead of on the prototype,
+  // because we have empirically measured better performance by doing so.
+
+  /**
+   * @type {!wgxpath.Node}
+   */
+  this.node = node;
+
+  /**
+   * @type {wgxpath.NodeSet.Entry_}
+   */
+  this.prev = null;
+
+  /**
+   * @type {wgxpath.NodeSet.Entry_}
+   */
+  this.next = null;
+};
+
+
+/**
+ * Merges two nodesets, removing duplicates. This function may modify both
+ * nodesets, and will return a reference to one of the two.
+ *
+ * <p> Note: We assume that the two nodesets are already sorted in DOM order.
+ *
+ * @param {!wgxpath.NodeSet} a The first nodeset.
+ * @param {!wgxpath.NodeSet} b The second nodeset.
+ * @return {!wgxpath.NodeSet} The merged nodeset.
+ */
+wgxpath.NodeSet.merge = function(a, b) {
+  if (!a.first_) {
+    return b;
+  } else if (!b.first_) {
+    return a;
+  }
+  var aCurr = a.first_;
+  var bCurr = b.first_;
+  var merged = a, tail = null, next = null, length = 0;
+  while (aCurr && bCurr) {
+    if (wgxpath.Node.equal(aCurr.node, bCurr.node)) {
+      next = aCurr;
+      aCurr = aCurr.next;
+      bCurr = bCurr.next;
+    } else {
+      var compareResult = goog.dom.compareNodeOrder(
+          /** @type {!Node} */ (aCurr.node),
+          /** @type {!Node} */ (bCurr.node));
+      if (compareResult > 0) {
+        next = bCurr;
+        bCurr = bCurr.next;
+      } else {
+        next = aCurr;
+        aCurr = aCurr.next;
+      }
+    }
+    next.prev = tail;
+    if (tail) {
+      tail.next = next;
+    } else {
+      merged.first_ = next;
+    }
+    tail = next;
+    length++;
+  }
+  next = aCurr || bCurr;
+  while (next) {
+    next.prev = tail;
+    tail.next = next;
+    tail = next;
+    length++;
+    next = next.next;
+  }
+  merged.last_ = tail;
+  merged.length_ = length;
+  return merged;
+};
+
+
+/**
+ * Prepends a node to this nodeset.
+ *
+ * @param {!wgxpath.Node} node The node to be added.
+ */
+wgxpath.NodeSet.prototype.unshift = function(node) {
+  var entry = new wgxpath.NodeSet.Entry_(node);
+  entry.next = this.first_;
+  if (!this.last_) {
+    this.first_ = this.last_ = entry;
+  } else {
+    this.first_.prev = entry;
+  }
+  this.first_ = entry;
+  this.length_++;
+};
+
+
+/**
+ * Adds a node to this nodeset.
+ *
+ * @param {!wgxpath.Node} node The node to be added.
+ */
+wgxpath.NodeSet.prototype.add = function(node) {
+  var entry = new wgxpath.NodeSet.Entry_(node);
+  entry.prev = this.last_;
+  if (!this.first_) {
+    this.first_ = this.last_ = entry;
+  } else {
+    this.last_.next = entry;
+  }
+  this.last_ = entry;
+  this.length_++;
+};
+
+
+/**
+ * Returns the first node of the nodeset.
+ *
+ * @return {?wgxpath.Node} The first node of the nodeset
+                                     if the nodeset is non-empty;
+ *     otherwise null.
+ */
+wgxpath.NodeSet.prototype.getFirst = function() {
+  var first = this.first_;
+  if (first) {
+    return first.node;
+  } else {
+    return null;
+  }
+};
+
+
+/**
+ * Return the length of this nodeset.
+ *
+ * @return {number} The length of the nodeset.
+ */
+wgxpath.NodeSet.prototype.getLength = function() {
+  return this.length_;
+};
+
+
+/**
+ * Returns the string representation of this nodeset.
+ *
+ * @return {string} The string representation of this nodeset.
+ */
+wgxpath.NodeSet.prototype.string = function() {
+  var node = this.getFirst();
+  return node ? wgxpath.Node.getValueAsString(node) : '';
+};
+
+
+/**
+ * Returns the number representation of this nodeset.
+ *
+ * @return {number} The number representation of this nodeset.
+ */
+wgxpath.NodeSet.prototype.number = function() {
+  return +this.string();
+};
+
+
+/**
+ * Returns an iterator over this nodeset. Once this iterator is made, DO NOT
+ *     add to this nodeset until the iterator is done.
+ *
+ * @param {boolean=} opt_reverse Whether to iterate right to left or vice versa.
+ * @return {!wgxpath.NodeSet.Iterator} An iterator over the nodes.
+ */
+wgxpath.NodeSet.prototype.iterator = function(opt_reverse) {
+  return new wgxpath.NodeSet.Iterator(this, !!opt_reverse);
+};
+
+
+
+/**
+ * An iterator over the nodes of this nodeset.
+ *
+ * @param {!wgxpath.NodeSet} nodeset The nodeset to be iterated over.
+ * @param {boolean} reverse Whether to iterate in ascending or descending
+ *     order.
+ * @constructor
+ */
+wgxpath.NodeSet.Iterator = function(nodeset, reverse) {
+  // In violation of standard Closure practice, we initialize properties to
+  // immutable constants in the constructor instead of on the prototype,
+  // because we have empirically measured better performance by doing so.
+
+  /**
+   * @type {!wgxpath.NodeSet}
+   * @private
+   */
+  this.nodeset_ = nodeset;
+
+  /**
+   * @type {boolean}
+   * @private
+   */
+  this.reverse_ = reverse;
+
+  /**
+   * @type {wgxpath.NodeSet.Entry_}
+   * @private
+   */
+  this.current_ = reverse ? nodeset.last_ : nodeset.first_;
+
+  /**
+   * @type {wgxpath.NodeSet.Entry_}
+   * @private
+   */
+  this.lastReturned_ = null;
+};
+
+
+/**
+ * Returns the next value of the iteration or null if passes the end.
+ *
+ * @return {?wgxpath.Node} The next node from this iterator.
+ */
+wgxpath.NodeSet.Iterator.prototype.next = function() {
+  var current = this.current_;
+  if (current == null) {
+    return null;
+  } else {
+    var lastReturned = this.lastReturned_ = current;
+    if (this.reverse_) {
+      this.current_ = current.prev;
+    } else {
+      this.current_ = current.next;
+    }
+    return lastReturned.node;
+  }
+};
+
+
+/**
+ * Deletes the last node that was returned from this iterator.
+ */
+wgxpath.NodeSet.Iterator.prototype.remove = function() {
+  var nodeset = this.nodeset_;
+  var entry = this.lastReturned_;
+  if (!entry) {
+    throw Error('Next must be called at least once before remove.');
+  }
+  var prev = entry.prev;
+  var next = entry.next;
+
+  // Modify the pointers of prev and next
+  if (prev) {
+    prev.next = next;
+  } else {
+    // If there was no prev node entry must've been first_, so update first_.
+    nodeset.first_ = next;
+  }
+  if (next) {
+    next.prev = prev;
+  } else {
+    // If there was no prev node entry must've been last_, so update last_.
+    nodeset.last_ = prev;
+  }
+  nodeset.length_--;
+  this.lastReturned_ = null;
 };
 goog.provide('wgxpath.Step');
 
@@ -4165,6 +5283,359 @@ wgxpath.Lexer.prototype.empty = function() {
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
+ * @fileoverview Constants for user agent detection.
+ */
+
+goog.provide('wgxpath.userAgent');
+
+goog.require('goog.userAgent');
+
+
+/**
+ * @type {boolean}
+ * @const
+ */
+wgxpath.userAgent.IE_DOC_PRE_9 = goog.userAgent.IE &&
+    !goog.userAgent.isDocumentModeOrHigher(9);
+
+
+/**
+ * @type {boolean}
+ * @const
+ */
+wgxpath.userAgent.IE_DOC_PRE_8 = goog.userAgent.IE &&
+    !goog.userAgent.isDocumentModeOrHigher(8);
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview A class representing operations on unary expressions.
+ */
+
+goog.provide('wgxpath.UnaryExpr');
+
+goog.require('wgxpath.DataType');
+goog.require('wgxpath.Expr');
+
+
+
+/**
+ * Constructor for UnaryExpr.
+ *
+ * @param {!wgxpath.Expr} expr The unary expression.
+ * @extends {wgxpath.Expr}
+ * @constructor
+ */
+wgxpath.UnaryExpr = function(expr) {
+  wgxpath.Expr.call(this, wgxpath.DataType.NUMBER);
+
+  /**
+   * @private
+   * @type {!wgxpath.Expr}
+   */
+  this.expr_ = expr;
+
+  this.setNeedContextPosition(expr.doesNeedContextPosition());
+  this.setNeedContextNode(expr.doesNeedContextNode());
+};
+goog.inherits(wgxpath.UnaryExpr, wgxpath.Expr);
+
+
+/**
+ * @override
+ * @return {number} The number result.
+ */
+wgxpath.UnaryExpr.prototype.evaluate = function(ctx) {
+  return -this.expr_.asNumber(ctx);
+};
+
+
+/**
+ * @override
+ */
+wgxpath.UnaryExpr.prototype.toString = function() {
+  return 'Unary Expression: -' + wgxpath.Expr.indent(this.expr_);
+};
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview A class representing operations on filter expressions.
+ */
+
+goog.provide('wgxpath.FilterExpr');
+
+goog.require('wgxpath.Expr');
+
+
+
+/**
+ * Constructor for FilterExpr.
+ *
+ * @param {!wgxpath.Expr} primary The primary expression.
+ * @param {!wgxpath.Predicates} predicates The predicates.
+ * @extends {wgxpath.Expr}
+ * @constructor
+ */
+wgxpath.FilterExpr = function(primary, predicates) {
+  if (predicates.getLength() && primary.getDataType() !=
+      wgxpath.DataType.NODESET) {
+    throw Error('Primary expression must evaluate to nodeset ' +
+        'if filter has predicate(s).');
+  }
+  wgxpath.Expr.call(this, primary.getDataType());
+
+  /**
+   * @type {!wgxpath.Expr}
+   * @private
+   */
+  this.primary_ = primary;
+
+
+  /**
+   * @type {!wgxpath.Predicates}
+   * @private
+   */
+  this.predicates_ = predicates;
+
+  this.setNeedContextPosition(primary.doesNeedContextPosition());
+  this.setNeedContextNode(primary.doesNeedContextNode());
+};
+goog.inherits(wgxpath.FilterExpr, wgxpath.Expr);
+
+
+/**
+ * @override
+ * @return {!wgxpath.NodeSet} The nodeset result.
+ */
+wgxpath.FilterExpr.prototype.evaluate = function(ctx) {
+  var result = this.primary_.evaluate(ctx);
+  return this.predicates_.evaluatePredicates(
+      /** @type {!wgxpath.NodeSet} */ (result));
+};
+
+
+/**
+ * @override
+ */
+wgxpath.FilterExpr.prototype.toString = function() {
+  var text = 'Filter:';
+  text += wgxpath.Expr.indent(this.primary_);
+  text += wgxpath.Expr.indent(this.predicates_);
+  return text;
+};
+/**
+ * @fileoverview Namespace resolver functions.
+ */
+
+goog.provide('wgxpath.nsResolver');
+
+goog.require('goog.dom.NodeType');
+
+
+/**
+ * Returns a namespace resolve function for the given node.
+ *
+ * @param {!Node} node The context node.
+ * @return {function(?string):?string} A lookupNamespaceURI function.
+ */
+wgxpath.nsResolver.getResolver = function(node) {
+  // Adopted from W3C psuedocode specification:
+  // http://www.w3.org/TR/DOM-Level-3-Core/namespaces-algorithms.html
+
+  switch (node.nodeType) {
+    case goog.dom.NodeType.ELEMENT:
+      return goog.partial(wgxpath.nsResolver.resolveForElement_, node);
+
+    case goog.dom.NodeType.DOCUMENT:
+      return wgxpath.nsResolver.getResolver(node.documentElement);
+
+    case goog.dom.NodeType.ATTRIBUTE:
+      if (node.ownerElement) {
+        return wgxpath.nsResolver.getResolver(node.ownerElement);
+      }
+      return wgxpath.nsResolver.nullResolver_;
+
+    case goog.dom.NodeType.DOCUMENT_FRAGMENT:
+    case goog.dom.NodeType.DOCUMENT_TYPE:
+    case goog.dom.NodeType.ENTITY:
+    case goog.dom.NodeType.NOTATION:
+      return wgxpath.nsResolver.nullResolver_;
+
+    default:
+      if (node.parentNode) {
+        return wgxpath.nsResolver.getResolver(node.parentNode);
+      }
+      return wgxpath.nsResolver.nullResolver_;
+  }
+};
+
+
+/**
+ * A resolver function that always returns null.
+ *
+ * @param {?string} prefix Namespace prefix or null for default namespace.
+ * @return {?string} Null.
+ * @private
+ */
+wgxpath.nsResolver.nullResolver_ = function(prefix) {
+  return null;
+};
+
+
+/**
+ * The default namespace URI for XHTML nodes.
+ *
+ * @const
+ * @type {string}
+ * @private
+ */
+wgxpath.nsResolver.HTML_NAMESPACE_URI_ = 'http://www.w3.org/1999/xhtml';
+
+
+/**
+ * Looks up the namespace URI for the given prefix and given element context.
+ *
+ * @param {!Element} elem Context element for the namespace resolution.
+ * @param {?string} prefix Namespace prefix or null for default namespace.
+ * @return {?string} The namespace URI for the given prefix, or null if none.
+ * @private
+ */
+wgxpath.nsResolver.resolveForElement_ = function(elem, prefix) {
+  if (elem.prefix == prefix) {
+    return elem.namespaceURI || wgxpath.nsResolver.HTML_NAMESPACE_URI_;
+  }
+
+  var attr = elem.getAttributeNode('xmlns:' + prefix);
+  if (attr && attr.specified) {
+    return attr.value || null;
+  }
+
+  if (elem.parentNode &&
+      elem.parentNode.nodeType != goog.dom.NodeType.DOCUMENT) {
+    return wgxpath.nsResolver.resolveForElement_(
+        /** @type {!Element} */ (elem.parentNode), prefix);
+  }
+
+  return null;
+};
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview Context information about nodes in their nodeset.
+ */
+
+goog.provide('wgxpath.Context');
+
+
+
+/**
+ * Provides information for where something is in the DOM.
+ *
+ * @param {!wgxpath.Node} node A node in the DOM.
+ * @param {number=} opt_position The position of this node in its nodeset,
+ *     defaults to 1.
+ * @param {number=} opt_last Index of the last node in this nodeset,
+ *     defaults to 1.
+ * @constructor
+ */
+wgxpath.Context = function(node, opt_position, opt_last) {
+
+  /**
+    * @private
+    * @type {!wgxpath.Node}
+    */
+  this.node_ = node;
+
+  /**
+   * @private
+   * @type {number}
+   */
+  this.position_ = opt_position || 1;
+
+  /**
+   * @private
+   * @type {number} opt_last
+   */
+  this.last_ = opt_last || 1;
+};
+
+
+/**
+ * Returns the node for this context object.
+ *
+ * @return {!wgxpath.Node} The node for this context object.
+ */
+wgxpath.Context.prototype.getNode = function() {
+  return this.node_;
+};
+
+
+/**
+ * Returns the position for this context object.
+ *
+ * @return {number} The position for this context object.
+ */
+wgxpath.Context.prototype.getPosition = function() {
+  return this.position_;
+};
+
+
+/**
+ * Returns the last field for this context object.
+ *
+ * @return {number} The last field for this context object.
+ */
+wgxpath.Context.prototype.getLast = function() {
+  return this.last_;
+};
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview A class representing the string literals.
+ */
+
+goog.provide('wgxpath.Literal');
+
+goog.require('wgxpath.Expr');
+
+
+
+/**
+ * Constructs a string literal expression.
+ *
+ * @param {string} text The text value of the literal.
+ * @constructor
+ * @extends {wgxpath.Expr}
+ */
+wgxpath.Literal = function(text) {
+  wgxpath.Expr.call(this, wgxpath.DataType.STRING);
+
+  /**
+   * @type {string}
+   * @private
+   */
+  this.text_ = text.substring(1, text.length - 1);
+};
+goog.inherits(wgxpath.Literal, wgxpath.Expr);
+
+
+/**
+ * @override
+ * @return {string} The string result.
+ */
+wgxpath.Literal.prototype.evaluate = function(context) {
+  return this.text_;
+};
+
+
+/**
+ * @override
+ */
+wgxpath.Literal.prototype.toString = function() {
+  return 'Literal: ' + this.text_;
+};
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
  * @fileoverview Node utilities.
  */
 
@@ -4564,466 +6035,90 @@ wgxpath.Node.getNameFromTestIEPre9_ = function(test) {
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
- * @fileoverview Wrapper classes for attribute nodes in old IE browsers.
+ * @fileoverview A class representing number literals.
  */
 
-goog.provide('wgxpath.IEAttrWrapper');
-
-goog.require('goog.dom.NodeType');
-goog.require('wgxpath.userAgent');
-
-
-
-/**
- * A wrapper for an attribute node in old IE.
- *
- * <p> Note: Although sourceIndex is equal to node.sourceIndex, it is
- * denormalized into a separate parameter for performance, so that clients
- * constructing multiple IEAttrWrappers can pass in the same sourceIndex
- * rather than re-querying it each time.
- *
- * @constructor
- * @extends {Attr}
- * @param {!Node} node The attribute node.
- * @param {!Node} parent The parent of the attribute node.
- * @param {string} nodeName The name of the attribute node.
- * @param {(string|number|boolean)} nodeValue The value of the attribute node.
- * @param {number} sourceIndex The source index of the parent node.
- */
-wgxpath.IEAttrWrapper = function(node, parent, nodeName, nodeValue,
-    sourceIndex) {
-  /**
-   * @type {!Node}
-   * @private
-   */
-  this.node_ = node;
-
-  /**
-   * @type {string}
-   */
-  this.nodeName = nodeName;
-
-  /**
-   * @type {(string|number|boolean)}
-   */
-  this.nodeValue = nodeValue;
-
-  /**
-   * @type {goog.dom.NodeType}
-   */
-  this.nodeType = goog.dom.NodeType.ATTRIBUTE;
-
-  /**
-   * @type {!Node}
-   */
-  this.ownerElement = parent;
-
-  /**
-   * @type {number}
-   * @private
-   */
-  this.parentSourceIndex_ = sourceIndex;
-
-  /**
-   * @type {!Node}
-   */
-  this.parentNode = parent;
-};
-
-
-/**
- * Creates a wrapper for an attribute node in old IE.
- *
- * @param {!Node} parent The parent of the attribute node.
- * @param {!Node} attr The attribute node.
- * @param {number} sourceIndex The source index of the parent node.
- * @return {!wgxpath.IEAttrWrapper} The constcuted wrapper.
- */
-wgxpath.IEAttrWrapper.forAttrOf = function(parent, attr, sourceIndex) {
-  var nodeValue = (wgxpath.userAgent.IE_DOC_PRE_8 && attr.nodeName == 'href') ?
-      parent.getAttribute(attr.nodeName, 2) : attr.nodeValue;
-  return new wgxpath.IEAttrWrapper(attr, parent, attr.nodeName, nodeValue,
-      sourceIndex);
-};
-
-
-/**
- * Creates a wrapper for a style attribute node in old IE.
- *
- * @param {!Node} parent The parent of the attribute node.
- * @param {number} sourceIndex The source index of the parent node.
- * @return {!wgxpath.IEAttrWrapper} The constcuted wrapper.
- */
-wgxpath.IEAttrWrapper.forStyleOf = function(parent, sourceIndex) {
-  return new wgxpath.IEAttrWrapper(parent.style, parent, 'style',
-      parent.style.cssText, sourceIndex);
-};
-
-
-/**
- * Returns the source index of the parent of the attribute node.
- *
- * @return {number} The source index of the parent.
- */
-wgxpath.IEAttrWrapper.prototype.getParentSourceIndex = function() {
-  return this.parentSourceIndex_;
-};
-
-
-/**
- * Returns the attribute node contained in the wrapper.
- *
- * @return {!Node} The original attribute node.
- */
-wgxpath.IEAttrWrapper.prototype.getNode = function() {
-  return this.node_;
-};
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview A class representing operations on filter expressions.
- */
-
-goog.provide('wgxpath.FilterExpr');
+goog.provide('wgxpath.Number');
 
 goog.require('wgxpath.Expr');
 
 
 
 /**
- * Constructor for FilterExpr.
+ * Constructs a number expression.
  *
- * @param {!wgxpath.Expr} primary The primary expression.
- * @param {!wgxpath.Predicates} predicates The predicates.
+ * @param {number} value The number value.
+ * @constructor
  * @extends {wgxpath.Expr}
- * @constructor
  */
-wgxpath.FilterExpr = function(primary, predicates) {
-  if (predicates.getLength() && primary.getDataType() !=
-      wgxpath.DataType.NODESET) {
-    throw Error('Primary expression must evaluate to nodeset ' +
-        'if filter has predicate(s).');
-  }
-  wgxpath.Expr.call(this, primary.getDataType());
+wgxpath.Number = function(value) {
+  wgxpath.Expr.call(this, wgxpath.DataType.NUMBER);
 
   /**
-   * @type {!wgxpath.Expr}
-   * @private
-   */
-  this.primary_ = primary;
-
-
-  /**
-   * @type {!wgxpath.Predicates}
-   * @private
-   */
-  this.predicates_ = predicates;
-
-  this.setNeedContextPosition(primary.doesNeedContextPosition());
-  this.setNeedContextNode(primary.doesNeedContextNode());
-};
-goog.inherits(wgxpath.FilterExpr, wgxpath.Expr);
-
-
-/**
- * @override
- * @return {!wgxpath.NodeSet} The nodeset result.
- */
-wgxpath.FilterExpr.prototype.evaluate = function(ctx) {
-  var result = this.primary_.evaluate(ctx);
-  return this.predicates_.evaluatePredicates(
-      /** @type {!wgxpath.NodeSet} */ (result));
-};
-
-
-/**
- * @override
- */
-wgxpath.FilterExpr.prototype.toString = function() {
-  var text = 'Filter:';
-  text += wgxpath.Expr.indent(this.primary_);
-  text += wgxpath.Expr.indent(this.predicates_);
-  return text;
-};
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview Context information about nodes in their nodeset.
- */
-
-goog.provide('wgxpath.Context');
-
-
-
-/**
- * Provides information for where something is in the DOM.
- *
- * @param {!wgxpath.Node} node A node in the DOM.
- * @param {number=} opt_position The position of this node in its nodeset,
- *     defaults to 1.
- * @param {number=} opt_last Index of the last node in this nodeset,
- *     defaults to 1.
- * @constructor
- */
-wgxpath.Context = function(node, opt_position, opt_last) {
-
-  /**
-    * @private
-    * @type {!wgxpath.Node}
-    */
-  this.node_ = node;
-
-  /**
-   * @private
    * @type {number}
-   */
-  this.position_ = opt_position || 1;
-
-  /**
-   * @private
-   * @type {number} opt_last
-   */
-  this.last_ = opt_last || 1;
-};
-
-
-/**
- * Returns the node for this context object.
- *
- * @return {!wgxpath.Node} The node for this context object.
- */
-wgxpath.Context.prototype.getNode = function() {
-  return this.node_;
-};
-
-
-/**
- * Returns the position for this context object.
- *
- * @return {number} The position for this context object.
- */
-wgxpath.Context.prototype.getPosition = function() {
-  return this.position_;
-};
-
-
-/**
- * Returns the last field for this context object.
- *
- * @return {number} The last field for this context object.
- */
-wgxpath.Context.prototype.getLast = function() {
-  return this.last_;
-};
-// This file was autogenerated by calcdeps.py
-goog.addDependency("../../../wicked-good-xpath/functionCall.js", ['wgxpath.FunctionCall'], ['goog.array', 'goog.dom', 'goog.dom.NodeType', 'goog.string', 'wgxpath.Expr', 'wgxpath.Node', 'wgxpath.NodeSet', 'wgxpath.userAgent']);
-goog.addDependency("../../../wicked-good-xpath/unaryExpr.js", ['wgxpath.UnaryExpr'], ['wgxpath.DataType', 'wgxpath.Expr']);
-goog.addDependency("../../../wicked-good-xpath/nodeset.js", ['wgxpath.NodeSet'], ['goog.dom', 'wgxpath.Node']);
-goog.addDependency("../../../wicked-good-xpath/pathExpr.js", ['wgxpath.PathExpr'], ['goog.array', 'goog.dom.NodeType', 'wgxpath.DataType', 'wgxpath.Expr', 'wgxpath.NodeSet']);
-goog.addDependency("../../../wicked-good-xpath/literal.js", ['wgxpath.Literal'], ['wgxpath.Expr']);
-goog.addDependency("../../../wicked-good-xpath/node.js", ['wgxpath.Node'], ['goog.array', 'goog.dom.NodeType', 'goog.userAgent', 'wgxpath.IEAttrWrapper', 'wgxpath.userAgent']);
-goog.addDependency("../../../wicked-good-xpath/step.js", ['wgxpath.Step'], ['goog.dom.NodeType', 'wgxpath.DataType', 'wgxpath.Expr', 'wgxpath.KindTest', 'wgxpath.Node', 'wgxpath.Predicates', 'wgxpath.userAgent']);
-goog.addDependency("../../../wicked-good-xpath/parser.js", ['wgxpath.Parser'], ['wgxpath.BinaryExpr', 'wgxpath.FilterExpr', 'wgxpath.FunctionCall', 'wgxpath.KindTest', 'wgxpath.Literal', 'wgxpath.NameTest', 'wgxpath.Number', 'wgxpath.PathExpr', 'wgxpath.Predicates', 'wgxpath.Step', 'wgxpath.UnaryExpr', 'wgxpath.UnionExpr']);
-goog.addDependency("../../../wicked-good-xpath/ieAttrWrapper.js", ['wgxpath.IEAttrWrapper'], ['goog.dom.NodeType', 'wgxpath.userAgent']);
-goog.addDependency("../../../wicked-good-xpath/test_deps.js", [], []);
-goog.addDependency("../../../wicked-good-xpath/wgxpath.install_latest.js", [], []);
-goog.addDependency("../../../wicked-good-xpath/wgxpath.install_jscompiler.js", [], []);
-goog.addDependency("../../../wicked-good-xpath/expr.js", ['wgxpath.Expr'], ['wgxpath.NodeSet']);
-goog.addDependency("../../../wicked-good-xpath/number.js", ['wgxpath.Number'], ['wgxpath.Expr']);
-goog.addDependency("../../../wicked-good-xpath/kindTest.js", ['wgxpath.KindTest'], ['goog.dom.NodeType', 'wgxpath.NodeTest']);
-goog.addDependency("../../../wicked-good-xpath/lexer.js", ['wgxpath.Lexer'], []);
-goog.addDependency("../../../wicked-good-xpath/wgxpath.js", ['wgxpath'], ['wgxpath.Context', 'wgxpath.IEAttrWrapper', 'wgxpath.Lexer', 'wgxpath.NodeSet', 'wgxpath.Parser']);
-goog.addDependency("../../../wicked-good-xpath/nameTest.js", ['wgxpath.NameTest'], ['goog.dom.NodeType']);
-goog.addDependency("../../../wicked-good-xpath/unionExpr.js", ['wgxpath.UnionExpr'], ['goog.array', 'wgxpath.DataType', 'wgxpath.Expr']);
-goog.addDependency("../../../wicked-good-xpath/userAgent.js", ['wgxpath.userAgent'], ['goog.userAgent']);
-goog.addDependency("../../../wicked-good-xpath/binaryExpr.js", ['wgxpath.BinaryExpr'], ['wgxpath.DataType', 'wgxpath.Expr', 'wgxpath.Node']);
-goog.addDependency("../../../wicked-good-xpath/export.js", [], ['wgxpath']);
-goog.addDependency("../../../wicked-good-xpath/dataType.js", ['wgxpath.DataType'], []);
-goog.addDependency("../../../wicked-good-xpath/filterExpr.js", ['wgxpath.FilterExpr'], ['wgxpath.Expr']);
-goog.addDependency("../../../wicked-good-xpath/wgxpath.install.js", [], []);
-goog.addDependency("../../../wicked-good-xpath/nodeTest.js", ['wgxpath.NodeTest'], []);
-goog.addDependency("../../../wicked-good-xpath/context.js", ['wgxpath.Context'], []);
-goog.addDependency("../../../wicked-good-xpath/predicates.js", ['wgxpath.Predicates'], ['goog.array', 'wgxpath.Context', 'wgxpath.Expr']);
-goog.addDependency("../../../wicked-good-xpath/test/test_deps.js", [], []);
-goog.addDependency("../../../wicked-good-xpath/test/test.js", ['wgxpath.test'], ['goog.dom', 'goog.dom.NodeType', 'goog.userAgent']);
-/*  JavaScript-XPath 0.1.11
- *  (c) 2007 Cybozu Labs, Inc.
- *
- *  JavaScript-XPath is freely distributable under the terms of an MIT-style
- *  license. For details, see the JavaScript-XPath web site:
- *  http://coderepos.org/share/wiki/JavaScript-XPath
- *
-/*--------------------------------------------------------------------------*/
-
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview Exports the wgxpath.install function.
- *
- */
-
-goog.require('wgxpath');
-
-goog.exportSymbol('wgxpath.install', wgxpath.install);
-/**
- * @fileoverview Namespace resolver functions.
- */
-
-goog.provide('wgxpath.nsResolver');
-
-goog.require('goog.dom.NodeType');
-
-
-/**
- * Returns a namespace resolve function for the given node.
- *
- * @param {!Node} node The context node.
- * @return {function(?string):?string} A lookupNamespaceURI function.
- */
-wgxpath.nsResolver.getResolver = function(node) {
-  // Adopted from W3C psuedocode specification:
-  // http://www.w3.org/TR/DOM-Level-3-Core/namespaces-algorithms.html
-
-  switch (node.nodeType) {
-    case goog.dom.NodeType.ELEMENT:
-      return goog.partial(wgxpath.nsResolver.resolveForElement_, node);
-
-    case goog.dom.NodeType.DOCUMENT:
-      return wgxpath.nsResolver.getResolver(node.documentElement);
-
-    case goog.dom.NodeType.ATTRIBUTE:
-      if (node.ownerElement) {
-        return wgxpath.nsResolver.getResolver(node.ownerElement);
-      }
-      return wgxpath.nsResolver.nullResolver_;
-
-    case goog.dom.NodeType.DOCUMENT_FRAGMENT:
-    case goog.dom.NodeType.DOCUMENT_TYPE:
-    case goog.dom.NodeType.ENTITY:
-    case goog.dom.NodeType.NOTATION:
-      return wgxpath.nsResolver.nullResolver_;
-
-    default:
-      if (node.parentNode) {
-        return wgxpath.nsResolver.getResolver(node.parentNode);
-      }
-      return wgxpath.nsResolver.nullResolver_;
-  }
-};
-
-
-/**
- * A resolver function that always returns null.
- *
- * @param {?string} prefix Namespace prefix or null for default namespace.
- * @return {?string} Null.
- * @private
- */
-wgxpath.nsResolver.nullResolver_ = function(prefix) {
-  return null;
-};
-
-
-/**
- * The default namespace URI for XHTML nodes.
- *
- * @const
- * @type {string}
- * @private
- */
-wgxpath.nsResolver.HTML_NAMESPACE_URI_ = 'http://www.w3.org/1999/xhtml';
-
-
-/**
- * Looks up the namespace URI for the given prefix and given element context.
- *
- * @param {!Element} elem Context element for the namespace resolution.
- * @param {?string} prefix Namespace prefix or null for default namespace.
- * @return {?string} The namespace URI for the given prefix, or null if none.
- * @private
- */
-wgxpath.nsResolver.resolveForElement_ = function(elem, prefix) {
-  if (elem.prefix == prefix) {
-    return elem.namespaceURI || wgxpath.nsResolver.HTML_NAMESPACE_URI_;
-  }
-
-  var attr = elem.getAttributeNode('xmlns:' + prefix);
-  if (attr && attr.specified) {
-    return attr.value || null;
-  }
-
-  if (elem.parentNode &&
-      elem.parentNode.nodeType != goog.dom.NodeType.DOCUMENT) {
-    return wgxpath.nsResolver.resolveForElement_(
-        /** @type {!Element} */ (elem.parentNode), prefix);
-  }
-
-  return null;
-};
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview A class representing operations on union expressions.
- */
-
-goog.provide('wgxpath.UnionExpr');
-
-goog.require('goog.array');
-goog.require('wgxpath.DataType');
-goog.require('wgxpath.Expr');
-
-
-
-/**
- * Constructor for UnionExpr.
- *
- * @param {!Array.<!wgxpath.Expr>} paths The paths in the union.
- * @extends {wgxpath.Expr}
- * @constructor
- */
-wgxpath.UnionExpr = function(paths) {
-  wgxpath.Expr.call(this, wgxpath.DataType.NODESET);
-
-  /**
-   * @type {!Array.<!wgxpath.Expr>}
    * @private
    */
-  this.paths_ = paths;
-  this.setNeedContextPosition(goog.array.some(this.paths_, function(p) {
-    return p.doesNeedContextPosition();
-  }));
-  this.setNeedContextNode(goog.array.some(this.paths_, function(p) {
-    return p.doesNeedContextNode();
-  }));
+  this.value_ = value;
 };
-goog.inherits(wgxpath.UnionExpr, wgxpath.Expr);
+goog.inherits(wgxpath.Number, wgxpath.Expr);
 
 
 /**
  * @override
- * @return {!wgxpath.NodeSet} The nodeset result.
+ * @return {number} The number result.
  */
-wgxpath.UnionExpr.prototype.evaluate = function(ctx) {
-  var nodeset = new wgxpath.NodeSet();
-  goog.array.forEach(this.paths_, function(p) {
-    var result = p.evaluate(ctx);
-    if (!(result instanceof wgxpath.NodeSet)) {
-      throw Error('Path expression must evaluate to NodeSet.');
-    }
-    nodeset = wgxpath.NodeSet.merge(nodeset, result);
-  });
-  return nodeset;
+wgxpath.Number.prototype.evaluate = function(ctx) {
+  return this.value_;
 };
 
 
 /**
  * @override
  */
-wgxpath.UnionExpr.prototype.toString = function() {
-  return goog.array.reduce(this.paths_, function(prev, curr) {
-    return prev + wgxpath.Expr.indent(curr);
-  }, 'Union Expression:');
+wgxpath.Number.prototype.toString = function() {
+  return 'Number: ' + this.value_;
 };
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview An interface for the NodeTest construct.
+ */
+
+goog.provide('wgxpath.NodeTest');
+
+
+
+/**
+ * The NodeTest interface to represent the NodeTest production
+ * in the xpath grammar:
+ * http://www.w3.org/TR/xpath-30/#prod-xpath30-NodeTest
+ *
+ * @interface
+ */
+wgxpath.NodeTest = function() {};
+
+
+/**
+ * Tests if a node matches the stored characteristics.
+ *
+ * @param {wgxpath.Node} node The node to be tested.
+ * @return {boolean} Whether the node passes the test.
+ */
+wgxpath.NodeTest.prototype.matches = goog.abstractMethod;
+
+
+/**
+ * Returns the name of the test.
+ *
+ * @return {string} The name, either nodename or type name.
+ */
+wgxpath.NodeTest.prototype.getName = goog.abstractMethod;
+
+
+/**
+ * @override
+ */
+wgxpath.NodeTest.prototype.toString = goog.abstractMethod;
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
@@ -5169,695 +6264,5786 @@ wgxpath.Predicates.prototype.toString = function() {
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 /**
- * @fileoverview A recursive descent Parser.
+ * @fileoverview A class implementing the NameTest construct.
  */
 
-goog.provide('wgxpath.Parser');
+goog.provide('wgxpath.NameTest');
 
-goog.require('wgxpath.BinaryExpr');
-goog.require('wgxpath.FilterExpr');
-goog.require('wgxpath.FunctionCall');
-goog.require('wgxpath.KindTest');
-goog.require('wgxpath.Literal');
-goog.require('wgxpath.NameTest');
-goog.require('wgxpath.Number');
-goog.require('wgxpath.PathExpr');
-goog.require('wgxpath.Predicates');
-goog.require('wgxpath.Step');
-goog.require('wgxpath.UnaryExpr');
-goog.require('wgxpath.UnionExpr');
+goog.require('goog.dom.NodeType');
 
 
 
 /**
- * The recursive descent parser.
+ * Constructs a NameTest based on the xpath grammar:
+ * http://www.w3.org/TR/xpath/#NT-NameTest
  *
+ * <p>If no namespace is provided, the default HTML namespace is used.
+ *
+ * @param {string} name Name to be tested.
+ * @param {string=} opt_namespaceUri Namespace URI; defaults to HTML namespace.
  * @constructor
- * @param {!wgxpath.Lexer} lexer The lexer.
- * @param {function(string): ?string} nsResolver Namespace resolver.
+ * @implements {wgxpath.NodeTest}
  */
-wgxpath.Parser = function(lexer, nsResolver) {
+wgxpath.NameTest = function(name, opt_namespaceUri) {
+  /**
+   * @type {string}
+   * @private
+   */
+  this.name_ = name.toLowerCase();
 
   /**
-   * @private {!wgxpath.Lexer}
+   * @type {string}
+   * @private
    */
-  this.lexer_ = lexer;
+  this.namespaceUri_ = opt_namespaceUri ? opt_namespaceUri.toLowerCase() :
+      wgxpath.NameTest.HTML_NAMESPACE_URI_;
+};
+
+
+/**
+ * The default namespace URI for XHTML nodes.
+ *
+ * @const
+ * @type {string}
+ * @private
+ */
+wgxpath.NameTest.HTML_NAMESPACE_URI_ = 'http://www.w3.org/1999/xhtml';
+
+
+/**
+ * @override
+ */
+wgxpath.NameTest.prototype.matches = function(node) {
+  var type = node.nodeType;
+  if (type != goog.dom.NodeType.ELEMENT &&
+      type != goog.dom.NodeType.ATTRIBUTE) {
+    return false;
+  }
+  if (this.name_ != '*' && this.name_ != node.nodeName.toLowerCase()) {
+    return false;
+  } else {
+    var namespaceUri = node.namespaceURI ? node.namespaceURI.toLowerCase() :
+        wgxpath.NameTest.HTML_NAMESPACE_URI_;
+    return this.namespaceUri_ == namespaceUri;
+  }
+};
+
+
+/**
+ * @override
+ */
+wgxpath.NameTest.prototype.getName = function() {
+  return this.name_;
+};
+
+
+/**
+ * Returns the namespace URI to be matched.
+ *
+ * @return {string} Namespace URI.
+ */
+wgxpath.NameTest.prototype.getNamespaceUri = function() {
+  return this.namespaceUri_;
+};
+
+
+/**
+ * @override
+ */
+wgxpath.NameTest.prototype.toString = function() {
+  var prefix = this.namespaceUri_ == wgxpath.NameTest.HTML_NAMESPACE_URI_ ?
+      '' : this.namespaceUri_ + ':';
+  return 'Name Test: ' + prefix + this.name_;
+};
+// Copyright 2012 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview A class implementing the xpath 1.0 subset of the
+ *               KindTest construct.
+ */
+
+goog.provide('wgxpath.KindTest');
+
+goog.require('goog.dom.NodeType');
+goog.require('wgxpath.NodeTest');
+
+
+
+/**
+ * Constructs a subset of KindTest based on the xpath grammar:
+ * http://www.w3.org/TR/xpath20/#prod-xpath-KindTest
+ *
+ * @param {string} typeName Type name to be tested.
+ * @param {wgxpath.Literal=} opt_literal Optional literal for
+ *        processing-instruction nodes.
+ * @constructor
+ * @implements {wgxpath.NodeTest}
+ */
+wgxpath.KindTest = function(typeName, opt_literal) {
 
   /**
-   * @private {function(string): ?string}
+   * @type {string}
+   * @private
    */
-  this.nsResolver_ = nsResolver;
-};
+  this.typeName_ = typeName;
 
+  /**
+   * @type {wgxpath.Literal}
+   * @private
+   */
+  this.literal_ = goog.isDef(opt_literal) ? opt_literal : null;
 
-/**
- * Apply recursive descent parsing on the input to construct an
- * abstract syntax tree.
- *
- * @return {!wgxpath.Expr} The root of the constructed tree.
- */
-wgxpath.Parser.prototype.parseExpr = function() {
-  var expr, stack = [];
-  while (true) {
-    this.checkNotEmpty_('Missing right hand side of binary expression.');
-    expr = this.parseUnaryExpr_(); // See if it's just a UnaryExpr.
-    var opString = this.lexer_.next();
-    if (!opString) {
-      break; // Done, we have only a UnaryExpr.
-    }
-
-    var op = wgxpath.BinaryExpr.getOp(opString);
-    var precedence = op && op.getPrecedence();
-    if (!precedence) {
-      this.lexer_.back();
+  /**
+   * @type {?goog.dom.NodeType}
+   * @private
+   */
+  this.type_ = null;
+  switch (typeName) {
+    case 'comment':
+      this.type_ = goog.dom.NodeType.COMMENT;
       break;
-    }
-    // Precedence climbing
-    while (stack.length &&
-        precedence <= stack[stack.length - 1].getPrecedence()) {
-      expr = new wgxpath.BinaryExpr(stack.pop(), stack.pop(), expr);
-    }
-    stack.push(expr, op);
-  }
-  while (stack.length) {
-    expr = new wgxpath.BinaryExpr(stack.pop(), stack.pop(),
-        /** @type {!wgxpath.Expr} */ (expr));
-  }
-  return /** @type {!wgxpath.Expr} */ (expr);
-};
-
-
-/**
- * Checks that the lexer is not empty,
- *     displays the given error message if it is.
- *
- * @private
- * @param {string} msg The error message to display.
- */
-wgxpath.Parser.prototype.checkNotEmpty_ = function(msg) {
-  if (this.lexer_.empty()) {
-    throw Error(msg);
-  }
-};
-
-
-/**
- * Checks that the next token of the error message is the expected token.
- *
- * @private
- * @param {string} expected The expected token.
- */
-wgxpath.Parser.prototype.checkNextEquals_ = function(expected) {
-  var got = this.lexer_.next();
-  if (got != expected) {
-    throw Error('Bad token, expected: ' + expected + ' got: ' + got);
-  }
-};
-
-
-/**
- * Checks that the next token of the error message is not the given token.
- *
- * @private
- * @param {string} token The token.
- */
-wgxpath.Parser.prototype.checkNextNotEquals_ = function(token) {
-  var next = this.lexer_.next();
-  if (next != token) {
-    throw Error('Bad token: ' + next);
-  }
-};
-
-
-/**
- * Attempts to parse the input as a FilterExpr.
- *
- * @private
- * @return {wgxpath.Expr} The root of the constructed tree.
- */
-wgxpath.Parser.prototype.parseFilterExpr_ = function() {
-  var expr;
-  var token = this.lexer_.peek();
-  var ch = token.charAt(0);
-  switch (ch) {
-    case '$':
-      throw Error('Variable reference not allowed in HTML XPath');
-    case '(':
-      this.lexer_.next();
-      expr = this.parseExpr();
-      this.checkNotEmpty_('unclosed "("');
-      this.checkNextEquals_(')');
+    case 'text':
+      this.type_ = goog.dom.NodeType.TEXT;
       break;
-    case '"':
-    case "'":
-      expr = this.parseLiteral_();
+    case 'processing-instruction':
+      this.type_ = goog.dom.NodeType.PROCESSING_INSTRUCTION;
+      break;
+    case 'node':
       break;
     default:
-      if (!isNaN(+token)) {
-        expr = this.parseNumber_();
-      } else if (wgxpath.KindTest.isValidType(token)) {
-        return null;
-      } else if (/(?![0-9])[\w]/.test(ch) && this.lexer_.peek(1) == '(') {
-        expr = this.parseFunctionCall_();
-      } else {
-        return null;
-      }
-  }
-  if (this.lexer_.peek() != '[') {
-    return expr;
-  }
-  var predicates = new wgxpath.Predicates(this.parsePredicates_());
-  return new wgxpath.FilterExpr(expr, predicates);
-};
-
-
-/**
- * Parses FunctionCall.
- *
- * @private
- * @return {!wgxpath.FunctionCall} The parsed expression.
- */
-wgxpath.Parser.prototype.parseFunctionCall_ = function() {
-  var funcName = this.lexer_.next();
-  var func = wgxpath.FunctionCall.getFunc(funcName);
-  this.lexer_.next();
-
-  var args = [];
-  while (this.lexer_.peek() != ')') {
-    this.checkNotEmpty_('Missing function argument list.');
-    args.push(this.parseExpr());
-    if (this.lexer_.peek() != ',') {
-      break;
-    }
-    this.lexer_.next();
-  }
-  this.checkNotEmpty_('Unclosed function argument list.');
-  this.checkNextNotEquals_(')');
-
-  return new wgxpath.FunctionCall(func, args);
-};
-
-
-/**
- * Parses the input to construct a KindTest.
- *
- * @private
- * @return {!wgxpath.KindTest} The KindTest constructed.
- */
-wgxpath.Parser.prototype.parseKindTest_ = function() {
-  var typeName = this.lexer_.next();
-  if (!wgxpath.KindTest.isValidType(typeName)) {
-    throw Error('Invalid type name: ' + typeName);
-  }
-  this.checkNextEquals_('(');
-  this.checkNotEmpty_('Bad nodetype');
-  var ch = this.lexer_.peek().charAt(0);
-
-  var literal = null;
-  if (ch == '"' || ch == "'") {
-    literal = this.parseLiteral_();
-  }
-  this.checkNotEmpty_('Bad nodetype');
-  this.checkNextNotEquals_(')');
-  return new wgxpath.KindTest(typeName, literal);
-};
-
-
-/**
- * Parses the input to construct a Literal.
- *
- * @private
- * @return {!wgxpath.Literal} The Literal constructed.
- */
-wgxpath.Parser.prototype.parseLiteral_ = function() {
-  var token = this.lexer_.next();
-  if (token.length < 2) {
-    throw Error('Unclosed literal string');
-  }
-  return new wgxpath.Literal(token);
-};
-
-
-/**
- * Parses the input to construct a NameTest.
- *
- * @private
- * @return {!wgxpath.NameTest} The NameTest constructed.
- */
-wgxpath.Parser.prototype.parseNameTest_ = function() {
-  var name = this.lexer_.next();
-
-  // Check whether there's a namespace prefix.
-  var colonIndex = name.indexOf(':');
-  if (colonIndex == -1) {
-    return new wgxpath.NameTest(name);
-  } else {
-    var namespacePrefix = name.substring(0, colonIndex);
-    var namespaceUri = this.nsResolver_(namespacePrefix);
-    if (!namespaceUri) {
-      throw Error('Namespace prefix not declared: ' + namespacePrefix);
-    }
-    name = name.substr(colonIndex + 1);
-    return new wgxpath.NameTest(name, namespaceUri);
+      throw Error('Unexpected argument');
   }
 };
 
 
 /**
- * Parses the input to construct a Number.
+ * Checks if a type name is a valid KindTest parameter.
  *
- * @private
- * @return {!wgxpath.Number} The Number constructed.
+ * @param {string} typeName The type name to be checked.
+ * @return {boolean} Whether the type name is legal.
  */
-wgxpath.Parser.prototype.parseNumber_ = function() {
-  return new wgxpath.Number(+this.lexer_.next());
-};
-
-
-/**
- * Attempts to parse the input as a PathExpr.
- *
- * @private
- * @return {!wgxpath.Expr} The root of the constructed tree.
- */
-wgxpath.Parser.prototype.parsePathExpr_ = function() {
-  var op, expr;
-  var steps = [];
-  var filterExpr;
-  if (wgxpath.PathExpr.isValidOp(this.lexer_.peek())) {
-    op = this.lexer_.next();
-    var token = this.lexer_.peek();
-    if (op == '/' && (this.lexer_.empty() ||
-        (token != '.' && token != '..' && token != '@' && token != '*' &&
-        !/(?![0-9])[\w]/.test(token)))) {
-      return new wgxpath.PathExpr.RootHelperExpr();
-    }
-    filterExpr = new wgxpath.PathExpr.RootHelperExpr();
-
-    this.checkNotEmpty_('Missing next location step.');
-    expr = this.parseStep_(op);
-    steps.push(expr);
-  } else {
-    expr = this.parseFilterExpr_();
-    if (!expr) {
-      expr = this.parseStep_('/');
-      filterExpr = new wgxpath.PathExpr.ContextHelperExpr();
-      steps.push(expr);
-    } else if (!wgxpath.PathExpr.isValidOp(this.lexer_.peek())) {
-      return expr; // Done.
-    } else {
-      filterExpr = expr;
-    }
-  }
-  while (true) {
-    if (!wgxpath.PathExpr.isValidOp(this.lexer_.peek())) {
-      break;
-    }
-    op = this.lexer_.next();
-    this.checkNotEmpty_('Missing next location step.');
-    expr = this.parseStep_(op);
-    steps.push(expr);
-  }
-  return new wgxpath.PathExpr(filterExpr, steps);
-};
-
-
-/**
- * Parses Step.
- *
- * @private
- * @param {string} op The op for this step.
- * @return {!wgxpath.Step} The parsed expression.
- */
-wgxpath.Parser.prototype.parseStep_ = function(op) {
-  var test, step, token, predicates;
-  if (op != '/' && op != '//') {
-    throw Error('Step op should be "/" or "//"');
-  }
-  if (this.lexer_.peek() == '.') {
-    step = new wgxpath.Step(wgxpath.Step.Axis.SELF,
-        new wgxpath.KindTest('node'));
-    this.lexer_.next();
-    return step;
-  }
-  else if (this.lexer_.peek() == '..') {
-    step = new wgxpath.Step(wgxpath.Step.Axis.PARENT,
-        new wgxpath.KindTest('node'));
-    this.lexer_.next();
-    return step;
-  } else {
-    // Grab the axis.
-    var axis;
-    if (this.lexer_.peek() == '@') {
-      axis = wgxpath.Step.Axis.ATTRIBUTE;
-      this.lexer_.next();
-      this.checkNotEmpty_('Missing attribute name');
-    } else {
-      if (this.lexer_.peek(1) == '::') {
-        if (!/(?![0-9])[\w]/.test(this.lexer_.peek().charAt(0))) {
-          throw Error('Bad token: ' + this.lexer_.next());
-        }
-        var axisName = this.lexer_.next();
-        axis = wgxpath.Step.getAxis(axisName);
-        if (!axis) {
-          throw Error('No axis with name: ' + axisName);
-        }
-        this.lexer_.next();
-        this.checkNotEmpty_('Missing node name');
-      } else {
-        axis = wgxpath.Step.Axis.CHILD;
-      }
-    }
-
-    // Grab the test.
-    token = this.lexer_.peek();
-    if (!/(?![0-9])[\w]/.test(token.charAt(0))) {
-      if (token == '*') {
-        test = this.parseNameTest_();
-      } else {
-        throw Error('Bad token: ' + this.lexer_.next());
-      }
-    } else {
-      if (this.lexer_.peek(1) == '(') {
-        if (!wgxpath.KindTest.isValidType(token)) {
-          throw Error('Invalid node type: ' + token);
-        }
-        test = this.parseKindTest_();
-      } else {
-        test = this.parseNameTest_();
-      }
-    }
-    predicates = new wgxpath.Predicates(this.parsePredicates_(),
-        axis.isReverse());
-    return step || new wgxpath.Step(axis, test, predicates, op == '//');
-  }
-};
-
-
-/**
- * Parses and returns the predicates from the this.lexer_.
- *
- * @private
- * @return {!Array.<!wgxpath.Expr>} An array of the predicates.
- */
-wgxpath.Parser.prototype.parsePredicates_ = function() {
-  var predicates = [];
-  while (this.lexer_.peek() == '[') {
-    this.lexer_.next();
-    this.checkNotEmpty_('Missing predicate expression.');
-    var predicate = this.parseExpr();
-    predicates.push(predicate);
-    this.checkNotEmpty_('Unclosed predicate expression.');
-    this.checkNextEquals_(']');
-  }
-  return predicates;
-};
-
-
-/**
- * Attempts to parse the input as a unary expression with
- * recursive descent parsing.
- *
- * @private
- * @return {!wgxpath.Expr} The root of the constructed tree.
- */
-wgxpath.Parser.prototype.parseUnaryExpr_ = function() {
-  if (this.lexer_.peek() == '-') {
-    this.lexer_.next();
-    return new wgxpath.UnaryExpr(this.parseUnaryExpr_());
-  } else {
-    return this.parseUnionExpr_();
-  }
-};
-
-
-/**
- * Attempts to parse the input as a union expression with
- * recursive descent parsing.
- *
- * @private
- * @return {!wgxpath.Expr} The root of the constructed tree.
- */
-wgxpath.Parser.prototype.parseUnionExpr_ = function() {
-  var expr = this.parsePathExpr_();
-  if (!(this.lexer_.peek() == '|')) {
-    return expr;  // Not a UnionExpr, returning as is.
-  }
-  var paths = [expr];
-  while (this.lexer_.next() == '|') {
-    this.checkNotEmpty_('Missing next union location path.');
-    paths.push(this.parsePathExpr_());
-  }
-  this.lexer_.back();
-  return new wgxpath.UnionExpr(paths);
-};
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview An interface for the NodeTest construct.
- */
-
-goog.provide('wgxpath.NodeTest');
-
-
-
-/**
- * The NodeTest interface to represent the NodeTest production
- * in the xpath grammar:
- * http://www.w3.org/TR/xpath-30/#prod-xpath30-NodeTest
- *
- * @interface
- */
-wgxpath.NodeTest = function() {};
-
-
-/**
- * Tests if a node matches the stored characteristics.
- *
- * @param {wgxpath.Node} node The node to be tested.
- * @return {boolean} Whether the node passes the test.
- */
-wgxpath.NodeTest.prototype.matches = goog.abstractMethod;
-
-
-/**
- * Returns the name of the test.
- *
- * @return {string} The name, either nodename or type name.
- */
-wgxpath.NodeTest.prototype.getName = goog.abstractMethod;
-
-
-/**
- * @override
- */
-wgxpath.NodeTest.prototype.toString = goog.abstractMethod;
-// Copyright 2012 Google Inc. All Rights Reserved.
-
-/**
- * @fileoverview An class representing operations on path expressions.
- */
-
-goog.provide('wgxpath.PathExpr');
-
-
-goog.require('goog.array');
-goog.require('goog.dom.NodeType');
-goog.require('wgxpath.DataType');
-goog.require('wgxpath.Expr');
-goog.require('wgxpath.NodeSet');
-
-
-
-/**
- * Constructor for PathExpr.
- *
- * @param {!wgxpath.Expr} filter A filter expression.
- * @param {!Array.<!wgxpath.Step>} steps The steps in the location path.
- * @extends {wgxpath.Expr}
- * @constructor
- */
-wgxpath.PathExpr = function(filter, steps) {
-  wgxpath.Expr.call(this, filter.getDataType());
-
-  /**
-   * @type {!wgxpath.Expr}
-   * @private
-   */
-  this.filter_ = filter;
-
-  /**
-   * @type {!Array.<!wgxpath.Step>}
-   * @private
-   */
-  this.steps_ = steps;
-
-  this.setNeedContextPosition(filter.doesNeedContextPosition());
-  this.setNeedContextNode(filter.doesNeedContextNode());
-  if (this.steps_.length == 1) {
-    var firstStep = this.steps_[0];
-    if (!firstStep.doesIncludeDescendants() &&
-        firstStep.getAxis() == wgxpath.Step.Axis.ATTRIBUTE) {
-      var test = firstStep.getTest();
-      if (test.getName() != '*') {
-        this.setQuickAttr({
-          name: test.getName(),
-          valueExpr: null
-        });
-      }
-    }
-  }
-};
-goog.inherits(wgxpath.PathExpr, wgxpath.Expr);
-
-
-
-/**
- * Constructor for RootHelperExpr.
- *
- * @extends {wgxpath.Expr}
- * @constructor
- */
-wgxpath.PathExpr.RootHelperExpr = function() {
-  wgxpath.Expr.call(this, wgxpath.DataType.NODESET);
-};
-goog.inherits(wgxpath.PathExpr.RootHelperExpr, wgxpath.Expr);
-
-
-/**
- * Evaluates the root-node helper expression.
- *
- * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
- * @return {!wgxpath.NodeSet} The evaluation result.
- */
-wgxpath.PathExpr.RootHelperExpr.prototype.evaluate = function(ctx) {
-  var nodeset = new wgxpath.NodeSet();
-  var node = ctx.getNode();
-  if (node.nodeType == goog.dom.NodeType.DOCUMENT) {
-    nodeset.add(node);
-  } else {
-    nodeset.add(/** @type {!Node} */ (node.ownerDocument));
-  }
-  return nodeset;
+wgxpath.KindTest.isValidType = function(typeName) {
+  return typeName == 'comment' || typeName == 'text' ||
+      typeName == 'processing-instruction' || typeName == 'node';
 };
 
 
 /**
  * @override
  */
-wgxpath.PathExpr.RootHelperExpr.prototype.toString = function() {
-  return 'Root Helper Expression';
+wgxpath.KindTest.prototype.matches = function(node) {
+  return goog.isNull(this.type_) || this.type_ == node.nodeType;
 };
 
 
-
 /**
- * Constructor for ContextHelperExpr.
+ * Returns the type of the node.
  *
- * @extends {wgxpath.Expr}
- * @constructor
+ * @return {?number} The type of the node, or null if any type.
  */
-wgxpath.PathExpr.ContextHelperExpr = function() {
-  wgxpath.Expr.call(this, wgxpath.DataType.NODESET);
-};
-goog.inherits(wgxpath.PathExpr.ContextHelperExpr, wgxpath.Expr);
-
-
-/**
- * Evaluates the context-node helper expression.
- *
- * @param {!wgxpath.Context} ctx The context to evaluate the expression in.
- * @return {!wgxpath.NodeSet} The evaluation result.
- */
-wgxpath.PathExpr.ContextHelperExpr.prototype.evaluate = function(ctx) {
-  var nodeset = new wgxpath.NodeSet();
-  nodeset.add(ctx.getNode());
-  return nodeset;
+wgxpath.KindTest.prototype.getType = function() {
+  return this.type_;
 };
 
 
 /**
  * @override
  */
-wgxpath.PathExpr.ContextHelperExpr.prototype.toString = function() {
-  return 'Context Helper Expression';
-};
-
-
-/**
- * Returns whether the token is a valid PathExpr operator.
- *
- * @param {string} token The token to be checked.
- * @return {boolean} Whether the token is a valid operator.
- */
-wgxpath.PathExpr.isValidOp = function(token) {
-  return token == '/' || token == '//';
-};
-
-
-/**
- * @override
- * @return {!wgxpath.NodeSet} The nodeset result.
- */
-wgxpath.PathExpr.prototype.evaluate = function(ctx) {
-  var nodeset = this.filter_.evaluate(ctx);
-  if (!(nodeset instanceof wgxpath.NodeSet)) {
-    throw Error('Filter expression must evaluate to nodeset.');
-  }
-  var steps = this.steps_;
-  for (var i = 0, l0 = steps.length; i < l0 && nodeset.getLength(); i++) {
-    var step = steps[i];
-    var reverse = step.getAxis().isReverse();
-    var iter = nodeset.iterator(reverse);
-    nodeset = null;
-    var node, next;
-    if (!step.doesNeedContextPosition() &&
-        step.getAxis() == wgxpath.Step.Axis.FOLLOWING) {
-      for (node = iter.next(); next = iter.next(); node = next) {
-        if (node.contains && !node.contains(next)) {
-          break;
-        } else {
-          if (!(next.compareDocumentPosition(/** @type {!Node} */ (node)) &
-              8)) {
-            break;
-          }
-        }
-      }
-      nodeset = step.evaluate(new
-          wgxpath.Context(/** @type {wgxpath.Node} */ (node)));
-    } else if (!step.doesNeedContextPosition() &&
-        step.getAxis() == wgxpath.Step.Axis.PRECEDING) {
-      node = iter.next();
-      nodeset = step.evaluate(new
-          wgxpath.Context(/** @type {wgxpath.Node} */ (node)));
-    } else {
-      node = iter.next();
-      nodeset = step.evaluate(new
-          wgxpath.Context(/** @type {wgxpath.Node} */ (node)));
-      while ((node = iter.next()) != null) {
-        var result = step.evaluate(new
-            wgxpath.Context(/** @type {wgxpath.Node} */ (node)));
-        nodeset = wgxpath.NodeSet.merge(nodeset, result);
-      }
-    }
-  }
-  return /** @type {!wgxpath.NodeSet} */ (nodeset);
+wgxpath.KindTest.prototype.getName = function() {
+  return this.typeName_;
 };
 
 
 /**
  * @override
  */
-wgxpath.PathExpr.prototype.toString = function() {
-  var text = 'Path Expression:';
-  text += wgxpath.Expr.indent(this.filter_);
-  if (this.steps_.length) {
-    var steps = goog.array.reduce(this.steps_, function(prev, curr) {
-      return prev + wgxpath.Expr.indent(curr);
-    }, 'Steps:');
-    text += wgxpath.Expr.indent(steps);
+wgxpath.KindTest.prototype.toString = function() {
+  var text = 'Kind Test: ' + this.typeName_;
+  if (!goog.isNull(this.literal_)) {
+    text += wgxpath.Expr.indent(this.literal_);
   }
   return text;
+};
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Functions to do with firing and simulating events.
+ */
+
+
+goog.provide('bot.events');
+goog.provide('bot.events.EventArgs');
+goog.provide('bot.events.EventType');
+goog.provide('bot.events.KeyboardArgs');
+goog.provide('bot.events.MSGestureArgs');
+goog.provide('bot.events.MSPointerArgs');
+goog.provide('bot.events.MouseArgs');
+goog.provide('bot.events.Touch');
+goog.provide('bot.events.TouchArgs');
+
+goog.require('bot');
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+goog.require('bot.userAgent');
+goog.require('goog.array');
+goog.require('goog.dom');
+goog.require('goog.style');
+goog.require('goog.userAgent');
+goog.require('goog.userAgent.product');
+
+
+/**
+ * Whether the browser supports the construction of touch events.
+ *
+ * @const
+ * @type {boolean}
+ */
+bot.events.SUPPORTS_TOUCH_EVENTS = !(goog.userAgent.IE &&
+                                     !bot.userAgent.isEngineVersion(10)) &&
+                                   !goog.userAgent.OPERA;
+
+
+/**
+ * Whether the browser supports a native touch api.
+ * @private {boolean}
+ * @const
+ */
+bot.events.BROKEN_TOUCH_API_ = (function() {
+  if (goog.userAgent.product.ANDROID) {
+    // Native touch api supported starting in version 4.0 (Ice Cream Sandwich).
+    return !bot.userAgent.isProductVersion(4);
+  }
+  return !bot.userAgent.IOS;
+})();
+
+
+/**
+ * Whether the browser supports the construction of MSPointer events.
+ *
+ * @const
+ * @type {boolean}
+ */
+bot.events.SUPPORTS_MSPOINTER_EVENTS =
+    goog.userAgent.IE && bot.getWindow().navigator.msPointerEnabled;
+
+
+/**
+ * Arguments to initialize an event.
+ *
+ * @typedef {bot.events.MouseArgs|bot.events.KeyboardArgs|bot.events.TouchArgs|
+             bot.events.MSGestureArgs|bot.events.MSPointerArgs}
+ */
+bot.events.EventArgs;
+
+
+/**
+ * Arguments to initialize a mouse event.
+ *
+ * @typedef {{clientX: number,
+ *            clientY: number,
+ *            button: number,
+ *            altKey: boolean,
+ *            ctrlKey: boolean,
+ *            shiftKey: boolean,
+ *            metaKey: boolean,
+ *            relatedTarget: Element,
+ *            wheelDelta: number}}
+ */
+bot.events.MouseArgs;
+
+
+/**
+ * Arguments to initialize a keyboard event.
+ *
+ * @typedef {{keyCode: number,
+ *            charCode: number,
+ *            altKey: boolean,
+ *            ctrlKey: boolean,
+ *            shiftKey: boolean,
+ *            metaKey: boolean,
+ *            preventDefault: boolean}}
+ */
+bot.events.KeyboardArgs;
+
+
+/**
+ * Argument to initialize a touch event.
+ *
+ * @typedef {{touches: !Array.<bot.events.Touch>,
+ *            targetTouches: !Array.<bot.events.Touch>,
+ *            changedTouches: !Array.<bot.events.Touch>,
+ *            altKey: boolean,
+ *            ctrlKey: boolean,
+ *            shiftKey: boolean,
+ *            metaKey: boolean,
+ *            relatedTarget: Element,
+ *            scale: number,
+ *            rotation: number}}
+ */
+bot.events.TouchArgs;
+
+
+/**
+ * @typedef {{identifier: number,
+ *            screenX: number,
+ *            screenY: number,
+ *            clientX: number,
+ *            clientY: number,
+ *            pageX: number,
+ *            pageY: number}}
+ */
+bot.events.Touch;
+
+
+/**
+ * Arguments to initialize an MSGesture event.
+ *
+ * @typedef {{clientX: number,
+ *            clientY: number,
+ *            translationX: number,
+ *            translationY: number,
+ *            scale: number,
+ *            expansion: number,
+ *            rotation: number,
+ *            velocityX: number,
+ *            velocityY: number,
+ *            velocityExpansion: number,
+ *            velocityAngular: number,
+ *            relatedTarget: Element}}
+ */
+bot.events.MSGestureArgs;
+
+
+/**
+ * Arguments to initialize an MSPointer event.
+ *
+ * @typedef {{clientX: number,
+ *            clientY: number,
+ *            button: number,
+ *            altKey: boolean,
+ *            ctrlKey: boolean,
+ *            shiftKey: boolean,
+ *            metaKey: boolean,
+ *            relatedTarget: Element,
+ *            width: number,
+ *            height: number,
+ *            pressure: number,
+ *            rotation: number,
+ *            pointerId: number,
+ *            tiltX: number,
+ *            tiltY: number,
+ *            pointerType: number,
+ *            isPrimary: boolean}}
+ */
+bot.events.MSPointerArgs;
+
+
+
+/**
+ * Factory for event objects of a specific type.
+ *
+ * @constructor
+ * @param {string} type Type of the created events.
+ * @param {boolean} bubbles Whether the created events bubble.
+ * @param {boolean} cancelable Whether the created events are cancelable.
+ * @private
+ */
+bot.events.EventFactory_ = function(type, bubbles, cancelable) {
+  /** @private {string} */
+  this.type_ = type;
+
+  /** @private {boolean} */
+  this.bubbles_ = bubbles;
+
+  /** @private {boolean} */
+  this.cancelable_ = cancelable;
+};
+
+
+/**
+ * Creates an event.
+ *
+ * @param {!Element|!Window} target Target element of the event.
+ * @param {bot.events.EventArgs=} opt_args Event arguments.
+ * @return {!Event} Newly created event.
+ */
+bot.events.EventFactory_.prototype.create = function(target, opt_args) {
+  var doc = goog.dom.getOwnerDocument(target);
+  var event;
+
+  if (bot.userAgent.IE_DOC_PRE9 && doc.createEventObject) {
+    event = doc.createEventObject();
+  } else {
+    event = doc.createEvent('HTMLEvents');
+    event.initEvent(this.type_, this.bubbles_, this.cancelable_);
+  }
+
+  return event;
+};
+
+
+/**
+ * Overriding toString to return the unique type string improves debugging,
+ * and it allows event types to be mapped in JS objects without collisions.
+ *
+ * @return {string} String representation of the event type.
+ */
+bot.events.EventFactory_.prototype.toString = function() {
+  return this.type_;
+};
+
+
+
+/**
+ * Factory for mouse event objects of a specific type.
+ *
+ * @constructor
+ * @param {string} type Type of the created events.
+ * @param {boolean} bubbles Whether the created events bubble.
+ * @param {boolean} cancelable Whether the created events are cancelable.
+ * @extends {bot.events.EventFactory_}
+ * @private
+ */
+bot.events.MouseEventFactory_ = function(type, bubbles, cancelable) {
+  goog.base(this, type, bubbles, cancelable);
+};
+goog.inherits(bot.events.MouseEventFactory_, bot.events.EventFactory_);
+
+
+/**
+ * @override
+ */
+bot.events.MouseEventFactory_.prototype.create = function(target, opt_args) {
+  // Only Gecko supports the mouse pixel scroll event.
+  if (!goog.userAgent.GECKO && this == bot.events.EventType.MOUSEPIXELSCROLL) {
+    throw new bot.Error(bot.ErrorCode.UNSUPPORTED_OPERATION,
+        'Browser does not support a mouse pixel scroll event.');
+  }
+
+  var args = /** @type {!bot.events.MouseArgs} */ (opt_args);
+  var doc = goog.dom.getOwnerDocument(target);
+  var event;
+
+  if (bot.userAgent.IE_DOC_PRE9) {
+    event = doc.createEventObject();
+    event.altKey = args.altKey;
+    event.ctrlKey = args.ctrlKey;
+    event.metaKey = args.metaKey;
+    event.shiftKey = args.shiftKey;
+    event.button = args.button;
+
+    // NOTE: ie8 does a strange thing with the coordinates passed in the event:
+    // - if offset{X,Y} coordinates are specified, they are also used for
+    //   client{X,Y}, event if client{X,Y} are also specified.
+    // - if only client{X,Y} are specified, they are also used for offset{x,y}
+    // Thus, for ie8, it is impossible to set both offset and client
+    // and have them be correct when they come out on the other side.
+    event.clientX = args.clientX;
+    event.clientY = args.clientY;
+
+    // Sets a property of the event object using Object.defineProperty.
+    // Some readonly properties of the IE event object can only be set this way.
+    var setEventProperty = function(prop, value) {
+      Object.defineProperty(event, prop, {
+        get: function() {
+          return value;
+        }
+      });
+    };
+
+    // IE has fromElement and toElement properties, no relatedTarget property.
+    // IE does not allow fromElement and toElement to be set directly, but
+    // Object.defineProperty can redefine them, when it is available. Do not
+    // use Object.defineProperties (plural) because it is even less supported.
+    // If defineProperty is unavailable, fall back to setting the relatedTarget,
+    // which many event frameworks, including jQuery and Closure, forgivingly
+    // pass on as the relatedTarget on their event object abstraction.
+    if (this == bot.events.EventType.MOUSEOUT ||
+        this == bot.events.EventType.MOUSEOVER) {
+      if (Object.defineProperty) {
+        var out = (this == bot.events.EventType.MOUSEOUT);
+        setEventProperty('fromElement', out ? target : args.relatedTarget);
+        setEventProperty('toElement', out ? args.relatedTarget : target);
+      } else {
+        event.relatedTarget = args.relatedTarget;
+      }
+    }
+
+    // IE does not allow the wheelDelta property to be set directly, so we can
+    // only do it where defineProperty is supported; otherwise store the wheel
+    // delta in the event "detail" as a last resort in case the app looks there.
+    if (this == bot.events.EventType.MOUSEWHEEL) {
+      if (Object.defineProperty) {
+        setEventProperty('wheelDelta', args.wheelDelta);
+      } else {
+        event.detail = args.wheelDelta;
+      }
+    }
+  } else {
+    var view = goog.dom.getWindow(doc);
+    event = doc.createEvent('MouseEvents');
+    var detail = 1;
+
+    // All browser but Firefox provide the wheelDelta value in the event.
+    // Firefox provides the scroll amount in the detail field, where it has the
+    // opposite polarity of the wheelDelta (upward scroll is negative) and is a
+    // factor of 40 less than the wheelDelta value. Opera provides both values.
+    // The wheelDelta value is normally some multiple of 40.
+    if (this == bot.events.EventType.MOUSEWHEEL) {
+      if (!goog.userAgent.GECKO) {
+        event.wheelDelta = args.wheelDelta;
+      }
+      if (goog.userAgent.GECKO || goog.userAgent.OPERA) {
+        detail = args.wheelDelta / -40;
+      }
+    }
+
+    // Only Gecko supports a mouse pixel scroll event, so we use it as the
+    // "standard" and pass it along as is as the "detail" of the event.
+    if (goog.userAgent.GECKO && this == bot.events.EventType.MOUSEPIXELSCROLL) {
+      detail = args.wheelDelta;
+    }
+
+    // For screenX and screenY, we set those to clientX and clientY values.
+    // While not strictly correct, applications under test depend on
+    // accurate relative positioning which is satisfied.
+    event.initMouseEvent(this.type_, this.bubbles_, this.cancelable_, view,
+        detail, /*screenX*/ args.clientX, /*screenY*/ args.clientY,
+        args.clientX, args.clientY, args.ctrlKey, args.altKey,
+        args.shiftKey, args.metaKey, args.button, args.relatedTarget);
+
+    // Trying to modify the properties throws an error,
+    // so we define getters to return the correct values.
+    if (goog.userAgent.IE &&
+        event.pageX === 0 && event.pageY === 0 && Object.defineProperty) {
+      var scrollElem = goog.dom.getDomHelper(target).getDocumentScrollElement();
+      var clientElem = goog.style.getClientViewportElement(doc);
+      var pageX = args.clientX + scrollElem.scrollLeft - clientElem.clientLeft;
+      var pageY = args.clientY + scrollElem.scrollTop - clientElem.clientTop;
+
+      Object.defineProperty(event, 'pageX', {
+        get: function() {
+          return pageX;
+        }
+      });
+      Object.defineProperty(event, 'pageY', {
+        get: function() {
+          return pageY;
+        }
+      });
+    }
+  }
+
+  return event;
+};
+
+
+
+/**
+ * Factory for keyboard event objects of a specific type.
+ *
+ * @constructor
+ * @param {string} type Type of the created events.
+ * @param {boolean} bubbles Whether the created events bubble.
+ * @param {boolean} cancelable Whether the created events are cancelable.
+ * @extends {bot.events.EventFactory_}
+ * @private
+ */
+bot.events.KeyboardEventFactory_ = function(type, bubbles, cancelable) {
+  goog.base(this, type, bubbles, cancelable);
+};
+goog.inherits(bot.events.KeyboardEventFactory_, bot.events.EventFactory_);
+
+
+/**
+ * @override
+ */
+bot.events.KeyboardEventFactory_.prototype.create = function(target, opt_args) {
+  var args = /** @type {!bot.events.KeyboardArgs} */ (opt_args);
+  var doc = goog.dom.getOwnerDocument(target);
+  var event;
+
+  if (goog.userAgent.GECKO) {
+    var view = goog.dom.getWindow(doc);
+    var keyCode = args.charCode ? 0 : args.keyCode;
+    event = doc.createEvent('KeyboardEvent');
+    event.initKeyEvent(this.type_, this.bubbles_, this.cancelable_, view,
+        args.ctrlKey, args.altKey, args.shiftKey, args.metaKey, keyCode,
+        args.charCode);
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=501496
+    if (this.type_ == bot.events.EventType.KEYPRESS && args.preventDefault) {
+      event.preventDefault();
+    }
+  } else {
+    if (bot.userAgent.IE_DOC_PRE9) {
+      event = doc.createEventObject();
+    } else {  // WebKit, Opera, and IE 9+ in Standards mode.
+      event = doc.createEvent('Events');
+      event.initEvent(this.type_, this.bubbles_, this.cancelable_);
+    }
+    event.altKey = args.altKey;
+    event.ctrlKey = args.ctrlKey;
+    event.metaKey = args.metaKey;
+    event.shiftKey = args.shiftKey;
+    event.keyCode = args.charCode || args.keyCode;
+    if (goog.userAgent.WEBKIT) {
+      event.charCode = (this == bot.events.EventType.KEYPRESS) ?
+          event.keyCode : 0;
+    }
+  }
+
+  return event;
+};
+
+
+
+/**
+ * Factory for touch event objects of a specific type.
+ *
+ * @constructor
+ * @param {string} type Type of the created events.
+ * @param {boolean} bubbles Whether the created events bubble.
+ * @param {boolean} cancelable Whether the created events are cancelable.
+ * @extends {bot.events.EventFactory_}
+ * @private
+ */
+bot.events.TouchEventFactory_ = function(type, bubbles, cancelable) {
+  goog.base(this, type, bubbles, cancelable);
+};
+goog.inherits(bot.events.TouchEventFactory_, bot.events.EventFactory_);
+
+
+/**
+ * @override
+ */
+bot.events.TouchEventFactory_.prototype.create = function(target, opt_args) {
+  if (!bot.events.SUPPORTS_TOUCH_EVENTS) {
+    throw new bot.Error(bot.ErrorCode.UNSUPPORTED_OPERATION,
+        'Browser does not support firing touch events.');
+  }
+
+  var args = /** @type {!bot.events.TouchArgs} */ (opt_args);
+  var doc = goog.dom.getOwnerDocument(target);
+  var view = goog.dom.getWindow(doc);
+
+  // Creates a TouchList, using native touch Api, for touch events.
+  function createNativeTouchList(touchListArgs) {
+    var touches = goog.array.map(touchListArgs, function(touchArg) {
+      return doc.createTouch(view, target, touchArg.identifier,
+          touchArg.pageX, touchArg.pageY, touchArg.screenX, touchArg.screenY);
+    });
+
+    return doc.createTouchList.apply(doc, touches);
+  }
+
+  // Creates a TouchList, using simulated touch Api, for touch events.
+  function createGenericTouchList(touchListArgs) {
+    var touches = goog.array.map(touchListArgs, function(touchArg) {
+      // The target field is not part of the W3C spec, but both android and iOS
+      // add the target field to each touch.
+      return {
+        identifier: touchArg.identifier,
+        screenX: touchArg.screenX,
+        screenY: touchArg.screenY,
+        clientX: touchArg.clientX,
+        clientY: touchArg.clientY,
+        pageX: touchArg.pageX,
+        pageY: touchArg.pageY,
+        target: target
+      };
+    });
+    touches.item = function(i) {
+      return touches[i];
+    };
+    return touches;
+  }
+
+  function createTouchList(touches) {
+    return bot.events.BROKEN_TOUCH_API_ ?
+        createGenericTouchList(touches) :
+        createNativeTouchList(touches);
+  }
+
+  // As a performance optimization, reuse the created touchlist when the lists
+  // are the same, which is often the case in practice.
+  var changedTouches = createTouchList(args.changedTouches);
+  var touches = (args.touches == args.changedTouches) ?
+      changedTouches : createTouchList(args.touches);
+  var targetTouches = (args.targetTouches == args.changedTouches) ?
+      changedTouches : createTouchList(args.targetTouches);
+
+  var event;
+  if (bot.events.BROKEN_TOUCH_API_) {
+    event = doc.createEvent('MouseEvents');
+    event.initMouseEvent(this.type_, this.bubbles_, this.cancelable_, view,
+        /*detail*/ 1, /*screenX*/ 0, /*screenY*/ 0, args.clientX, args.clientY,
+        args.ctrlKey, args.altKey, args.shiftKey, args.metaKey, /*button*/ 0,
+        args.relatedTarget);
+    event.touches = touches;
+    event.targetTouches = targetTouches;
+    event.changedTouches = changedTouches;
+    event.scale = args.scale;
+    event.rotation = args.rotation;
+  } else {
+    event = doc.createEvent('TouchEvent');
+    if (goog.userAgent.product.ANDROID) {
+      // Android's initTouchEvent method is not compliant with the W3C spec.
+      event.initTouchEvent(touches, targetTouches, changedTouches,
+          this.type_, view, /*screenX*/ 0, /*screenY*/ 0, args.clientX,
+          args.clientY, args.ctrlKey, args.altKey, args.shiftKey, args.metaKey);
+    } else {
+      event.initTouchEvent(this.type_, this.bubbles_, this.cancelable_, view,
+          /*detail*/ 1, /*screenX*/ 0, /*screenY*/ 0, args.clientX,
+          args.clientY, args.ctrlKey, args.altKey, args.shiftKey, args.metaKey,
+          touches, targetTouches, changedTouches, args.scale, args.rotation);
+    }
+    event.relatedTarget = args.relatedTarget;
+  }
+
+  return event;
+};
+
+
+
+/**
+ * Factory for MSGesture event objects of a specific type.
+ *
+ * @constructor
+ * @param {string} type Type of the created events.
+ * @param {boolean} bubbles Whether the created events bubble.
+ * @param {boolean} cancelable Whether the created events are cancelable.
+ * @extends {bot.events.EventFactory_}
+ * @private
+ */
+bot.events.MSGestureEventFactory_ = function(type, bubbles, cancelable) {
+  goog.base(this, type, bubbles, cancelable);
+};
+goog.inherits(bot.events.MSGestureEventFactory_, bot.events.EventFactory_);
+
+
+/**
+ * @override
+ */
+bot.events.MSGestureEventFactory_.prototype.create = function(target,
+                                                              opt_args) {
+  if (!bot.events.SUPPORTS_MSPOINTER_EVENTS) {
+    throw new bot.Error(bot.ErrorCode.UNSUPPORTED_OPERATION,
+        'Browser does not support MSGesture events.');
+  }
+
+  var args = /** @type {!bot.events.MSGestureArgs} */ (opt_args);
+  var doc = goog.dom.getOwnerDocument(target);
+  var view = goog.dom.getWindow(doc);
+  var event = doc.createEvent('MSGestureEvent');
+  var timestamp = (new Date).getTime();
+
+  // See http://msdn.microsoft.com/en-us/library/windows/apps/hh441187.aspx
+  event.initGestureEvent(this.type_, this.bubbles_, this.cancelable_, view,
+                         /*detail*/ 1, /*screenX*/ 0, /*screenY*/ 0,
+                         args.clientX, args.clientY, /*offsetX*/ 0,
+                         /*offsetY*/ 0, args.translationX, args.translationY,
+                         args.scale, args.expansion, args.rotation,
+                         args.velocityX, args.velocityY, args.velocityExpansion,
+                         args.velocityAngular, timestamp, args.relatedTarget);
+  return event;
+};
+
+
+
+/**
+ * Factory for MSPointer event objects of a specific type.
+ *
+ * @constructor
+ * @param {string} type Type of the created events.
+ * @param {boolean} bubbles Whether the created events bubble.
+ * @param {boolean} cancelable Whether the created events are cancelable.
+ * @extends {bot.events.EventFactory_}
+ * @private
+ */
+bot.events.MSPointerEventFactory_ = function(type, bubbles, cancelable) {
+  goog.base(this, type, bubbles, cancelable);
+};
+goog.inherits(bot.events.MSPointerEventFactory_, bot.events.EventFactory_);
+
+
+/**
+ * @override
+ * @suppress {checkTypes} Closure compiler externs don't know about pointer
+ *     events
+ */
+bot.events.MSPointerEventFactory_.prototype.create = function(target,
+                                                              opt_args) {
+  if (!bot.events.SUPPORTS_MSPOINTER_EVENTS) {
+    throw new bot.Error(bot.ErrorCode.UNSUPPORTED_OPERATION,
+        'Browser does not support MSPointer events.');
+  }
+
+  var args = /** @type {!bot.events.MSPointerArgs} */ (opt_args);
+  var doc = goog.dom.getOwnerDocument(target);
+  var view = goog.dom.getWindow(doc);
+  var event = doc.createEvent('MSPointerEvent');
+
+  // See http://msdn.microsoft.com/en-us/library/ie/hh772109(v=vs.85).aspx
+  event.initPointerEvent(this.type_, this.bubbles_, this.cancelable_, view,
+                         /*detail*/ 0, /*screenX*/ 0, /*screenY*/ 0,
+                         args.clientX, args.clientY, args.ctrlKey, args.altKey,
+                         args.shiftKey, args.metaKey, args.button,
+                         args.relatedTarget, /*offsetX*/ 0, /*offsetY*/ 0,
+                         args.width, args.height, args.pressure, args.rotation,
+                         args.tiltX, args.tiltY, args.pointerId,
+                         args.pointerType, /*hwTimeStamp*/ 0, args.isPrimary);
+
+  return event;
+};
+
+
+/**
+ * The types of events this modules supports firing.
+ *
+ * <p>To see which events bubble and are cancelable, see:
+ * http://en.wikipedia.org/wiki/DOM_events and
+ * http://www.w3.org/Submission/pointer-events/#pointer-event-types
+ *
+ * @enum {!Object}
+ */
+bot.events.EventType = {
+  BLUR: new bot.events.EventFactory_('blur', false, false),
+  CHANGE: new bot.events.EventFactory_('change', true, false),
+  FOCUS: new bot.events.EventFactory_('focus', false, false),
+  FOCUSIN: new bot.events.EventFactory_('focusin', true, false),
+  FOCUSOUT: new bot.events.EventFactory_('focusout', true, false),
+  INPUT: new bot.events.EventFactory_('input', true, false),
+  ORIENTATIONCHANGE: new bot.events.EventFactory_(
+      'orientationchange', false, false),
+  PROPERTYCHANGE: new bot.events.EventFactory_('propertychange', false, false),
+  SELECT: new bot.events.EventFactory_('select', true, false),
+  SUBMIT: new bot.events.EventFactory_('submit', true, true),
+  TEXTINPUT: new bot.events.EventFactory_('textInput', true, true),
+
+  // Mouse events.
+  CLICK: new bot.events.MouseEventFactory_('click', true, true),
+  CONTEXTMENU: new bot.events.MouseEventFactory_('contextmenu', true, true),
+  DBLCLICK: new bot.events.MouseEventFactory_('dblclick', true, true),
+  MOUSEDOWN: new bot.events.MouseEventFactory_('mousedown', true, true),
+  MOUSEMOVE: new bot.events.MouseEventFactory_('mousemove', true, false),
+  MOUSEOUT: new bot.events.MouseEventFactory_('mouseout', true, true),
+  MOUSEOVER: new bot.events.MouseEventFactory_('mouseover', true, true),
+  MOUSEUP: new bot.events.MouseEventFactory_('mouseup', true, true),
+  MOUSEWHEEL: new bot.events.MouseEventFactory_(
+      goog.userAgent.GECKO ? 'DOMMouseScroll' : 'mousewheel', true, true),
+  MOUSEPIXELSCROLL: new bot.events.MouseEventFactory_(
+      'MozMousePixelScroll', true, true),
+
+  // Keyboard events.
+  KEYDOWN: new bot.events.KeyboardEventFactory_('keydown', true, true),
+  KEYPRESS: new bot.events.KeyboardEventFactory_('keypress', true, true),
+  KEYUP: new bot.events.KeyboardEventFactory_('keyup', true, true),
+
+  // Touch events.
+  TOUCHEND: new bot.events.TouchEventFactory_('touchend', true, true),
+  TOUCHMOVE: new bot.events.TouchEventFactory_('touchmove', true, true),
+  TOUCHSTART: new bot.events.TouchEventFactory_('touchstart', true, true),
+
+  // MSGesture events
+  MSGESTURECHANGE: new bot.events.MSGestureEventFactory_(
+      'MSGestureChange', true, true),
+  MSGESTUREEND: new bot.events.MSGestureEventFactory_(
+      'MSGestureEnd', true, true),
+  MSGESTUREHOLD: new bot.events.MSGestureEventFactory_(
+      'MSGestureHold', true, true),
+  MSGESTURESTART: new bot.events.MSGestureEventFactory_(
+      'MSGestureStart', true, true),
+  MSGESTURETAP: new bot.events.MSGestureEventFactory_(
+      'MSGestureTap', true, true),
+  MSINERTIASTART: new bot.events.MSGestureEventFactory_(
+      'MSInertiaStart', true, true),
+
+  // MSPointer events
+  MSGOTPOINTERCAPTURE: new bot.events.MSPointerEventFactory_(
+      'MSGotPointerCapture', true, false),
+  MSLOSTPOINTERCAPTURE: new bot.events.MSPointerEventFactory_(
+      'MSLostPointerCapture', true, false),
+  MSPOINTERCANCEL: new bot.events.MSPointerEventFactory_(
+      'MSPointerCancel', true, true),
+  MSPOINTERDOWN: new bot.events.MSPointerEventFactory_(
+      'MSPointerDown', true, true),
+  MSPOINTERMOVE: new bot.events.MSPointerEventFactory_(
+      'MSPointerMove', true, true),
+  MSPOINTEROVER: new bot.events.MSPointerEventFactory_(
+      'MSPointerOver', true, true),
+  MSPOINTEROUT: new bot.events.MSPointerEventFactory_(
+      'MSPointerOut', true, true),
+  MSPOINTERUP: new bot.events.MSPointerEventFactory_(
+      'MSPointerUp', true, true)
+};
+
+
+/**
+ * Fire a named event on a particular element.
+ *
+ * @param {!Element|!Window} target The element on which to fire the event.
+ * @param {!bot.events.EventType} type Event type.
+ * @param {bot.events.EventArgs=} opt_args Arguments to initialize the event.
+ * @return {boolean} Whether the event fired successfully or was cancelled.
+ */
+bot.events.fire = function(target, type, opt_args) {
+  var factory = /** @type {!bot.events.EventFactory_} */ (type);
+  var event = factory.create(target, opt_args);
+
+  // Ensure the event's isTrusted property is set to false, so that
+  // bot.events.isSynthetic() can identify synthetic events from native ones.
+  if (!('isTrusted' in event)) {
+    event['isTrusted'] = false;
+  }
+
+  if (bot.userAgent.IE_DOC_PRE9 && target.fireEvent) {
+    return target.fireEvent('on' + factory.type_, event);
+  } else {
+    return target.dispatchEvent(event);
+  }
+};
+
+
+/**
+ * Returns whether the event was synthetically created by the atoms;
+ * if false, was created by the browser in response to a live user action.
+ *
+ * @param {!(Event|goog.events.BrowserEvent)} event An event.
+ * @return {boolean} Whether the event was synthetically created.
+ */
+bot.events.isSynthetic = function(event) {
+  var e = event.getBrowserEvent ? event.getBrowserEvent() : event;
+  return 'isTrusted' in e ? !e['isTrusted'] : false;
+};
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Utilities for working with errors as defined by WebDriver's
+ * wire protocol: http://code.google.com/p/selenium/wiki/JsonWireProtocol.
+ */
+
+goog.provide('bot.Error');
+goog.provide('bot.ErrorCode');
+
+
+/**
+ * Error codes from the WebDriver wire protocol:
+ * http://code.google.com/p/selenium/wiki/JsonWireProtocol#Response_Status_Codes
+ *
+ * @enum {number}
+ */
+bot.ErrorCode = {
+  SUCCESS: 0,  // Included for completeness
+
+  NO_SUCH_ELEMENT: 7,
+  NO_SUCH_FRAME: 8,
+  UNKNOWN_COMMAND: 9,
+  UNSUPPORTED_OPERATION: 9,  // Alias.
+  STALE_ELEMENT_REFERENCE: 10,
+  ELEMENT_NOT_VISIBLE: 11,
+  INVALID_ELEMENT_STATE: 12,
+  UNKNOWN_ERROR: 13,
+  ELEMENT_NOT_SELECTABLE: 15,
+  JAVASCRIPT_ERROR: 17,
+  XPATH_LOOKUP_ERROR: 19,
+  TIMEOUT: 21,
+  NO_SUCH_WINDOW: 23,
+  INVALID_COOKIE_DOMAIN: 24,
+  UNABLE_TO_SET_COOKIE: 25,
+  /** @deprecated */
+  MODAL_DIALOG_OPENED: 26,
+  UNEXPECTED_ALERT_OPEN: 26,
+  NO_SUCH_ALERT: 27,
+  /** @deprecated */
+  NO_MODAL_DIALOG_OPEN: 27,
+  SCRIPT_TIMEOUT: 28,
+  INVALID_ELEMENT_COORDINATES: 29,
+  IME_NOT_AVAILABLE: 30,
+  IME_ENGINE_ACTIVATION_FAILED: 31,
+  INVALID_SELECTOR_ERROR: 32,
+  SESSION_NOT_CREATED: 33,
+  MOVE_TARGET_OUT_OF_BOUNDS: 34,
+  SQL_DATABASE_ERROR: 35,
+  INVALID_XPATH_SELECTOR: 51,
+  INVALID_XPATH_SELECTOR_RETURN_TYPE: 52,
+  // The following error codes are derived straight from HTTP return codes.
+  METHOD_NOT_ALLOWED: 405
+};
+
+
+
+/**
+ * Error extension that includes error status codes from the WebDriver wire
+ * protocol:
+ * http://code.google.com/p/selenium/wiki/JsonWireProtocol#Response_Status_Codes
+ *
+ * @param {!bot.ErrorCode} code The error's status code.
+ * @param {string=} opt_message Optional error message.
+ * @constructor
+ * @extends {Error}
+ */
+bot.Error = function(code, opt_message) {
+
+  /**
+   * This error's status code.
+   * @type {!bot.ErrorCode}
+   */
+  this.code = code;
+
+  /** @type {string} */
+  this.state =
+      bot.Error.CODE_TO_STATE_[code] || bot.Error.State.UNKNOWN_ERROR;
+
+  /** @override */
+  this.message = opt_message || '';
+
+  var name = this.state.replace(/((?:^|\s+)[a-z])/g, function(str) {
+    // IE<9 does not support String#trim(). Also, IE does not include 0xa0
+    // (the non-breaking-space) in the \s character class, so we have to
+    // explicitly include it.
+    return str.toUpperCase().replace(/^[\s\xa0]+/g, '');
+  });
+
+  var l = name.length - 'Error'.length;
+  if (l < 0 || name.indexOf('Error', l) != l) {
+    name += 'Error';
+  }
+
+  /** @override */
+  this.name = name;
+
+  // Generate a stacktrace for our custom error; ensure the error has our
+  // custom name and message so the stack prints correctly in all browsers.
+  var template = new Error(this.message);
+  template.name = this.name;
+
+  /** @override */
+  this.stack = template.stack || '';
+};
+goog.inherits(bot.Error, Error);
+
+
+/**
+ * Status strings enumerated in the W3C WebDriver working draft.
+ * @enum {string}
+ * @see http://www.w3.org/TR/webdriver/#status-codes
+ */
+bot.Error.State = {
+  ELEMENT_NOT_SELECTABLE: 'element not selectable',
+  ELEMENT_NOT_VISIBLE: 'element not visible',
+  IME_ENGINE_ACTIVATION_FAILED: 'ime engine activation failed',
+  IME_NOT_AVAILABLE: 'ime not available',
+  INVALID_COOKIE_DOMAIN: 'invalid cookie domain',
+  INVALID_ELEMENT_COORDINATES: 'invalid element coordinates',
+  INVALID_ELEMENT_STATE: 'invalid element state',
+  INVALID_SELECTOR: 'invalid selector',
+  JAVASCRIPT_ERROR: 'javascript error',
+  MOVE_TARGET_OUT_OF_BOUNDS: 'move target out of bounds',
+  NO_SUCH_ALERT: 'no such alert',
+  NO_SUCH_DOM: 'no such dom',
+  NO_SUCH_ELEMENT: 'no such element',
+  NO_SUCH_FRAME: 'no such frame',
+  NO_SUCH_WINDOW: 'no such window',
+  SCRIPT_TIMEOUT: 'script timeout',
+  SESSION_NOT_CREATED: 'session not created',
+  STALE_ELEMENT_REFERENCE: 'stale element reference',
+  SUCCESS: 'success',
+  TIMEOUT: 'timeout',
+  UNABLE_TO_SET_COOKIE: 'unable to set cookie',
+  UNEXPECTED_ALERT_OPEN: 'unexpected alert open',
+  UNKNOWN_COMMAND: 'unknown command',
+  UNKNOWN_ERROR: 'unknown error',
+  UNSUPPORTED_OPERATION: 'unsupported operation'
+};
+
+
+/**
+ * A map of error codes to state string.
+ * @private {!Object.<bot.ErrorCode, bot.Error.State>}
+ */
+bot.Error.CODE_TO_STATE_ = {};
+goog.scope(function() {
+  var map = bot.Error.CODE_TO_STATE_;
+  var code = bot.ErrorCode;
+  var state = bot.Error.State;
+
+  map[code.ELEMENT_NOT_SELECTABLE] = state.ELEMENT_NOT_SELECTABLE;
+  map[code.ELEMENT_NOT_VISIBLE] = state.ELEMENT_NOT_VISIBLE;
+  map[code.IME_ENGINE_ACTIVATION_FAILED] = state.IME_ENGINE_ACTIVATION_FAILED;
+  map[code.IME_NOT_AVAILABLE] = state.IME_NOT_AVAILABLE;
+  map[code.INVALID_COOKIE_DOMAIN] = state.INVALID_COOKIE_DOMAIN;
+  map[code.INVALID_ELEMENT_COORDINATES] = state.INVALID_ELEMENT_COORDINATES;
+  map[code.INVALID_ELEMENT_STATE] = state.INVALID_ELEMENT_STATE;
+  map[code.INVALID_SELECTOR_ERROR] = state.INVALID_SELECTOR;
+  map[code.INVALID_XPATH_SELECTOR] = state.INVALID_SELECTOR;
+  map[code.INVALID_XPATH_SELECTOR_RETURN_TYPE] = state.INVALID_SELECTOR;
+  map[code.JAVASCRIPT_ERROR] = state.JAVASCRIPT_ERROR;
+  map[code.METHOD_NOT_ALLOWED] = state.UNSUPPORTED_OPERATION;
+  map[code.MOVE_TARGET_OUT_OF_BOUNDS] = state.MOVE_TARGET_OUT_OF_BOUNDS;
+  map[code.NO_MODAL_DIALOG_OPEN] = state.NO_SUCH_ALERT;
+  map[code.NO_SUCH_ALERT] = state.NO_SUCH_ALERT;
+  map[code.NO_SUCH_ELEMENT] = state.NO_SUCH_ELEMENT;
+  map[code.NO_SUCH_FRAME] = state.NO_SUCH_FRAME;
+  map[code.NO_SUCH_WINDOW] = state.NO_SUCH_WINDOW;
+  map[code.SCRIPT_TIMEOUT] = state.SCRIPT_TIMEOUT;
+  map[code.SESSION_NOT_CREATED] = state.SESSION_NOT_CREATED;
+  map[code.STALE_ELEMENT_REFERENCE] = state.STALE_ELEMENT_REFERENCE;
+  map[code.SUCCESS] = state.SUCCESS;
+  map[code.TIMEOUT] = state.TIMEOUT;
+  map[code.UNABLE_TO_SET_COOKIE] = state.UNABLE_TO_SET_COOKIE;
+  map[code.MODAL_DIALOG_OPENED] = state.UNEXPECTED_ALERT_OPEN;
+  map[code.UNEXPECTED_ALERT_OPEN] = state.UNEXPECTED_ALERT_OPEN
+  map[code.UNKNOWN_ERROR] = state.UNKNOWN_ERROR;
+  map[code.UNSUPPORTED_OPERATION] = state.UNKNOWN_COMMAND;
+});  // goog.scope
+
+
+/**
+ * Flag used for duck-typing when this code is embedded in a Firefox extension.
+ * This is required since an Error thrown in one component and then reported
+ * to another will fail instanceof checks in the second component.
+ * @type {boolean}
+ */
+bot.Error.prototype.isAutomationError = true;
+
+
+if (goog.DEBUG) {
+  /** @return {string} The string representation of this error. */
+  bot.Error.prototype.toString = function() {
+    return this.name + ': ' + this.message;
+  };
+}
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview The file contains an abstraction of a touch screen
+ * for simulating atomic touchscreen actions.
+ */
+
+goog.provide('bot.Touchscreen');
+
+goog.require('bot');
+goog.require('bot.Device');
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+goog.require('bot.dom');
+goog.require('bot.events.EventType');
+goog.require('goog.math.Coordinate');
+
+
+
+/**
+ * A TouchScreen that provides atomic touch actions.  The metaphor
+ * for this abstraction is a finger moving above the touchscreen that
+ * can press and then release the touchscreen when specified.
+ *
+ * The touchscreen supports three actions: press, release, and move.
+ *
+ * @constructor
+ * @extends {bot.Device}
+ */
+bot.Touchscreen = function() {
+  goog.base(this);
+
+  /** @private {!goog.math.Coordinate} */
+  this.clientXY_ = new goog.math.Coordinate(0, 0);
+
+  /** @private {!goog.math.Coordinate} */
+  this.clientXY2_ = new goog.math.Coordinate(0, 0);
+};
+goog.inherits(bot.Touchscreen, bot.Device);
+
+
+/** @private {boolean} */
+bot.Touchscreen.prototype.hasMovedAfterPress_ = false;
+
+
+/** @private {boolean} */
+bot.Touchscreen.prototype.cancelled_ = false;
+
+
+/** @private {number} */
+bot.Touchscreen.prototype.touchIdentifier_ = 0;
+
+
+/** @private {number} */
+bot.Touchscreen.prototype.touchIdentifier2_ = 0;
+
+
+/** @private {number} */
+bot.Touchscreen.prototype.touchCounter_ = 2;
+
+
+/**
+ * Press the touch screen.  Pressing before moving results in an exception.
+ * Pressing while already pressed also results in an exception.
+ *
+ * @param {boolean=} opt_press2 Whether or not press the second finger during
+ *     the press.  If not defined or false, only the primary finger will be
+ *     pressed.
+ */
+bot.Touchscreen.prototype.press = function(opt_press2) {
+  if (this.isPressed()) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'Cannot press touchscreen when already pressed.');
+  }
+
+  this.hasMovedAfterPress_ = false;
+  this.touchIdentifier_ = this.touchCounter_++;
+  if (opt_press2) {
+    this.touchIdentifier2_ = this.touchCounter_++;
+  }
+
+  if (bot.userAgent.IE_DOC_10) {
+    this.firePointerEvents_(bot.Touchscreen.fireSinglePressPointer_);
+  } else {
+    this.fireTouchEvent_(bot.events.EventType.TOUCHSTART);
+  }
+};
+
+
+/**
+ * Releases an element on a touchscreen.  Releasing an element that is not
+ * pressed results in an exception.
+ */
+bot.Touchscreen.prototype.release = function() {
+  if (!this.isPressed()) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'Cannot release touchscreen when not already pressed.');
+  }
+
+  if (!bot.userAgent.IE_DOC_10) {
+    this.fireTouchReleaseEvents_();
+  } else if (!this.cancelled_) {
+    this.firePointerEvents_(bot.Touchscreen.fireSingleReleasePointer_);
+  }
+  bot.Device.clearPointerMap();
+  this.touchIdentifier_ = 0;
+  this.touchIdentifier2_ = 0;
+  this.cancelled_ = false;
+};
+
+
+/**
+ * Moves finger along the touchscreen.
+ *
+ * @param {!Element} element Element that is being pressed.
+ * @param {!goog.math.Coordinate} coords Coordinates relative to
+ *   currentElement.
+ * @param {goog.math.Coordinate=} opt_coords2 Coordinates relative to
+ *   currentElement.
+ */
+bot.Touchscreen.prototype.move = function(element, coords, opt_coords2) {
+  // The target element for touch actions is the original element. Hence, the
+  // element is set only when the touchscreen is not currently being pressed.
+  // The exception is IE10 which fire events on the moved to element.
+  var originalElement = this.getElement();
+  if (!this.isPressed() || bot.userAgent.IE_DOC_10) {
+    this.setElement(element);
+  }
+
+  var rect = bot.dom.getClientRect(element);
+  this.clientXY_.x = coords.x + rect.left;
+  this.clientXY_.y = coords.y + rect.top;
+
+  if (goog.isDef(opt_coords2)) {
+    this.clientXY2_.x = opt_coords2.x + rect.left;
+    this.clientXY2_.y = opt_coords2.y + rect.top;
+  }
+
+  if (this.isPressed()) {
+    if (!bot.userAgent.IE_DOC_10) {
+      this.hasMovedAfterPress_ = true;
+      this.fireTouchEvent_(bot.events.EventType.TOUCHMOVE);
+    } else if (!this.cancelled_) {
+      if (element != originalElement) {
+        this.hasMovedAfterPress_ = true;
+      }
+      if (bot.Touchscreen.hasMsTouchActionsEnabled_(element)) {
+        this.firePointerEvents_(bot.Touchscreen.fireSingleMovePointer_);
+      } else {
+        this.fireMSPointerEvent(bot.events.EventType.MSPOINTEROUT, coords, -1,
+            this.touchIdentifier_, MSPointerEvent.MSPOINTER_TYPE_TOUCH, true);
+        this.fireMouseEvent(bot.events.EventType.MOUSEOUT, coords, 0);
+        this.fireMSPointerEvent(bot.events.EventType.MSPOINTERCANCEL, coords, 0,
+            this.touchIdentifier_, MSPointerEvent.MSPOINTER_TYPE_TOUCH, true);
+        this.cancelled_ = true;
+        bot.Device.clearPointerMap();
+      }
+    }
+  }
+};
+
+
+/**
+ * Returns whether the touchscreen is currently pressed.
+ *
+ * @return {boolean} Whether the touchscreen is pressed.
+ */
+bot.Touchscreen.prototype.isPressed = function() {
+  return !!this.touchIdentifier_;
+};
+
+
+/**
+ * A helper function to fire touch events.
+ *
+ * @param {bot.events.EventType} type Event type.
+ * @private
+ */
+bot.Touchscreen.prototype.fireTouchEvent_ = function(type) {
+  if (!this.isPressed()) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'Should never fire event when touchscreen is not pressed.');
+  }
+  var touchIdentifier2;
+  var coords2;
+  if (this.touchIdentifier2_) {
+    touchIdentifier2 = this.touchIdentifier2_;
+    coords2 = this.clientXY2_;
+  }
+  this.fireTouchEvent(type, this.touchIdentifier_, this.clientXY_,
+                      touchIdentifier2, coords2);
+};
+
+
+/**
+ * A helper function to fire touch events that occur on a release.
+ *
+ * @private
+ */
+bot.Touchscreen.prototype.fireTouchReleaseEvents_ = function() {
+  this.fireTouchEvent_(bot.events.EventType.TOUCHEND);
+
+  // If no movement occurred since press, TouchScreen.Release will fire the
+  // legacy mouse events: mousemove, mousedown, mouseup, and click
+  // after the touch events have been fired. The click button should be zero
+  // and only one mousemove should fire.
+  if (!this.hasMovedAfterPress_) {
+    this.fireMouseEvent(bot.events.EventType.MOUSEMOVE, this.clientXY_, 0);
+    var performFocus = this.fireMouseEvent(bot.events.EventType.MOUSEDOWN,
+                                           this.clientXY_, 0);
+    // Element gets focus after the mousedown event only if the mousedown was
+    // not cancelled.
+    if (performFocus) {
+      this.focusOnElement();
+    }
+    this.maybeToggleOption();
+    this.fireMouseEvent(bot.events.EventType.MOUSEUP, this.clientXY_, 0);
+
+    // Special click logic to follow links and to perform form actions.
+    if (!(bot.userAgent.WINDOWS_PHONE &&
+        bot.dom.isElement(this.getElement(), goog.dom.TagName.OPTION))) {
+       this.clickElement(this.clientXY_, /* button value */ 0);
+    }
+  }
+};
+
+
+/**
+ * A helper function to fire a sequence of Pointer events.
+ * @param {function(!bot.Touchscreen, !Element, !goog.math.Coordinate, number,
+ *     boolean)} fireSinglePointer A function that fires a set of events for one
+ *     finger.
+ * @private
+ */
+bot.Touchscreen.prototype.firePointerEvents_ = function(fireSinglePointer) {
+  fireSinglePointer(this, this.getElement(), this.clientXY_,
+                    this.touchIdentifier_, true);
+  if (this.touchIdentifier2_ &&
+      bot.Touchscreen.hasMsTouchActionsEnabled_(this.getElement())) {
+    fireSinglePointer(this, this.getElement(),
+                      this.clientXY2_, this.touchIdentifier2_, false);
+  }
+};
+
+
+/**
+ * A helper function to fire Pointer events related to a press.
+ *
+ * @param {!bot.Touchscreen} ts A touchscreen object.
+ * @param {!Element} element Element that is being pressed.
+ * @param {!goog.math.Coordinate} coords Coordinates relative to
+ *   currentElement.
+ * @param {number} id The touch identifier.
+ * @param {boolean} isPrimary Whether the pointer represents the primary point
+ *     of contact.
+ * @private
+ */
+bot.Touchscreen.fireSinglePressPointer_ = function(ts, element, coords, id,
+    isPrimary) {
+  // Fire a mousemove event.
+  ts.fireMouseEvent(bot.events.EventType.MOUSEMOVE, coords, 0);
+
+  // Fire a MSPointerOver and mouseover events.
+  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTEROVER, coords, 0, id,
+      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
+  ts.fireMouseEvent(bot.events.EventType.MOUSEOVER, coords, 0);
+
+  // Fire a MSPointerDown and mousedown events.
+  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTERDOWN, coords, 0, id,
+      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
+
+  // Element gets focus after the mousedown event.
+  if (ts.fireMouseEvent(bot.events.EventType.MOUSEDOWN, coords, 0)) {
+    // For selectable elements, IE 10 fires a MSGotPointerCapture event.
+    if (bot.dom.isSelectable(element)) {
+      ts.fireMSPointerEvent(bot.events.EventType.MSGOTPOINTERCAPTURE, coords, 0,
+          id, MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
+    }
+    ts.focusOnElement();
+  }
+};
+
+
+/**
+ * A helper function to fire Pointer events related to a release.
+ *
+ * @param {!bot.Touchscreen} ts A touchscreen object.
+ * @param {!Element} element Element that is being released.
+ * @param {!goog.math.Coordinate} coords Coordinates relative to
+ *   currentElement.
+ * @param {number} id The touch identifier.
+ * @param {boolean} isPrimary Whether the pointer represents the primary point
+ *     of contact.
+ * @private
+ */
+bot.Touchscreen.fireSingleReleasePointer_ = function(ts, element, coords, id,
+    isPrimary) {
+  // Fire a MSPointerUp and mouseup events.
+  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTERUP, coords, 0, id,
+      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
+  ts.fireMouseEvent(bot.events.EventType.MOUSEUP, coords, 0, null, 0, false,
+      id);
+
+  // Fire a click.
+  if (!ts.hasMovedAfterPress_) {
+    ts.maybeToggleOption();
+    if (!(bot.userAgent.WINDOWS_PHONE &&
+        bot.dom.isElement(element, goog.dom.TagName.OPTION))) {
+      ts.clickElement(ts.clientXY_, 0, id);
+    }
+  }
+
+  if (bot.dom.isSelectable(element)) {
+    // For selectable elements, IE 10 fires a MSLostPointerCapture event.
+    ts.fireMSPointerEvent(bot.events.EventType.MSLOSTPOINTERCAPTURE,
+        new goog.math.Coordinate(0, 0), 0, id,
+        MSPointerEvent.MSPOINTER_TYPE_TOUCH, false);
+  }
+
+  // Fire a MSPointerOut and mouseout events.
+  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTEROUT, coords, -1, id,
+      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
+  ts.fireMouseEvent(bot.events.EventType.MOUSEOUT, coords, 0, null, 0, false,
+      id);
+};
+
+
+/**
+ * A helper function to fire Pointer events related to a move.
+ *
+ * @param {!bot.Touchscreen} ts A touchscreen object.
+ * @param {!Element} element Element that is being moved.
+ * @param {!goog.math.Coordinate} coords Coordinates relative to
+ *   currentElement.
+ * @param {number} id The touch identifier.
+ * @param {boolean} isPrimary Whether the pointer represents the primary point
+ *     of contact.
+ * @private
+ */
+bot.Touchscreen.fireSingleMovePointer_ = function(ts, element, coords, id,
+    isPrimary) {
+  // Fire a MSPointerMove and mousemove events.
+  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTERMOVE, coords, -1, id,
+      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
+  ts.fireMouseEvent(bot.events.EventType.MOUSEMOVE, coords, 0, null, 0, false,
+      id);
+};
+
+
+/**
+ * A function that determines whether an element can be manipulated by the user.
+ * The msTouchAction style is queried and an element can be manipulated if the
+ * style value is none. If an element cannot be manipulated, then move gestures
+ * will result in a cancellation and multi-touch events will be prevented. Tap
+ * gestures will still be allowed. If not on IE 10, the function returns true.
+ *
+ * @param {!Element} element The element being manipulated.
+ * @return {boolean} Whether the element can be manipulated.
+ * @private
+ */
+bot.Touchscreen.hasMsTouchActionsEnabled_ = function(element) {
+  if (!bot.userAgent.IE_DOC_10) {
+    throw new Error('hasMsTouchActionsEnable should only be called from IE 10');
+  }
+
+  // Although this particular element may have a style indicating that it cannot
+  // receive javascript events, its parent may indicate otherwise.
+  if (bot.dom.getEffectiveStyle(element, 'ms-touch-action') == 'none') {
+    return true;
+  } else {
+    var parent = bot.dom.getParentElement(element);
+    return !!parent && bot.Touchscreen.hasMsTouchActionsEnabled_(parent);
+  }
+};
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Overall configuration of the browser automation atoms.
+ */
+
+
+goog.provide('bot');
+
+
+/**
+ * Frameworks using the atoms keep track of which window or frame is currently
+ * being used for command execution. Note that "window" may not always be
+ * defined (for example in firefox extensions)
+ * @private {!Window}
+ */
+bot.window_;
+
+try {
+  bot.window_ = window;
+} catch (ignored) {
+  // We only reach this place in a firefox extension.
+  bot.window_ = goog.global;
+}
+
+
+/**
+ * Returns the window currently being used for command execution.
+ *
+ * @return {!Window} The window for command execution.
+ */
+bot.getWindow = function() {
+  return bot.window_;
+};
+
+
+/**
+ * Sets the window to be used for command execution.
+ *
+ * @param {!Window} win The window for command execution.
+ */
+bot.setWindow = function(win) {
+  bot.window_ = win;
+};
+
+
+/**
+ * Returns the document of the window currently being used for
+ * command execution.
+ *
+ * @return {!Document} The current window's document.
+ */
+bot.getDocument = function() {
+  return bot.window_.document;
+};
+// Copyright 2012 WebDriver committers
+// Copyright 2012 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Provides JSON utilities that uses native JSON parsing where
+ * possible (a feature not currently offered by Closure).
+ */
+
+goog.provide('bot.json');
+
+goog.require('bot.userAgent');
+goog.require('goog.json');
+goog.require('goog.userAgent');
+
+
+/**
+ * @define {boolean} NATIVE_JSON indicates whether the code should rely on the
+ * native {@code JSON} functions, if available.
+ *
+ * <p>The JSON functions can be defined by external libraries like Prototype
+ * and setting this flag to false forces the use of Closure's goog.json
+ * implementation.
+ *
+ * <p>If your JavaScript can be loaded by a third_party site and you are wary
+ * about relying on the native functions, specify
+ * "--define bot.json.NATIVE_JSON=false" to the Closure compiler.
+ */
+bot.json.NATIVE_JSON = true;
+
+
+/**
+ * Whether the current browser supports the native JSON interface.
+ * @const
+ * @see http://caniuse.com/#search=JSON
+ * @private {boolean}
+ */
+bot.json.SUPPORTS_NATIVE_JSON_ =
+    // List WebKit and Opera first since every supported version of these
+    // browsers supports native JSON (and we can compile away large chunks of
+    // code for individual fragments by setting the appropriate compiler flags).
+    goog.userAgent.WEBKIT || goog.userAgent.OPERA ||
+        (goog.userAgent.GECKO && bot.userAgent.isEngineVersion(3.5)) ||
+        (goog.userAgent.IE && bot.userAgent.isEngineVersion(8));
+
+
+/**
+ * Converts a JSON object to its string representation.
+ * @param {*} jsonObj The input object.
+ * @param {?(function(string, *): *)=} opt_replacer A replacer function called
+ *     for each (key, value) pair that determines how the value should be
+ *     serialized. By default, this just returns the value and allows default
+ *     serialization to kick in.
+ * @return {string} A JSON string representation of the input object.
+ */
+bot.json.stringify = bot.json.NATIVE_JSON && bot.json.SUPPORTS_NATIVE_JSON_ ?
+    JSON.stringify : goog.json.serialize;
+
+
+/**
+ * Parses a JSON string and returns the result.
+ * @param {string} jsonStr The string to parse.
+ * @return {*} The JSON object.
+ * @throws {Error} If the input string is an invalid JSON string.
+ */
+bot.json.parse = bot.json.NATIVE_JSON && bot.json.SUPPORTS_NATIVE_JSON_ ?
+    JSON.parse : goog.json.parse;
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Atoms for simulating user actions against the DOM.
+ * The bot.action namespace is required since these atoms would otherwise form a
+ * circular dependency between bot.dom and bot.events.
+ *
+ */
+
+goog.provide('bot.action');
+
+goog.require('bot');
+goog.require('bot.Device');
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+goog.require('bot.Keyboard');
+goog.require('bot.Mouse');
+goog.require('bot.Touchscreen');
+goog.require('bot.dom');
+goog.require('bot.events');
+goog.require('bot.events.EventType');
+goog.require('goog.array');
+goog.require('goog.math.Coordinate');
+goog.require('goog.math.Vec2');
+goog.require('goog.style');
+
+
+/**
+ * Throws an exception if an element is not shown to the user, ignoring its
+ * opacity.
+
+ *
+ * @param {!Element} element The element to check.
+ * @see bot.dom.isShown.
+ * @private
+ */
+bot.action.checkShown_ = function(element) {
+  if (!bot.dom.isShown(element, /*ignoreOpacity=*/true)) {
+    throw new bot.Error(bot.ErrorCode.ELEMENT_NOT_VISIBLE,
+        'Element is not currently visible and may not be manipulated');
+  }
+};
+
+
+/**
+ * Throws an exception if the given element cannot be interacted with.
+ *
+ * @param {!Element} element The element to check.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ * @see bot.dom.isInteractable.
+ * @private
+ */
+bot.action.checkInteractable_ = function(element) {
+  if (!bot.dom.isInteractable(element)) {
+    throw new bot.Error(bot.ErrorCode.INVALID_ELEMENT_STATE,
+        'Element is not currently interactable and may not be manipulated');
+
+  }
+};
+
+
+/**
+ * Clears the given {@code element} if it is a editable text field.
+ *
+ * @param {!Element} element The element to clear.
+ * @throws {bot.Error} If the element is not an editable text field.
+ */
+bot.action.clear = function(element) {
+  bot.action.checkInteractable_(element);
+  if (!bot.dom.isEditable(element)) {
+    throw new bot.Error(bot.ErrorCode.INVALID_ELEMENT_STATE,
+        'Element must be user-editable in order to clear it.');
+  }
+
+  bot.action.LegacyDevice_.focusOnElement(element);
+  if (element.value) {
+    element.value = '';
+    bot.events.fire(element, bot.events.EventType.CHANGE);
+  }
+
+  if (bot.dom.isContentEditable(element)) {
+    // A single space is required, if you put empty string here you'll not be
+    // able to interact with this element anymore in Firefox.
+    element.innerHTML = ' ';
+    // contentEditable does not generate onchange event.
+  }
+};
+
+
+/**
+ * Focuses on the given element if it is not already the active element.
+ *
+ * @param {!Element} element The element to focus on.
+ */
+bot.action.focusOnElement = function(element) {
+  bot.action.checkInteractable_(element);
+  bot.action.LegacyDevice_.focusOnElement(element);
+};
+
+
+/**
+ * Types keys on the given {@code element} with a virtual keyboard.
+ *
+ * <p>Callers can pass in a string, a key in bot.Keyboard.Key, or an array
+ * of strings or keys. If a modifier key is provided, it is pressed but not
+ * released, until it is either is listed again or the function ends.
+ *
+ * <p>Example:
+ *   bot.keys.type(element, ['ab', bot.Keyboard.Key.LEFT,
+ *                           bot.Keyboard.Key.SHIFT, 'cd']);
+ *
+ * @param {!Element} element The element receiving the event.
+ * @param {(string|!bot.Keyboard.Key|!Array.<(string|!bot.Keyboard.Key)>)}
+ *    values Value or values to type on the element.
+ * @param {bot.Keyboard=} opt_keyboard Keyboard to use; if not provided,
+ *    constructs one.
+ * @param {boolean=} opt_persistModifiers Whether modifier keys should remain
+ *     pressed when this function ends.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.type = function(
+    element, values, opt_keyboard, opt_persistModifiers) {
+  // If the element has already been brought into focus somewhow, typing is
+  // always allowed to proceed. Otherwise, we require the element be in an
+  // "interactable" state. For example, an element that is hidden by overflow
+  // can be typed on, so long as the user first tabs to it or the app calls
+  // focus() on the element first.
+  if (element != bot.dom.getActiveElement(element)) {
+    bot.action.checkInteractable_(element);
+    bot.action.scrollIntoView(element);
+  }
+
+  var keyboard = opt_keyboard || new bot.Keyboard();
+  keyboard.moveCursor(element);
+
+  function typeValue(value) {
+    if (goog.isString(value)) {
+      goog.array.forEach(value.split(''), function(ch) {
+        var keyShiftPair = bot.Keyboard.Key.fromChar(ch);
+        var shiftIsPressed = keyboard.isPressed(bot.Keyboard.Keys.SHIFT);
+        if (keyShiftPair.shift && !shiftIsPressed) {
+          keyboard.pressKey(bot.Keyboard.Keys.SHIFT);
+        }
+        keyboard.pressKey(keyShiftPair.key);
+        keyboard.releaseKey(keyShiftPair.key);
+        if (keyShiftPair.shift && !shiftIsPressed) {
+          keyboard.releaseKey(bot.Keyboard.Keys.SHIFT);
+        }
+      });
+    } else if (goog.array.contains(bot.Keyboard.MODIFIERS, value)) {
+      if (keyboard.isPressed(/** @type {!bot.Keyboard.Key} */ (value))) {
+        keyboard.releaseKey(value);
+      } else {
+        keyboard.pressKey(value);
+      }
+    } else {
+      keyboard.pressKey(value);
+      keyboard.releaseKey(value);
+    }
+  }
+
+  // mobile safari (iPhone / iPad). one cannot 'type' in a date field
+  // chrome implements this, but desktop Safari doesn't, what's webkit again?
+  if ((!(goog.userAgent.product.SAFARI && !goog.userAgent.MOBILE)) &&
+      goog.userAgent.WEBKIT && element.type == 'date') {
+    var val = goog.isArray(values)? values = values.join("") : values;
+    var datePattern = /\d{4}-\d{2}-\d{2}/;
+    if (val.match(datePattern)) {
+      // The following events get fired on iOS first
+      if (goog.userAgent.MOBILE && goog.userAgent.product.SAFARI) {
+        bot.events.fire(element, bot.events.EventType.TOUCHSTART);
+        bot.events.fire(element, bot.events.EventType.TOUCHEND);
+      }
+      bot.events.fire(element, bot.events.EventType.FOCUS);
+      element.value = val.match(datePattern)[0];
+      bot.events.fire(element, bot.events.EventType.CHANGE);
+      bot.events.fire(element, bot.events.EventType.BLUR);
+      return;
+    }
+  }
+
+  if (goog.isArray(values)) {
+    goog.array.forEach(values, typeValue);
+  } else {
+    typeValue(values);
+  }
+
+  if (!opt_persistModifiers) {
+    // Release all the modifier keys.
+    goog.array.forEach(bot.Keyboard.MODIFIERS, function(key) {
+      if (keyboard.isPressed(key)) {
+        keyboard.releaseKey(key);
+      }
+    });
+  }
+};
+
+
+/**
+ * Submits the form containing the given {@code element}.
+ *
+ * <p>Note this function submits the form, but does not simulate user input
+ * (a click or key press).
+ *
+ * @param {!Element} element The element to submit.
+ */
+bot.action.submit = function(element) {
+  var form = bot.action.LegacyDevice_.findAncestorForm(element);
+  if (!form) {
+    throw new bot.Error(bot.ErrorCode.NO_SUCH_ELEMENT,
+                        'Element was not in a form, so could not submit.');
+  }
+  bot.action.LegacyDevice_.submitForm(element, form);
+};
+
+
+/**
+ * Moves the mouse over the given {@code element} with a virtual mouse.
+ *
+ * @param {!Element} element The element to click.
+ * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
+ *   element.
+ * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.moveMouse = function(element, opt_coords, opt_mouse) {
+  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
+  var mouse = opt_mouse || new bot.Mouse();
+  mouse.move(element, coords);
+};
+
+
+/**
+ * Clicks on the given {@code element} with a virtual mouse.
+ *
+ * @param {!Element} element The element to click.
+ * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
+ *   element.
+ * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.click = function(element, opt_coords, opt_mouse) {
+  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
+  var mouse = opt_mouse || new bot.Mouse();
+  mouse.move(element, coords);
+  mouse.pressButton(bot.Mouse.Button.LEFT);
+  mouse.releaseButton();
+};
+
+
+/**
+ * Right-clicks on the given {@code element} with a virtual mouse.
+ *
+ * @param {!Element} element The element to click.
+ * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
+ *   element.
+ * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.rightClick = function(element, opt_coords, opt_mouse) {
+  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
+  var mouse = opt_mouse || new bot.Mouse();
+  mouse.move(element, coords);
+  mouse.pressButton(bot.Mouse.Button.RIGHT);
+  mouse.releaseButton();
+};
+
+
+/**
+ * Double-clicks on the given {@code element} with a virtual mouse.
+ *
+ * @param {!Element} element The element to click.
+ * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
+ *   element.
+ * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.doubleClick = function(element, opt_coords, opt_mouse) {
+  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
+  var mouse = opt_mouse || new bot.Mouse();
+  mouse.move(element, coords);
+  mouse.pressButton(bot.Mouse.Button.LEFT);
+  mouse.releaseButton();
+  mouse.pressButton(bot.Mouse.Button.LEFT);
+  mouse.releaseButton();
+};
+
+
+/**
+ * Scrolls the mouse wheel on the given {@code element} with a virtual mouse.
+ *
+ * @param {!Element} element The element to scroll the mouse wheel on.
+ * @param {number} ticks Number of ticks to scroll the mouse wheel; a positive
+ *   number scrolls down and a negative scrolls up.
+ * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
+ *   element.
+ * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.scrollMouse = function(element, ticks, opt_coords, opt_mouse) {
+  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
+  var mouse = opt_mouse || new bot.Mouse();
+  mouse.move(element, coords);
+  mouse.scroll(ticks);
+};
+
+
+/**
+ * Drags the given {@code element} by (dx, dy) with a virtual mouse.
+ *
+ * @param {!Element} element The element to drag.
+ * @param {number} dx Increment in x coordinate.
+ * @param {number} dy Increment in y coordinate.
+ * @param {number=} opt_steps The number of steps that should occur as part of
+ *     the drag, default is 2.
+ * @param {goog.math.Coordinate=} opt_coords Drag start position relative to the
+ *   element.
+ * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.drag = function(element, dx, dy, opt_steps, opt_coords, opt_mouse) {
+  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
+  var initRect = bot.dom.getClientRect(element);
+  var mouse = opt_mouse || new bot.Mouse();
+  mouse.move(element, coords);
+  mouse.pressButton(bot.Mouse.Button.LEFT);
+  var steps = goog.isDef(opt_steps) ? opt_steps : 2;
+  if (steps < 1) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+                        'There must be at least one step as part of a drag.');
+  }
+  for (var i = 1; i <= steps; i++) {
+    moveTo(Math.floor(i * dx / steps), Math.floor(i * dy / steps));
+  }
+  mouse.releaseButton();
+
+  function moveTo(x, y) {
+    var currRect = bot.dom.getClientRect(element);
+    var newPos = new goog.math.Coordinate(
+        coords.x + initRect.left + x - currRect.left,
+        coords.y + initRect.top + y - currRect.top);
+    mouse.move(element, newPos);
+  }
+};
+
+
+/**
+ * Taps on the given {@code element} with a virtual touch screen.
+ *
+ * @param {!Element} element The element to tap.
+ * @param {goog.math.Coordinate=} opt_coords Finger position relative to the
+ *   target.
+ * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
+ *    provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.tap = function(element, opt_coords, opt_touchscreen) {
+  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
+  var touchscreen = opt_touchscreen || new bot.Touchscreen();
+  touchscreen.move(element, coords);
+  touchscreen.press();
+  touchscreen.release();
+};
+
+
+/**
+ * Swipes the given {@code element} by (dx, dy) with a virtual touch screen.
+ *
+ * @param {!Element} element The element to swipe.
+ * @param {number} dx Increment in x coordinate.
+ * @param {number} dy Increment in y coordinate.
+ * @param {number=} opt_steps The number of steps that should occurs as part of
+ *     the swipe, default is 2.
+ * @param {goog.math.Coordinate=} opt_coords Swipe start position relative to
+ *   the element.
+ * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
+ *    provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.swipe = function(element, dx, dy, opt_steps, opt_coords,
+    opt_touchscreen) {
+  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
+  var touchscreen = opt_touchscreen || new bot.Touchscreen();
+  var initRect = bot.dom.getClientRect(element);
+  touchscreen.move(element, coords);
+  touchscreen.press();
+  var steps = goog.isDef(opt_steps) ? opt_steps : 2;
+  if (steps < 1) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+                        'There must be at least one step as part of a swipe.');
+  }
+  for (var i = 1; i <= steps; i++) {
+    moveTo(Math.floor(i * dx / steps), Math.floor(i * dy / steps));
+  }
+  touchscreen.release();
+
+  function moveTo(x, y) {
+    var currRect = bot.dom.getClientRect(element);
+    var newPos = new goog.math.Coordinate(
+        coords.x + initRect.left + x - currRect.left,
+        coords.y + initRect.top + y - currRect.top);
+    touchscreen.move(element, newPos);
+  }
+};
+
+
+/**
+ * Pinches the given {@code element} by the given distance with a virtual touch
+ * screen. A positive distance moves two fingers inward toward each and a
+ * negative distances spreds them outward. The optional coordinate is the point
+ * the fingers move towards (for positive distances) or away from (for negative
+ * distances); and if not provided, defaults to the center of the element.
+ *
+ * @param {!Element} element The element to pinch.
+ * @param {number} distance The distance by which to pinch the element.
+ * @param {goog.math.Coordinate=} opt_coords Position relative to the element
+ *   at the center of the pinch.
+ * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
+ *    provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.pinch = function(element, distance, opt_coords, opt_touchscreen) {
+  if (distance == 0) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+                        'Cannot pinch by a distance of zero.');
+  }
+  function startSoThatEndsAtMax(offsetVec) {
+    if (distance < 0) {
+      var magnitude = offsetVec.magnitude();
+      offsetVec.scale(magnitude ? (magnitude + distance) / magnitude : 0);
+    }
+  }
+  var halfDistance = distance / 2;
+  function scaleByHalfDistance(offsetVec) {
+    var magnitude = offsetVec.magnitude();
+    offsetVec.scale(magnitude ? (magnitude - halfDistance) / magnitude : 0);
+  }
+  bot.action.multiTouchAction_(element,
+                               startSoThatEndsAtMax,
+                               scaleByHalfDistance,
+                               opt_coords,
+                               opt_touchscreen);
+};
+
+
+/**
+ * Rotates the given {@code element} by the given angle with a virtual touch
+ * screen. A positive angle moves two fingers clockwise and a negative angle
+ * moves them counter-clockwise. The optional coordinate is the point to
+ * rotate around; and if not provided, defaults to the center of the element.
+ *
+ * @param {!Element} element The element to rotate.
+ * @param {number} angle The angle by which to rotate the element.
+ * @param {goog.math.Coordinate=} opt_coords Position relative to the element
+ *   at the center of the rotation.
+ * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
+ *    provided, constructs one.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+bot.action.rotate = function(element, angle, opt_coords, opt_touchscreen) {
+  if (angle == 0) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+                        'Cannot rotate by an angle of zero.');
+  }
+  function startHalfwayToMax(offsetVec) {
+    offsetVec.scale(0.5);
+  }
+  var halfRadians = Math.PI * (angle / 180) / 2;
+  function rotateByHalfAngle(offsetVec) {
+    offsetVec.rotate(halfRadians);
+  }
+  bot.action.multiTouchAction_(element,
+                               startHalfwayToMax,
+                               rotateByHalfAngle,
+                               opt_coords,
+                               opt_touchscreen);
+};
+
+
+/**
+ * Performs a multi-touch action with two fingers on the given element. This
+ * helper function works by manipulating an "offsetVector", which is the vector
+ * away from the center of the interaction at which the fingers are positioned.
+ * It computes the maximum offset vector and passes it to transformStart to
+ * find the starting position of the fingers; it then passes it to transformHalf
+ * twice to find the midpoint and final position of the fingers.
+ *
+ * @param {!Element} element Element to interact with.
+ * @param {function(goog.math.Vec2)} transformStart Function to transform the
+ *   maximum offset vector to the starting offset vector.
+ * @param {function(goog.math.Vec2)} transformHalf Function to transform the
+ *   offset vector halfway to its destination.
+ * @param {goog.math.Coordinate=} opt_coords Position relative to the element
+ *   at the center of the pinch.
+ * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
+ *    provided, constructs one.
+ * @private
+ */
+bot.action.multiTouchAction_ = function(element, transformStart, transformHalf,
+                                        opt_coords, opt_touchscreen) {
+  var center = bot.action.prepareToInteractWith_(element, opt_coords);
+  var size = bot.action.getInteractableSize(element);
+  var offsetVec = new goog.math.Vec2(
+      Math.min(center.x, size.width - center.x),
+      Math.min(center.y, size.height - center.y));
+
+  var touchScreen = opt_touchscreen || new bot.Touchscreen();
+  transformStart(offsetVec);
+  var start1 = goog.math.Vec2.sum(center, offsetVec);
+  var start2 = goog.math.Vec2.difference(center, offsetVec);
+  touchScreen.move(element, start1, start2);
+  touchScreen.press(/*Two Finger Press*/ true);
+
+  var initRect = bot.dom.getClientRect(element);
+  transformHalf(offsetVec);
+  var mid1 = goog.math.Vec2.sum(center, offsetVec);
+  var mid2 = goog.math.Vec2.difference(center, offsetVec);
+  touchScreen.move(element, mid1, mid2);
+
+  var midRect = bot.dom.getClientRect(element);
+  var movedVec = goog.math.Vec2.difference(
+      new goog.math.Vec2(midRect.left, midRect.top),
+      new goog.math.Vec2(initRect.left, initRect.top));
+  transformHalf(offsetVec);
+  var end1 = goog.math.Vec2.sum(center, offsetVec).subtract(movedVec);
+  var end2 = goog.math.Vec2.difference(center, offsetVec).subtract(movedVec);
+  touchScreen.move(element, end1, end2);
+  touchScreen.release();
+};
+
+
+/**
+ * Prepares to interact with the given {@code element}. It checks if the the
+ * element is shown, scrolls the element into view, and returns the coordinates
+ * of the interaction, which if not provided, is the center of the element.
+ *
+ * @param {!Element} element The element to be interacted with.
+ * @param {goog.math.Coordinate=} opt_coords Position relative to the target.
+ * @return {!goog.math.Vec2} Coordinates at the center of the interaction.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ * @private
+ */
+bot.action.prepareToInteractWith_ = function(element, opt_coords) {
+  bot.action.checkShown_(element);
+  bot.action.scrollIntoView(element, opt_coords || undefined);
+
+  // NOTE: Ideally, we would check that any provided coordinates fall
+  // within the bounds of the element, but this has proven difficult, because:
+  // (1) Browsers sometimes lie about the true size of elements, e.g. when text
+  // overflows the bounding box of an element, browsers report the size of the
+  // box even though the true area that can be interacted with is larger; and
+  // (2) Elements with children styled as position:absolute will often not have
+  // a bounding box that surrounds all of their children, but it is useful for
+  // the user to be able to interact with this parent element as if it does.
+  if (opt_coords) {
+    return goog.math.Vec2.fromCoordinate(opt_coords);
+  } else {
+    var size = bot.action.getInteractableSize(element);
+    return new goog.math.Vec2(size.width / 2, size.height / 2);
+  }
+};
+
+
+/**
+ * Returns the interactable size of an element.
+ *
+ * @param {!Element} elem Element.
+ * @return {!goog.math.Size} size Size of the element.
+ */
+bot.action.getInteractableSize = function(elem) {
+  var size = goog.style.getSize(elem);
+  return ((size.width > 0 && size.height > 0) || !elem.offsetParent) ? size :
+      bot.action.getInteractableSize(elem.offsetParent);
+};
+
+
+
+/**
+ * A Device that is intended to allows access to protected members of the
+ * Device superclass. A singleton.
+ *
+ * @constructor
+ * @extends {bot.Device}
+ * @private
+ */
+bot.action.LegacyDevice_ = function() {
+  goog.base(this);
+};
+goog.inherits(bot.action.LegacyDevice_, bot.Device);
+goog.addSingletonGetter(bot.action.LegacyDevice_);
+
+
+/**
+ * Focuses on the given element.  See {@link bot.device.focusOnElement}.
+ * @param {!Element} element The element to focus on.
+ * @return {boolean} True if element.focus() was called on the element.
+ */
+bot.action.LegacyDevice_.focusOnElement = function(element) {
+  var instance = bot.action.LegacyDevice_.getInstance();
+  instance.setElement(element);
+  return instance.focusOnElement();
+};
+
+
+/**
+ * Submit the form for the element.  See {@link bot.device.submit}.
+ * @param {!Element} element The element to submit a form on.
+ * @param {!Element} form The form to submit.
+ */
+bot.action.LegacyDevice_.submitForm = function(element, form) {
+  var instance = bot.action.LegacyDevice_.getInstance();
+  instance.setElement(element);
+  instance.submitForm(form);
+};
+
+
+/**
+ * Find FORM element that is an ancestor of the passed in element.  See
+ * {@link bot.device.findAncestorForm}.
+ * @param {!Element} element The element to find an ancestor form.
+ * @return {Element} form The ancestor form, or null if none.
+ */
+bot.action.LegacyDevice_.findAncestorForm = function(element) {
+  return bot.Device.findAncestorForm(element);
+};
+
+
+/**
+ * Scrolls the given {@code element} in to the current viewport. Aims to do the
+ * minimum scrolling necessary, but prefers too much scrolling to too little.
+ *
+ * If an optional coordinate or rectangle region is provided, scrolls that
+ * region relative to the element into view. A coordinate is treated as a 1x1
+ * region whose top-left corner is positioned at that coordinate.
+ *
+ * @param {!Element} element The element to scroll in to view.
+ * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
+ *     Region relative to the top-left corner of the element.
+ * @return {boolean} Whether the element is in view after scrolling.
+ */
+bot.action.scrollIntoView = function(element, opt_region) {
+  // If the element is already in view, return true; if hidden, return false.
+  var overflow = bot.dom.getOverflowState(element, opt_region);
+  if (overflow != bot.dom.OverflowState.SCROLL) {
+    return overflow == bot.dom.OverflowState.NONE;
+  }
+
+  // Some elements may not have a scrollIntoView function - for example,
+  // elements under an SVG element. Call those only if they exist.
+  if (element.scrollIntoView) {
+    element.scrollIntoView();
+    if (bot.dom.OverflowState.NONE ==
+        bot.dom.getOverflowState(element, opt_region)) {
+      return true;
+    }
+  }
+
+  // There may have not been a scrollIntoView function, or the specified
+  // coordinate may not be in view, so scroll "manually".
+  var region = bot.dom.getClientRegion(element, opt_region);
+  for (var container = bot.dom.getParentElement(element);
+       container;
+       container = bot.dom.getParentElement(container)) {
+    scrollClientRegionIntoContainerView(container);
+  }
+  return bot.dom.OverflowState.NONE ==
+      bot.dom.getOverflowState(element, opt_region);
+
+  function scrollClientRegionIntoContainerView(container) {
+    // Based largely from goog.style.scrollIntoContainerView.
+    var containerRect = bot.dom.getClientRect(container);
+    var containerBorder = goog.style.getBorderBox(container);
+
+    // Relative position of the region to the container's content box.
+    var relX = region.left - containerRect.left - containerBorder.left;
+    var relY = region.top - containerRect.top - containerBorder.top;
+
+    // How much the region can move in the container. Use the container's
+    // clientWidth/Height, not containerRect, to account for the scrollbar.
+    var spaceX = container.clientWidth + region.left - region.right;
+    var spaceY = container.clientHeight + region.top - region.bottom;
+
+    // Scroll the element into view of the container.
+    container.scrollLeft += Math.min(relX, Math.max(relX - spaceX, 0));
+    container.scrollTop += Math.min(relY, Math.max(relY - spaceY, 0));
+  }
+};
+
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Atoms for simulating user actions against the browser window.
+ */
+
+goog.provide('bot.window');
+
+goog.require('bot');
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+goog.require('bot.events');
+goog.require('bot.userAgent');
+goog.require('goog.dom');
+goog.require('goog.dom.DomHelper');
+goog.require('goog.math.Coordinate');
+goog.require('goog.math.Size');
+goog.require('goog.style');
+goog.require('goog.userAgent');
+goog.require('goog.userAgent.product');
+
+
+/**
+ * Whether the value of history.length includes a newly loaded page. If not,
+ * after a new page load history.length is the number of pages that have loaded,
+ * minus 1, but becomes the total number of pages on a subsequent back() call.
+ * @private {boolean}
+ * @const
+ */
+bot.window.HISTORY_LENGTH_INCLUDES_NEW_PAGE_ = !goog.userAgent.IE &&
+    !goog.userAgent.OPERA;
+
+
+/**
+ * Whether value of history.length includes the pages ahead of the current one
+ * in the history. If not, history.length equals the number of prior pages.
+ * Here is the WebKit bug for this behavior that was fixed by version 533:
+ * https://bugs.webkit.org/show_bug.cgi?id=24472
+ * @private {boolean}
+ * @const
+ */
+bot.window.HISTORY_LENGTH_INCLUDES_FORWARD_PAGES_ = !goog.userAgent.OPERA &&
+    (!goog.userAgent.WEBKIT || bot.userAgent.isEngineVersion('533'));
+
+
+/**
+ * Screen orientation values. From the draft W3C spec at:
+ * http://www.w3.org/TR/2012/WD-screen-orientation-20120522
+ *
+ * @enum {string}
+ */
+bot.window.Orientation = {
+  PORTRAIT: 'portrait-primary',
+  PORTRAIT_SECONDARY: 'portrait-secondary',
+  LANDSCAPE: 'landscape-primary',
+  LANDSCAPE_SECONDARY: 'landscape-secondary'
+};
+
+
+/**
+ * Returns the degrees corresponding to the orientation input.
+ *
+ * @param {!bot.window.Orientation} orientation The orientation.
+ * @return {number} The orientation degrees.
+ * @private
+ */
+bot.window.getOrientationDegrees_ = (function() {
+  var orientationMap;
+  return function(orientation) {
+    if (!orientationMap) {
+      orientationMap = {};
+      if (goog.userAgent.MOBILE) {
+        // The iPhone and Android phones do not change orientation event when
+        // held upside down. Hence, PORTRAIT_SECONDARY is not set.
+        orientationMap[bot.window.Orientation.PORTRAIT] = 0;
+        orientationMap[bot.window.Orientation.LANDSCAPE] = 90;
+        orientationMap[bot.window.Orientation.LANDSCAPE_SECONDARY] = -90;
+        if (goog.userAgent.product.IPAD) {
+          orientationMap[bot.window.Orientation.PORTRAIT_SECONDARY] = 180;
+        }
+      } else if (goog.userAgent.product.ANDROID) {
+        // Unlike the iPad, Android tablets treat landscape orientation as the
+        // default, i.e., having window.orientation = 0.
+        orientationMap[bot.window.Orientation.PORTRAIT] = -90;
+        orientationMap[bot.window.Orientation.LANDSCAPE] = 0;
+        orientationMap[bot.window.Orientation.PORTRAIT_SECONDARY] = 90;
+        orientationMap[bot.window.Orientation.LANDSCAPE_SECONDARY] = 180;
+      }
+    }
+    return orientationMap[orientation];
+  };
+})();
+
+
+/**
+ * Go back in the browser history. The number of pages to go back can
+ * optionally be specified and defaults to 1.
+ *
+ * @param {number=} opt_numPages Number of pages to go back.
+ */
+bot.window.back = function(opt_numPages) {
+  // Relax the upper bound by one for browsers that do not count
+  // newly loaded pages towards the value of window.history.length.
+  var maxPages = bot.window.HISTORY_LENGTH_INCLUDES_NEW_PAGE_ ?
+      bot.getWindow().history.length - 1 : bot.getWindow().history.length;
+  var numPages = bot.window.checkNumPages_(maxPages, opt_numPages);
+  bot.getWindow().history.go(-numPages);
+};
+
+
+/**
+ * Go forward in the browser history. The number of pages to go forward can
+ * optionally be specified and defaults to 1.
+ *
+ * @param {number=} opt_numPages Number of pages to go forward.
+ */
+bot.window.forward = function(opt_numPages) {
+  // Do not check the upper bound (use null for infinity) for browsers that
+  // do not count forward pages towards the value of window.history.length.
+  var maxPages = bot.window.HISTORY_LENGTH_INCLUDES_FORWARD_PAGES_ ?
+      bot.getWindow().history.length - 1 : null;
+  var numPages = bot.window.checkNumPages_(maxPages, opt_numPages);
+  bot.getWindow().history.go(numPages);
+};
+
+
+/**
+ * @param {?number} maxPages Upper bound on number of pages; null for infinity.
+ * @param {number=} opt_numPages Number of pages to move in history.
+ * @return {number} Correct number of pages to move in history.
+ * @private
+ */
+bot.window.checkNumPages_ = function(maxPages, opt_numPages) {
+  var numPages = goog.isDef(opt_numPages) ? opt_numPages : 1;
+  if (numPages <= 0) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'number of pages must be positive');
+  }
+  if (maxPages !== null && numPages > maxPages) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'number of pages must be less than the length of the browser history');
+  }
+  return numPages;
+};
+
+
+/**
+ * Determine the size of the window that a user could interact with. This will
+ * be the greatest of document.body.(width|scrollWidth), the same for
+ * document.documentElement or the size of the viewport.
+ *
+ * @param {!Window=} opt_win Window to determine the size of. Defaults to
+ *   bot.getWindow().
+ * @return {!goog.math.Size} The calculated size.
+ */
+bot.window.getInteractableSize = function(opt_win) {
+  var win = opt_win || bot.getWindow();
+  var doc = win.document;
+  var elem = doc.documentElement;
+  var body = doc.body;
+  if (!body) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'No BODY element present');
+  }
+
+  var widths = [
+    elem.clientWidth, elem.scrollWidth, elem.offsetWidth,
+    body.scrollWidth, body.offsetWidth
+  ];
+  var heights = [
+    elem.clientHeight, elem.scrollHeight, elem.offsetHeight,
+    body.scrollHeight, body.offsetHeight
+  ];
+
+  var width = Math.max.apply(null, widths);
+  var height = Math.max.apply(null, heights);
+
+  return new goog.math.Size(width, height);
+};
+
+
+/**
+ * Gets the frame element.
+ *
+ * @param {!Window} win Window of the frame. Defaults to bot.getWindow().
+ * @return {Element} The frame element if it exists, null otherwise.
+ * @private
+ */
+bot.window.getFrame_ = function(win) {
+  try {
+    // On IE, accessing the frameElement of a popup window results in a "No
+    // Such interface" exception.
+    return win.frameElement;
+  } catch (e) {
+    return null;
+  }
+};
+
+
+/**
+ * Determine the outer size of the window.
+ *
+ * @param {!Window=} opt_win Window to determine the size of. Defaults to
+ *   bot.getWindow().
+ * @return {!goog.math.Size} The calculated size.
+ */
+bot.window.getSize = function(opt_win) {
+  var win = opt_win || bot.getWindow();
+  var frame = bot.window.getFrame_(win);
+  if (bot.userAgent.ANDROID_PRE_ICECREAMSANDWICH) {
+    if (frame) {
+      // Early Android browsers do not account for border width.
+      var box = goog.style.getBorderBox(frame);
+      return new goog.math.Size(frame.clientWidth - box.left - box.right,
+                                frame.clientHeight);
+    } else {
+      // A fixed popup size.
+      return new goog.math.Size(320, 240);
+    }
+  } else if (frame) {
+    return new goog.math.Size(frame.clientWidth, frame.clientHeight);
+  } else {
+    var docElem = win.document.documentElement;
+    var body = win.document.body;
+    var width = win.outerWidth || (docElem && docElem.clientWidth) ||
+        (body && body.clientWidth) || 0;
+    var height = win.outerHeight || (docElem && docElem.clientHeight) ||
+        (body && body.clientHeight) || 0;
+    return new goog.math.Size(width, height);
+  }
+};
+
+
+/**
+ * Set the outer size of the window.
+ *
+ * @param {!goog.math.Size} size The new window size.
+ * @param {!Window=} opt_win Window to determine the size of. Defaults to
+ *   bot.getWindow().
+ */
+bot.window.setSize = function(size, opt_win) {
+  var win = opt_win || bot.getWindow();
+  var frame = bot.window.getFrame_(win);
+  if (frame) {
+    // minHeight and minWidth are altered because many browsers will not change
+    // height or width if it is less than a specified minHeight or minWidth.
+    frame.style.minHeight = '0px';
+    frame.style.minWidth = '0px';
+    frame.width = size.width + 'px';
+    frame.style.width = size.width + 'px';
+    frame.height = size.height + 'px';
+    frame.style.height = size.height + 'px';
+  } else {
+    win.resizeTo(size.width, size.height);
+  }
+};
+
+
+/**
+ * Determine the scroll position of the window.
+ *
+ * @param {!Window=} opt_win Window to determine the scroll position of.
+ *   Defaults to bot.getWindow().
+ * @return {!goog.math.Coordinate} The scroll position.
+ */
+bot.window.getScroll = function(opt_win) {
+  var win = opt_win || bot.getWindow();
+  return new goog.dom.DomHelper(win.document).getDocumentScroll();
+};
+
+
+/**
+ * Set the scroll position of the window.
+ *
+ * @param {!goog.math.Coordinate} position The new scroll position.
+ * @param {!Window=} opt_win Window to apply position to. Defaults to
+ *   bot.getWindow().
+ */
+bot.window.setScroll = function(position, opt_win) {
+  var win = opt_win || bot.getWindow();
+  win.scrollTo(position.x, position.y);
+};
+
+
+/**
+ * Get the position of the window.
+ *
+ * @param {!Window=} opt_win Window to determine the position of. Defaults to
+ *   bot.getWindow().
+ * @return {!goog.math.Coordinate} The position of the window.
+ */
+bot.window.getPosition = function(opt_win) {
+  var win = opt_win || bot.getWindow();
+  var x, y;
+
+  if (goog.userAgent.IE) {
+    x = win.screenLeft;
+    y = win.screenTop;
+  } else {
+    x = win.screenX;
+    y = win.screenY;
+  }
+
+  return new goog.math.Coordinate(x, y);
+};
+
+
+/**
+ * Set the position of the window.
+ *
+ * @param {!goog.math.Coordinate} position The target position.
+ * @param {!Window=} opt_win Window to set the position of. Defaults to
+ *   bot.getWindow().
+ */
+bot.window.setPosition = function(position, opt_win) {
+  var win = opt_win || bot.getWindow();
+  win.moveTo(position.x, position.y);
+};
+
+
+/**
+ * Scrolls the given position into the viewport, using the minimal amount of
+ * scrolling necessary to being the coordinate into view.
+ *
+ * @param {!goog.math.Coordinate} position The position to scroll into view.
+ * @param {!Window=} opt_win Window to apply position to. Defaults to
+ *   bot.getWindow().
+ */
+bot.window.scrollIntoView = function(position, opt_win) {
+  var win = opt_win || bot.getWindow();
+  var viewport = goog.dom.getViewportSize(win);
+  var scroll = bot.window.getScroll(win);
+
+  // Scroll the minimal amount to bring the position into view.
+  var targetScroll = new goog.math.Coordinate(
+      newScrollDim(position.x, scroll.x, viewport.width),
+      newScrollDim(position.y, scroll.y, viewport.height));
+  if (!goog.math.Coordinate.equals(targetScroll, scroll)) {
+    bot.window.setScroll(targetScroll, win);
+  }
+
+  // It is difficult to determine the size of the web page in some browsers.
+  // We check if the scrolling we intended to do really happened. If not we
+  // assume that the target location is not on the web page.
+  if (!goog.math.Coordinate.equals(targetScroll, bot.window.getScroll(win))) {
+    throw new bot.Error(bot.ErrorCode.MOVE_TARGET_OUT_OF_BOUNDS,
+        'The target scroll location ' + targetScroll + ' is not on the page.');
+  }
+
+  function newScrollDim(positionDim, scrollDim, viewportDim) {
+    if (positionDim < scrollDim) {
+      return positionDim;
+    } else if (positionDim >= scrollDim + viewportDim) {
+      return positionDim - viewportDim + 1;
+    } else {
+      return scrollDim;
+    }
+  }
+};
+
+
+/**
+ * @return {number} The current window orientation degrees.
+ *     window.
+ * @private
+ */
+bot.window.getCurrentOrientationDegrees_ = function() {
+  var win = bot.getWindow();
+  if (!goog.isDef(win.orientation)) {
+    // If window.orientation is not defined, assume a default orientation of 0.
+    // A value of 0 indicates a portrait orientation except for android tablets
+    // where 0 indicates a landscape orientation.
+    win.orientation = 0;
+  }
+  return win.orientation;
+};
+
+
+/**
+ * Changes window orientation.
+ *
+ * @param {!bot.window.Orientation} orientation The new orientation of the
+ *     window.
+ */
+bot.window.changeOrientation = function(orientation) {
+  var win = bot.getWindow();
+  var currentOrientationDegrees = bot.window.getCurrentOrientationDegrees_();
+  var newOrientationDegrees = bot.window.getOrientationDegrees_(orientation);
+  if (currentOrientationDegrees == newOrientationDegrees ||
+      !goog.isDef(newOrientationDegrees)) {
+    return;
+  }
+
+  // If possible, try to override the window's orientation value.
+  // On some older version of Android, it's not possible to change
+  // the window's orientation value.
+  if (Object.getOwnPropertyDescriptor && Object.defineProperty) {
+    var descriptor = Object.getOwnPropertyDescriptor(win, 'orientation');
+    if (descriptor && descriptor.configurable) {
+      Object.defineProperty(win, 'orientation', {
+        configurable: true,
+        get: function() {
+          return newOrientationDegrees;
+        }
+      });
+    }
+  }
+  bot.events.fire(win, bot.events.EventType.ORIENTATIONCHANGE);
+
+  // Change the window size to reflect the new orientation.
+  if (Math.abs(currentOrientationDegrees - newOrientationDegrees) % 180 != 0) {
+    var size = bot.window.getSize();
+    var shorter = size.getShortest();
+    var longer = size.getLongest();
+    if (orientation == bot.window.Orientation.PORTRAIT ||
+        orientation == bot.window.Orientation.PORTRAIT_SECONDARY) {
+      bot.window.setSize(new goog.math.Size(shorter, longer));
+    } else {
+      bot.window.setSize(new goog.math.Size(longer, shorter));
+    }
+  }
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Similar to goog.userAgent.isVersion, but with support for
+ * getting the version information when running in a firefox extension.
+ */
+goog.provide('bot.userAgent');
+
+goog.require('goog.string');
+goog.require('goog.userAgent');
+goog.require('goog.userAgent.product');
+goog.require('goog.userAgent.product.isVersion');
+
+
+/**
+ * Whether the rendering engine version of the current browser is equal to or
+ * greater than the given version. This implementation differs from
+ * goog.userAgent.isVersion in the following ways:
+ * <ol>
+ * <li>in a Firefox extension, tests the engine version through the XUL version
+ *     comparator service, because no window.navigator object is available
+ * <li>in IE, compares the given version to the current documentMode
+ * </ol>
+ *
+ * @param {string|number} version The version number to check.
+ * @return {boolean} Whether the browser engine version is the same or higher
+ *     than the given version.
+ */
+bot.userAgent.isEngineVersion = function(version) {
+  if (bot.userAgent.FIREFOX_EXTENSION) {
+    return bot.userAgent.FIREFOX_EXTENSION_IS_ENGINE_VERSION_(version);
+  } else if (goog.userAgent.IE) {
+    return goog.string.compareVersions(
+        /** @type {number} */ (goog.userAgent.DOCUMENT_MODE), version) >= 0;
+  } else {
+    return goog.userAgent.isVersionOrHigher(version);
+  }
+};
+
+
+/**
+ * Whether the product version of the current browser is equal to or greater
+ * than the given version. This implementation differs from
+ * goog.userAgent.product.isVersion in the following ways:
+ * <ol>
+ * <li>in a Firefox extension, tests the product version through the XUL version
+ *     comparator service, because no window.navigator object is available
+ * <li>on Android, always compares to the version to the OS version
+ * </ol>
+ *
+ * @param {string|number} version The version number to check.
+ * @return {boolean} Whether the browser product version is the same or higher
+ *     than the given version.
+ */
+bot.userAgent.isProductVersion = function(version) {
+  if (bot.userAgent.FIREFOX_EXTENSION) {
+    return bot.userAgent.FIREFOX_EXTENSION_IS_PRODUCT_VERSION_(version);
+  } else if (goog.userAgent.product.ANDROID) {
+    return goog.string.compareVersions(
+        bot.userAgent.ANDROID_VERSION_, version) >= 0;
+  } else {
+    return goog.userAgent.product.isVersion(version);
+  }
+};
+
+
+/**
+ * When we are in a Firefox extension, this is a function that accepts a version
+ * and returns whether the version of Gecko we are on is the same or higher
+ * than the given version. When we are not in a Firefox extension, this is null.
+ * @private {(undefined|function((string|number)): boolean)}
+ */
+bot.userAgent.FIREFOX_EXTENSION_IS_ENGINE_VERSION_;
+
+
+/**
+ * When we are in a Firefox extension, this is a function that accepts a version
+ * and returns whether the version of Firefox we are on is the same or higher
+ * than the given version. When we are not in a Firefox extension, this is null.
+ * @private {(undefined|function((string|number)): boolean)}
+ */
+bot.userAgent.FIREFOX_EXTENSION_IS_PRODUCT_VERSION_;
+
+
+/**
+ * Whether we are in a Firefox extension.
+ *
+ * @const
+ * @type {boolean}
+ */
+bot.userAgent.FIREFOX_EXTENSION = (function() {
+  // False if this browser is not a Gecko browser.
+  if (!goog.userAgent.GECKO) {
+    return false;
+  }
+
+  // False if this code isn't running in an extension.
+  var Components = goog.global.Components;
+  if (!Components) {
+    return false;
+  }
+  try {
+    if (!Components['classes']) {
+      return false;
+    }
+  } catch (e) {
+    return false;
+  }
+
+  // Populate the version checker functions.
+  var cc = Components['classes'];
+  var ci = Components['interfaces'];
+  var versionComparator = cc['@mozilla.org/xpcom/version-comparator;1'][
+      'getService'](ci['nsIVersionComparator']);
+  var appInfo = cc['@mozilla.org/xre/app-info;1']['getService'](
+      ci['nsIXULAppInfo']);
+  var geckoVersion = appInfo['platformVersion'];
+  var firefoxVersion = appInfo['version'];
+
+  bot.userAgent.FIREFOX_EXTENSION_IS_ENGINE_VERSION_ = function(version) {
+    return versionComparator.compare(geckoVersion, '' + version) >= 0;
+  };
+  bot.userAgent.FIREFOX_EXTENSION_IS_PRODUCT_VERSION_ = function(version) {
+    return versionComparator.compare(firefoxVersion, '' + version) >= 0;
+  };
+
+  return true;
+})();
+
+
+/**
+ * Whether we are on IOS.
+ *
+ * @const
+ * @type {boolean}
+ */
+bot.userAgent.IOS = goog.userAgent.product.IPAD ||
+                    goog.userAgent.product.IPHONE;
+
+
+/**
+ * Whether we are on a mobile browser.
+ *
+ * @const
+ * @type {boolean}
+ */
+bot.userAgent.MOBILE = bot.userAgent.IOS || goog.userAgent.product.ANDROID;
+
+
+/**
+ * Android Operating System Version.
+ * @private {string}
+ * @const
+ */
+bot.userAgent.ANDROID_VERSION_ = (function() {
+  if (goog.userAgent.product.ANDROID) {
+    var userAgentString = goog.userAgent.getUserAgentString();
+    var match = /Android\s+([0-9\.]+)/.exec(userAgentString);
+    return match ? match[1] : '0';
+  } else {
+    return '0';
+  }
+})();
+
+
+/**
+ * Whether the current document is IE in a documentMode older than 8.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.IE_DOC_PRE8 = goog.userAgent.IE &&
+    !goog.userAgent.isDocumentModeOrHigher(8);
+
+
+/**
+ * Whether the current document is IE in IE9 (or newer) standards mode.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.IE_DOC_9 = goog.userAgent.isDocumentModeOrHigher(9);
+
+
+/**
+ * Whether the current document is IE in a documentMode older than 9.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.IE_DOC_PRE9 = goog.userAgent.IE &&
+    !goog.userAgent.isDocumentModeOrHigher(9);
+
+
+/**
+ * Whether the current document is IE in IE10 (or newer) standards mode.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.IE_DOC_10 = goog.userAgent.isDocumentModeOrHigher(10);
+
+
+/**
+ * Whether the current document is IE in a documentMode older than 10.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.IE_DOC_PRE10 = goog.userAgent.IE &&
+    !goog.userAgent.isDocumentModeOrHigher(10);
+
+
+/**
+ * Whether the current browser is Android pre-gingerbread.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.ANDROID_PRE_GINGERBREAD = goog.userAgent.product.ANDROID &&
+    !bot.userAgent.isProductVersion(2.3);
+
+
+/**
+ * Whether the current browser is Android pre-icecreamsandwich
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.ANDROID_PRE_ICECREAMSANDWICH = goog.userAgent.product.ANDROID &&
+    !bot.userAgent.isProductVersion(4);
+
+
+/**
+ * Whether the current browser is Safari 6.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.SAFARI_6 = goog.userAgent.product.SAFARI &&
+    bot.userAgent.isProductVersion(6);
+
+
+/**
+ * Whether the current browser is Windows Phone.
+ * @type {boolean}
+ * @const
+ */
+bot.userAgent.WINDOWS_PHONE = goog.userAgent.IE &&
+    goog.userAgent.getUserAgentString().indexOf('IEMobile') != -1;
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview The file contains an abstraction of a mouse for
+ * simulating the mouse actions.
+ */
+
+goog.provide('bot.Mouse');
+goog.provide('bot.Mouse.Button');
+goog.provide('bot.Mouse.State');
+
+goog.require('bot');
+goog.require('bot.Device');
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+goog.require('bot.dom');
+goog.require('bot.events.EventType');
+goog.require('bot.userAgent');
+goog.require('goog.dom');
+goog.require('goog.dom.TagName');
+goog.require('goog.math.Coordinate');
+goog.require('goog.userAgent');
+
+
+
+/**
+ * A mouse that provides atomic mouse actions. This mouse currently only
+ * supports having one button pressed at a time.
+ * @param {bot.Mouse.State=} opt_state The mouse's initial state.
+ * @param {bot.Device.ModifiersState=} opt_modifiersState State of the keyboard.
+ * @param {bot.Device.EventEmitter=} opt_eventEmitter An object that should be
+ *     used to fire events.
+ * @constructor
+ * @extends {bot.Device}
+ */
+bot.Mouse = function (opt_state, opt_modifiersState, opt_eventEmitter) {
+  goog.base(this, opt_modifiersState, opt_eventEmitter);
+
+  /** @private {?bot.Mouse.Button} */
+  this.buttonPressed_ = null;
+
+  /** @private {Element} */
+  this.elementPressed_ = null;
+
+  /** @private {!goog.math.Coordinate} */
+  this.clientXY_ = new goog.math.Coordinate(0, 0);
+
+  /** @private {boolean} */
+  this.nextClickIsDoubleClick_ = false;
+
+  /**
+   * Whether this Mouse has ever explicitly interacted with any element.
+   * @private {boolean}
+   */
+  this.hasEverInteracted_ = false;
+
+  if (opt_state) {
+    if (goog.isNumber(opt_state['buttonPressed'])) {
+      this.buttonPressed_ = opt_state['buttonPressed'];
+    }
+
+    try {
+      if (bot.dom.isElement(opt_state['elementPressed'])) {
+        this.elementPressed_ = opt_state['elementPressed'];
+      }
+    } catch (ignored) {
+      this.buttonPressed_ = null;
+    }
+
+    this.clientXY_ = new goog.math.Coordinate(
+      opt_state['clientXY']['x'],
+      opt_state['clientXY']['y']);
+
+    this.nextClickIsDoubleClick_ = !!opt_state['nextClickIsDoubleClick'];
+    this.hasEverInteracted_ = !!opt_state['hasEverInteracted'];
+
+    try {
+      if (opt_state['element'] && bot.dom.isElement(opt_state['element'])) {
+        this.setElement(/** @type {!Element} */(opt_state['element']));
+      }
+    } catch (ignored) {
+      this.buttonPressed_ = null;
+    }
+  }
+};
+goog.inherits(bot.Mouse, bot.Device);
+
+
+/**
+  * Describes the state of the mouse. This type should be treated as a
+  * dictionary with all properties accessed using array notation to
+  * ensure properties are not renamed by the compiler.
+  * @typedef {{buttonPressed: ?bot.Mouse.Button,
+  *           elementPressed: Element,
+  *           clientXY: {x: number, y: number},
+  *           nextClickIsDoubleClick: boolean,
+  *           hasEverInteracted: boolean,
+  *           element: Element}}
+  */
+bot.Mouse.State;
+
+
+/**
+ * Enumeration of mouse buttons that can be pressed.
+ *
+ * @enum {number}
+ */
+bot.Mouse.Button = {
+  LEFT: 0,
+  MIDDLE: 1,
+  RIGHT: 2
+};
+
+
+/**
+ * Index to indicate no button pressed in bot.Mouse.MOUSE_BUTTON_VALUE_MAP_.
+ * @private {number}
+ * @const
+ */
+bot.Mouse.NO_BUTTON_VALUE_INDEX_ = 3;
+
+
+/**
+ * Maps mouse events to an array of button argument value for each mouse button.
+ * The array is indexed by the bot.Mouse.Button values. It encodes this table,
+ * where each cell contains the (left/middle/right/none) button values.
+ * <pre>
+ *               click/    mouseup/   mouseout/  mousemove  contextmenu
+ *               dblclick  mousedown  mouseover
+ * IE_DOC_PRE9   0 0 0 X   1 4 2 X    0 0 0 0    1 4 2 0    X X 0 X
+ * WEBKIT/IE9    0 1 2 X   0 1 2 X    0 1 2 0    0 1 2 0    X X 2 X
+ * GECKO/OPERA   0 1 2 X   0 1 2 X    0 0 0 0    0 0 0 0    X X 2 X
+ * </pre>
+ * @private {!Object.<bot.events.EventType, !Array.<?number>>}
+ * @const
+ */
+bot.Mouse.MOUSE_BUTTON_VALUE_MAP_ = (function() {
+  // EventTypes can safely be used as keys without collisions in a JS Object,
+  // because its toString method returns a unique string (the event type name).
+  var buttonValueMap = {};
+  if (bot.userAgent.IE_DOC_PRE9) {
+    buttonValueMap[bot.events.EventType.CLICK] = [0, 0, 0, null];
+    buttonValueMap[bot.events.EventType.CONTEXTMENU] = [null, null, 0, null];
+    buttonValueMap[bot.events.EventType.MOUSEUP] = [1, 4, 2, null];
+    buttonValueMap[bot.events.EventType.MOUSEOUT] = [0, 0, 0, 0];
+    buttonValueMap[bot.events.EventType.MOUSEMOVE] = [1, 4, 2, 0];
+  } else if (goog.userAgent.WEBKIT || bot.userAgent.IE_DOC_9) {
+    buttonValueMap[bot.events.EventType.CLICK] = [0, 1, 2, null];
+    buttonValueMap[bot.events.EventType.CONTEXTMENU] = [null, null, 2, null];
+    buttonValueMap[bot.events.EventType.MOUSEUP] = [0, 1, 2, null];
+    buttonValueMap[bot.events.EventType.MOUSEOUT] = [0, 1, 2, 0];
+    buttonValueMap[bot.events.EventType.MOUSEMOVE] = [0, 1, 2, 0];
+  } else {
+    buttonValueMap[bot.events.EventType.CLICK] = [0, 1, 2, null];
+    buttonValueMap[bot.events.EventType.CONTEXTMENU] = [null, null, 2, null];
+    buttonValueMap[bot.events.EventType.MOUSEUP] = [0, 1, 2, null];
+    buttonValueMap[bot.events.EventType.MOUSEOUT] = [0, 0, 0, 0];
+    buttonValueMap[bot.events.EventType.MOUSEMOVE] = [0, 0, 0, 0];
+  }
+
+  if (bot.userAgent.IE_DOC_10) {
+    buttonValueMap[bot.events.EventType.MSPOINTERDOWN] =
+        buttonValueMap[bot.events.EventType.MOUSEUP];
+    buttonValueMap[bot.events.EventType.MSPOINTERUP] =
+        buttonValueMap[bot.events.EventType.MOUSEUP];
+    buttonValueMap[bot.events.EventType.MSPOINTERMOVE] = [-1, -1, -1, -1];
+    buttonValueMap[bot.events.EventType.MSPOINTEROUT] =
+        buttonValueMap[bot.events.EventType.MSPOINTERMOVE];
+    buttonValueMap[bot.events.EventType.MSPOINTEROVER] =
+        buttonValueMap[bot.events.EventType.MSPOINTERMOVE];
+  }
+
+  buttonValueMap[bot.events.EventType.DBLCLICK] =
+      buttonValueMap[bot.events.EventType.CLICK];
+  buttonValueMap[bot.events.EventType.MOUSEDOWN] =
+      buttonValueMap[bot.events.EventType.MOUSEUP];
+  buttonValueMap[bot.events.EventType.MOUSEOVER] =
+      buttonValueMap[bot.events.EventType.MOUSEOUT];
+  return buttonValueMap;
+})();
+
+
+/**
+ * Maps mouse events to corresponding MSPointer event.
+ * @private {!Object.<bot.events.EventType, bot.events.EventType>}
+ */
+bot.Mouse.MOUSE_EVENT_MAP_ = (function() {
+  var map = {};
+  map[bot.events.EventType.MOUSEDOWN] = bot.events.EventType.MSPOINTERDOWN;
+  map[bot.events.EventType.MOUSEMOVE] = bot.events.EventType.MSPOINTERMOVE;
+  map[bot.events.EventType.MOUSEOUT] = bot.events.EventType.MSPOINTEROUT;
+  map[bot.events.EventType.MOUSEOVER] = bot.events.EventType.MSPOINTEROVER;
+  map[bot.events.EventType.MOUSEUP] = bot.events.EventType.MSPOINTERUP;
+  return map;
+})();
+
+
+/**
+ * Attempts to fire a mousedown event and then returns whether or not the
+ * element should receive focus as a result of the mousedown.
+ *
+ * @return {boolean} Whether to focus on the element after the mousedown.
+ * @private
+ */
+bot.Mouse.prototype.fireMousedown_ = function() {
+  // On some browsers, a mouse down event on an OPTION or SELECT element cause
+  // the SELECT to open, blocking further JS execution. This is undesirable,
+  // and so needs to be detected. We always focus in this case.
+  // TODO: This is a nasty way to avoid locking the browser
+  var isFirefox3 = goog.userAgent.GECKO && !bot.userAgent.isProductVersion(4);
+  var blocksOnMousedown = (goog.userAgent.WEBKIT || isFirefox3) &&
+      (bot.dom.isElement(this.getElement(), goog.dom.TagName.OPTION) ||
+       bot.dom.isElement(this.getElement(), goog.dom.TagName.SELECT));
+  if (blocksOnMousedown) {
+    return true;
+  }
+
+  // On some browsers, if the mousedown event handler makes a focus() call to
+  // change the active element, this preempts the focus that would happen by
+  // default on the mousedown, so we should not explicitly focus in this case.
+  var beforeActiveElement;
+  var mousedownCanPreemptFocus = goog.userAgent.GECKO || goog.userAgent.IE;
+  if (mousedownCanPreemptFocus) {
+    beforeActiveElement = bot.dom.getActiveElement(this.getElement());
+  }
+  var performFocus = this.fireMouseEvent_(bot.events.EventType.MOUSEDOWN);
+  if (performFocus && mousedownCanPreemptFocus &&
+      beforeActiveElement != bot.dom.getActiveElement(this.getElement())) {
+    return false;
+  }
+  return performFocus;
+};
+
+
+/**
+ * Press a mouse button on an element that the mouse is interacting with.
+ *
+ * @param {!bot.Mouse.Button} button Button.
+*/
+bot.Mouse.prototype.pressButton = function(button) {
+  if (!goog.isNull(this.buttonPressed_)) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'Cannot press more then one button or an already pressed button.');
+  }
+  this.buttonPressed_ = button;
+  this.elementPressed_ = this.getElement();
+
+  var performFocus = this.fireMousedown_();
+  if (performFocus) {
+    if (bot.userAgent.IE_DOC_10 &&
+        this.buttonPressed_ == bot.Mouse.Button.LEFT &&
+        bot.dom.isElement(this.elementPressed_, goog.dom.TagName.OPTION)) {
+      this.fireMSPointerEvent(bot.events.EventType.MSGOTPOINTERCAPTURE,
+          this.clientXY_, 0, bot.Device.MOUSE_MS_POINTER_ID,
+          MSPointerEvent.MSPOINTER_TYPE_MOUSE, true);
+    }
+    this.focusOnElement();
+  }
+};
+
+
+/**
+ * Releases the pressed mouse button. Throws exception if no button pressed.
+ *
+ */
+bot.Mouse.prototype.releaseButton = function() {
+  if (goog.isNull(this.buttonPressed_)) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'Cannot release a button when no button is pressed.');
+  }
+
+  this.maybeToggleOption();
+  this.fireMouseEvent_(bot.events.EventType.MOUSEUP);
+
+  // TODO: Middle button can also trigger click.
+  if (this.buttonPressed_ == bot.Mouse.Button.LEFT &&
+      this.getElement() == this.elementPressed_) {
+    if (!(bot.userAgent.WINDOWS_PHONE &&
+        bot.dom.isElement(this.elementPressed_, goog.dom.TagName.OPTION))) {
+      this.clickElement(this.clientXY_,
+          this.getButtonValue_(bot.events.EventType.CLICK));
+    }
+    this.maybeDoubleClickElement_();
+    if (bot.userAgent.IE_DOC_10 &&
+        this.buttonPressed_ == bot.Mouse.Button.LEFT &&
+        bot.dom.isElement(this.elementPressed_, goog.dom.TagName.OPTION)) {
+      this.fireMSPointerEvent(bot.events.EventType.MSLOSTPOINTERCAPTURE,
+          new goog.math.Coordinate(0, 0), 0, bot.Device.MOUSE_MS_POINTER_ID,
+          MSPointerEvent.MSPOINTER_TYPE_MOUSE, false);
+    }
+  // TODO: In Linux, this fires after mousedown event.
+  } else if (this.buttonPressed_ == bot.Mouse.Button.RIGHT) {
+    this.fireMouseEvent_(bot.events.EventType.CONTEXTMENU);
+  }
+  bot.Device.clearPointerMap();
+  this.buttonPressed_ = null;
+  this.elementPressed_ = null;
+};
+
+
+/**
+ * A helper function to fire mouse double click events.
+ *
+ * @private
+ */
+bot.Mouse.prototype.maybeDoubleClickElement_ = function() {
+  // Trigger an additional double click event if it is the second click.
+  if (this.nextClickIsDoubleClick_) {
+    this.fireMouseEvent_(bot.events.EventType.DBLCLICK);
+  }
+  this.nextClickIsDoubleClick_ = !this.nextClickIsDoubleClick_;
+};
+
+
+/**
+ * Given a coordinates (x,y) related to an element, move mouse to (x,y) of the
+ * element. The top-left point of the element is (0,0).
+ *
+ * @param {!Element} element The destination element.
+ * @param {!goog.math.Coordinate} coords Mouse position related to the target.
+ */
+bot.Mouse.prototype.move = function(element, coords) {
+  // If the element is interactable at the start of the move, it receives the
+  // full event sequence, even if hidden by an element mid sequence.
+  var toElemWasInteractable = bot.dom.isInteractable(element);
+
+  var rect = bot.dom.getClientRect(element);
+  this.clientXY_.x = coords.x + rect.left;
+  this.clientXY_.y = coords.y + rect.top;
+  var fromElement = this.getElement();
+
+  if (element != fromElement) {
+    // If the window of fromElement is closed, set fromElement to null as a flag
+    // to skip the mouseout event and so relatedTarget of the mouseover is null.
+    try {
+      if (goog.dom.getWindow(goog.dom.getOwnerDocument(fromElement)).closed) {
+        fromElement = null;
+      }
+    } catch (ignore) {
+      // Sometimes accessing a window that no longer exists causes an error.
+      fromElement = null;
+    }
+
+    if (fromElement) {
+      // For the first mouse interaction on a page, if the mouse was over the
+      // browser window, the browser will pass null as the relatedTarget for the
+      // mouseover event. For subsequent interactions, it will pass the
+      // last-focused element. Unfortunately, we don't have anywhere to keep the
+      // state of which elements have been focused across Mouse instances, so we
+      // treat every Mouse initially positioned over the documentElement or body
+      // as if it's on a new page. Accordingly, for complex actions (e.g.
+      // drag-and-drop), a single Mouse instance should be used for the whole
+      // action, to ensure the correct relatedTargets are fired for any events.
+      var isRoot = fromElement === bot.getDocument().documentElement ||
+                   fromElement === bot.getDocument().body;
+      fromElement = (!this.hasEverInteracted_ && isRoot) ? null : fromElement;
+      this.fireMouseEvent_(bot.events.EventType.MOUSEOUT, element);
+    }
+    this.setElement(element);
+
+    // All browsers except IE fire the mouseover before the mousemove.
+    if (!goog.userAgent.IE) {
+      this.fireMouseEvent_(bot.events.EventType.MOUSEOVER, fromElement, null,
+          toElemWasInteractable);
+    }
+  }
+
+  this.fireMouseEvent_(bot.events.EventType.MOUSEMOVE, null, null,
+      toElemWasInteractable);
+
+  // IE fires the mouseover event after the mousemove.
+  if (goog.userAgent.IE && element != fromElement) {
+    this.fireMouseEvent_(bot.events.EventType.MOUSEOVER, fromElement, null,
+        toElemWasInteractable);
+  }
+
+  this.nextClickIsDoubleClick_ = false;
+};
+
+
+/**
+ * Scrolls the wheel of the mouse by the given number of ticks, where a positive
+ * number indicates a downward scroll and a negative is upward scroll.
+ *
+ * @param {number} ticks Number of ticks to scroll the mouse wheel.
+ */
+bot.Mouse.prototype.scroll = function(ticks) {
+  if (ticks == 0) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'Must scroll a non-zero number of ticks.');
+  }
+
+  // The wheelDelta value for a single up-tick of the mouse wheel is 120, and
+  // a single down-tick is -120. The deltas in pixels (which is only relevant
+  // for Firefox) appears to be -57 and 57, respectively.
+  var wheelDelta = ticks > 0 ? -120 : 120;
+  var pixelDelta = ticks > 0 ? 57 : -57;
+
+  // Browsers fire a separate event (or pair of events in Gecko) for each tick.
+  for (var i = 0; i < Math.abs(ticks); i++) {
+    this.fireMouseEvent_(bot.events.EventType.MOUSEWHEEL, null, wheelDelta);
+    if (goog.userAgent.GECKO) {
+      this.fireMouseEvent_(bot.events.EventType.MOUSEPIXELSCROLL, null,
+                           pixelDelta);
+    }
+  }
+};
+
+
+/**
+ * A helper function to fire mouse events.
+ *
+ * @param {bot.events.EventType} type Event type.
+ * @param {Element=} opt_related The related element of this event.
+ * @param {?number=} opt_wheelDelta The wheel delta value for the event.
+ * @param {boolean=} opt_force Whether the event should be fired even if the
+ *     element is not interactable.
+ * @return {boolean} Whether the event fired successfully or was cancelled.
+ * @private
+ */
+bot.Mouse.prototype.fireMouseEvent_ = function(type, opt_related,
+                                               opt_wheelDelta, opt_force) {
+  this.hasEverInteracted_ = true;
+  if (bot.userAgent.IE_DOC_10) {
+    var msPointerEvent = bot.Mouse.MOUSE_EVENT_MAP_[type];
+    if (msPointerEvent) {
+      // The pointerId for mouse events is always 1 and the mouse event is never
+      // fired if the MSPointer event fails.
+      if (!this.fireMSPointerEvent(msPointerEvent, this.clientXY_,
+          this.getButtonValue_(msPointerEvent), bot.Device.MOUSE_MS_POINTER_ID,
+          MSPointerEvent.MSPOINTER_TYPE_MOUSE, /* isPrimary */ true,
+          opt_related, opt_force)) {
+        return false;
+      }
+    }
+  }
+  return this.fireMouseEvent(type, this.clientXY_,
+      this.getButtonValue_(type), opt_related, opt_wheelDelta, opt_force);
+};
+
+
+/**
+ * Given an event type and a mouse button, sets the mouse button value used
+ * for that event on the current browser. The mouse button value is 0 for any
+ * event not covered by bot.Mouse.MOUSE_BUTTON_VALUE_MAP_.
+ *
+ * @param {bot.events.EventType} eventType Type of mouse event.
+ * @return {number} The mouse button ID value to the current browser.
+ * @private
+*/
+bot.Mouse.prototype.getButtonValue_ = function(eventType) {
+  if (!(eventType in bot.Mouse.MOUSE_BUTTON_VALUE_MAP_)) {
+    return 0;
+  }
+
+  var buttonIndex = goog.isNull(this.buttonPressed_) ?
+      bot.Mouse.NO_BUTTON_VALUE_INDEX_ : this.buttonPressed_;
+  var buttonValue = bot.Mouse.MOUSE_BUTTON_VALUE_MAP_[eventType][buttonIndex];
+  if (goog.isNull(buttonValue)) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'Event does not permit the specified mouse button.');
+  }
+  return buttonValue;
+};
+
+
+/**
+ * Serialize the current state of the mouse.
+ * @return {!bot.Mouse.State} The current mouse state.
+ */
+bot.Mouse.prototype.getState = function() {
+  // Need to use quoted literals here, so the compiler will not rename the
+  // properties of the emitted object. When the object is created via the
+  // "constructor", we will look for these *specific* properties. Everywhere
+  // else internally, we use the dot-notation, so it's okay if the compiler
+  // renames the internal variable name.
+  return {
+    'buttonPressed': this.buttonPressed_,
+    'elementPressed': this.elementPressed_,
+    'clientXY': { 'x': this.clientXY_.x, 'y': this.clientXY_.y },
+    'nextClickIsDoubleClick': this.nextClickIsDoubleClick_,
+    'hasEverInteracted': this.hasEverInteracted_,
+    'element': this.getElement()
+  };
+};
+// Copyright 2012 Software Freedom Conservancy
+// Copyright 2010 WebDriver committers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview DOM manipulation and querying routines.
+ */
+
+goog.provide('bot.dom');
+
+goog.require('bot');
+goog.require('bot.color');
+goog.require('bot.locators.xpath');
+goog.require('bot.userAgent');
+goog.require('goog.array');
+goog.require('goog.dom');
+goog.require('goog.dom.DomHelper');
+goog.require('goog.dom.NodeType');
+goog.require('goog.dom.TagName');
+goog.require('goog.math');
+goog.require('goog.math.Coordinate');
+goog.require('goog.math.Rect');
+goog.require('goog.string');
+goog.require('goog.style');
+goog.require('goog.userAgent');
+
+
+/**
+ * Retrieves the active element for a node's owner document.
+ * @param {!(Node|Window)} nodeOrWindow The node whose owner document to get
+ *     the active element for.
+ * @return {Element} The active element, if any.
+ */
+bot.dom.getActiveElement = function(nodeOrWindow) {
+  var active = goog.dom.getActiveElement(
+      goog.dom.getOwnerDocument(nodeOrWindow));
+  // IE has the habit of returning an empty object from
+  // goog.dom.getActiveElement instead of null.
+  if (goog.userAgent.IE &&
+      active &&
+      typeof active.nodeType === 'undefined') {
+    return null;
+  }
+  return active;
+};
+
+
+/**
+ * Returns whether the given node is an element and, optionally, whether it has
+ * the given tag name. If the tag name is not provided, returns true if the node
+ * is an element, regardless of the tag name.h
+ *
+ * @param {Node} node The node to test.
+ * @param {string=} opt_tagName Tag name to test the node for.
+ * @return {boolean} Whether the node is an element with the given tag name.
+ */
+bot.dom.isElement = function(node, opt_tagName) {
+  return !!node && node.nodeType == goog.dom.NodeType.ELEMENT &&
+      (!opt_tagName || node.tagName.toUpperCase() == opt_tagName);
+};
+
+
+/**
+ * Returns whether an element is in an interactable state: whether it is shown
+ * to the user, ignoring its opacity, and whether it is enabled.
+ *
+ * @param {!Element} element The element to check.
+ * @return {boolean} Whether the element is interactable.
+ * @see bot.dom.isShown.
+ * @see bot.dom.isEnabled
+ */
+bot.dom.isInteractable = function(element) {
+  return bot.dom.isShown(element, /*ignoreOpacity=*/true) &&
+      bot.dom.isEnabled(element) &&
+      !bot.dom.hasPointerEventsDisabled_(element);
+};
+
+
+/**
+ * @param {!Element} element Element.
+ * @return {boolean} Whether element is set by the CSS pointer-events property
+ *     not to be interactable.
+ * @private
+ */
+bot.dom.hasPointerEventsDisabled_ = function(element) {
+  if (goog.userAgent.IE || goog.userAgent.OPERA ||
+      (goog.userAgent.GECKO && !bot.userAgent.isEngineVersion('1.9.2'))) {
+    // Don't support pointer events
+    return false;
+  }
+  return bot.dom.getEffectiveStyle(element, 'pointer-events') == 'none';
+};
+
+
+/**
+ * Returns whether the element can be checked or selected.
+ *
+ * @param {!Element} element The element to check.
+ * @return {boolean} Whether the element could be checked or selected.
+ */
+bot.dom.isSelectable = function(element) {
+  if (bot.dom.isElement(element, goog.dom.TagName.OPTION)) {
+    return true;
+  }
+
+  if (bot.dom.isElement(element, goog.dom.TagName.INPUT)) {
+    var type = element.type.toLowerCase();
+    return type == 'checkbox' || type == 'radio';
+  }
+
+  return false;
+};
+
+
+/**
+ * Returns whether the element is checked or selected.
+ *
+ * @param {!Element} element The element to check.
+ * @return {boolean} Whether the element is checked or selected.
+ */
+bot.dom.isSelected = function(element) {
+  if (!bot.dom.isSelectable(element)) {
+    throw new bot.Error(bot.ErrorCode.ELEMENT_NOT_SELECTABLE,
+        'Element is not selectable');
+  }
+
+  var propertyName = 'selected';
+  var type = element.type && element.type.toLowerCase();
+  if ('checkbox' == type || 'radio' == type) {
+    propertyName = 'checked';
+  }
+
+  return !!bot.dom.getProperty(element, propertyName);
+};
+
+
+/**
+ * List of the focusable fields, according to
+ * http://www.w3.org/TR/html401/interact/scripts.html#adef-onfocus
+ * @private {!Array.<!goog.dom.TagName>}
+ * @const
+ */
+bot.dom.FOCUSABLE_FORM_FIELDS_ = [
+  goog.dom.TagName.A,
+  goog.dom.TagName.AREA,
+  goog.dom.TagName.BUTTON,
+  goog.dom.TagName.INPUT,
+  goog.dom.TagName.LABEL,
+  goog.dom.TagName.SELECT,
+  goog.dom.TagName.TEXTAREA
+];
+
+
+/**
+ * Returns whether a node is a focusable element.  An element may receive focus
+ * if it is a form field or has a positive tabindex.
+ * @param {!Element} element The node to test.
+ * @return {boolean} Whether the node is focusable.
+ */
+bot.dom.isFocusable = function(element) {
+  return goog.array.some(bot.dom.FOCUSABLE_FORM_FIELDS_, function(tagName) {
+    return element.tagName.toUpperCase() == tagName;
+  }) || (bot.dom.getAttribute(element, 'tabindex') != null &&
+         Number(bot.dom.getProperty(element, 'tabIndex')) >= 0);
+};
+
+
+/**
+ * Looks up the given property (not to be confused with an attribute) on the
+ * given element.
+ *
+ * @param {!Element} element The element to use.
+ * @param {string} propertyName The name of the property.
+ * @return {*} The value of the property.
+ */
+bot.dom.getProperty = function(element, propertyName) {
+  // When an <option>'s value attribute is not set, its value property should be
+  // its text content, but IE < 8 does not adhere to that behavior, so fix it.
+  // http://www.w3.org/TR/1999/REC-html401-19991224/interact/forms.html#adef-value-OPTION
+  if (bot.userAgent.IE_DOC_PRE8 && propertyName == 'value' &&
+      bot.dom.isElement(element, goog.dom.TagName.OPTION) &&
+      goog.isNull(bot.dom.getAttribute(element, 'value'))) {
+    return goog.dom.getRawTextContent(element);
+  }
+  return element[propertyName];
+};
+
+
+/**
+ * Regex to split on semicolons, but not when enclosed in parens or quotes.
+ * Helper for {@link bot.dom.standardizeStyleAttribute_}.
+ * If the style attribute ends with a semicolon this will include an empty
+ * string at the end of the array
+ * @private {!RegExp}
+ * @const
+ */
+bot.dom.SPLIT_STYLE_ATTRIBUTE_ON_SEMICOLONS_REGEXP_ =
+    new RegExp('[;]+' +
+               '(?=(?:(?:[^"]*"){2})*[^"]*$)' +
+               '(?=(?:(?:[^\']*\'){2})*[^\']*$)' +
+               '(?=(?:[^()]*\\([^()]*\\))*[^()]*$)');
+
+
+/**
+ * Standardize a style attribute value, which includes:
+ *  (1) converting all property names lowercase
+ *  (2) ensuring it ends in a trailing semi-colon
+ *  (3) removing empty style values (which only appear on Opera).
+ * @param {string} value The style attribute value.
+ * @return {string} The identical value, with the formatting rules described
+ *     above applied.
+ * @private
+ */
+bot.dom.standardizeStyleAttribute_ = function(value) {
+  var styleArray = value.split(
+      bot.dom.SPLIT_STYLE_ATTRIBUTE_ON_SEMICOLONS_REGEXP_);
+  var css = [];
+  goog.array.forEach(styleArray, function(pair) {
+    var i = pair.indexOf(':');
+    if (i > 0) {
+      var keyValue = [pair.slice(0, i), pair.slice(i + 1)];
+      if (keyValue.length == 2) {
+        css.push(keyValue[0].toLowerCase(), ':', keyValue[1], ';');
+      }
+    }
+  });
+  css = css.join('');
+  css = css.charAt(css.length - 1) == ';' ? css : css + ';';
+  return goog.userAgent.OPERA ? css.replace(/\w+:;/g, '') : css;
+};
+
+
+/**
+ * Get the user-specified value of the given attribute of the element, or null
+ * if the attribute is not present.
+ *
+ * <p>For boolean attributes such as "selected" or "checked", this method
+ * returns the value of element.getAttribute(attributeName) cast to a String
+ * when attribute is present. For modern browsers, this will be the string the
+ * attribute is given in the HTML, but for IE8 it will be the name of the
+ * attribute, and for IE7, it will be the string "true". To test whether a
+ * boolean attribute is present, test whether the return value is non-null, the
+ * same as one would for non-boolean attributes. Specifically, do *not* test
+ * whether the boolean evaluation of the return value is true, because the value
+ * of a boolean attribute that is present will often be the empty string.
+ *
+ * <p>For the style attribute, it standardizes the value by lower-casing the
+ * property names and always including a trailing semi-colon.
+ *
+ * @param {!Element} element The element to use.
+ * @param {string} attributeName The name of the attribute to return.
+ * @return {?string} The value of the attribute or "null" if entirely missing.
+ */
+bot.dom.getAttribute = function(element, attributeName) {
+  attributeName = attributeName.toLowerCase();
+
+  // The style attribute should be a css text string that includes only what
+  // the HTML element specifies itself (excluding what is inherited from parent
+  // elements or style sheets). We standardize the format of this string via the
+  // standardizeStyleAttribute method.
+  if (attributeName == 'style') {
+    return bot.dom.standardizeStyleAttribute_(element.style.cssText);
+  }
+
+  // In IE doc mode < 8, the "value" attribute of an <input> is only accessible
+  // as a property.
+  if (bot.userAgent.IE_DOC_PRE8 && attributeName == 'value' &&
+      bot.dom.isElement(element, goog.dom.TagName.INPUT)) {
+    return element['value'];
+  }
+
+  // In IE < 9, element.getAttributeNode will return null for some boolean
+  // attributes that are present, such as the selected attribute on <option>
+  // elements. This if-statement is sufficient if these cases are restricted
+  // to boolean attributes whose reflected property names are all lowercase
+  // (as attributeName is by this point), like "selected". We have not
+  // found a boolean attribute for which this does not work.
+  if (bot.userAgent.IE_DOC_PRE9 && element[attributeName] === true) {
+    return String(element.getAttribute(attributeName));
+  }
+
+  // When the attribute is not present, either attr will be null or
+  // attr.specified will be false.
+  var attr = element.getAttributeNode(attributeName);
+  return (attr && attr.specified) ? attr.value : null;
+};
+
+
+/**
+ * List of elements that support the "disabled" attribute, as defined by the
+ * HTML 4.01 specification.
+ * @private {!Array.<goog.dom.TagName>}
+ * @const
+ * @see http://www.w3.org/TR/html401/interact/forms.html#h-17.12.1
+ */
+bot.dom.DISABLED_ATTRIBUTE_SUPPORTED_ = [
+  goog.dom.TagName.BUTTON,
+  goog.dom.TagName.INPUT,
+  goog.dom.TagName.OPTGROUP,
+  goog.dom.TagName.OPTION,
+  goog.dom.TagName.SELECT,
+  goog.dom.TagName.TEXTAREA
+];
+
+
+/**
+ * Determines if an element is enabled. An element is considered enabled if it
+ * does not support the "disabled" attribute, or if it is not disabled.
+ * @param {!Element} el The element to test.
+ * @return {boolean} Whether the element is enabled.
+ */
+bot.dom.isEnabled = function(el) {
+  var tagName = el.tagName.toUpperCase();
+  if (!goog.array.contains(bot.dom.DISABLED_ATTRIBUTE_SUPPORTED_, tagName)) {
+    return true;
+  }
+
+  if (bot.dom.getProperty(el, 'disabled')) {
+    return false;
+  }
+
+  // The element is not explicitly disabled, but if it is an OPTION or OPTGROUP,
+  // we must test if it inherits its state from a parent.
+  if (el.parentNode &&
+      el.parentNode.nodeType == goog.dom.NodeType.ELEMENT &&
+      goog.dom.TagName.OPTGROUP == tagName ||
+      goog.dom.TagName.OPTION == tagName) {
+    return bot.dom.isEnabled(/**@type{!Element}*/ (el.parentNode));
+  }
+
+  // Is there an ancestor of the current element that is a disabled fieldset
+  // and whose child is also an ancestor-or-self of the current element but is
+  // not the first legend child of the fieldset. If so then the element is
+  // disabled.
+  return !goog.dom.getAncestor(el, function(e) {
+    var parent = e.parentNode;
+
+    if (parent &&
+        bot.dom.isElement(parent, goog.dom.TagName.FIELDSET) &&
+        bot.dom.getProperty(/** @type {!Element} */ (parent), 'disabled')) {
+      if (!bot.dom.isElement(e, goog.dom.TagName.LEGEND)) {
+        return true;
+      }
+
+      var sibling = e;
+      // Are there any previous legend siblings? If so then we are not the
+      // first and the element is disabled
+      while (sibling = goog.dom.getPreviousElementSibling(sibling)) {
+        if (bot.dom.isElement(sibling, goog.dom.TagName.LEGEND)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }, true);
+};
+
+
+/**
+ * List of input types that create text fields.
+ * @private {!Array.<string>}
+ * @const
+ * @see http://www.whatwg.org/specs/web-apps/current-work/multipage/the-input-element.html#attr-input-type
+ */
+bot.dom.TEXTUAL_INPUT_TYPES_ = [
+  'text',
+  'search',
+  'tel',
+  'url',
+  'email',
+  'password',
+  'number'
+];
+
+
+/**
+ * TODO: Add support for designMode elements.
+ *
+ * @param {!Element} element The element to check.
+ * @return {boolean} Whether the element accepts user-typed text.
+ */
+bot.dom.isTextual = function(element) {
+  if (bot.dom.isElement(element, goog.dom.TagName.TEXTAREA)) {
+    return true;
+  }
+
+  if (bot.dom.isElement(element, goog.dom.TagName.INPUT)) {
+    var type = element.type.toLowerCase();
+    return goog.array.contains(bot.dom.TEXTUAL_INPUT_TYPES_, type);
+  }
+
+  if (bot.dom.isContentEditable(element)) {
+    return true;
+  }
+
+  return false;
+};
+
+
+/**
+ * @param {!Element} element The element to check.
+ * @return {boolean} Whether the element is contentEditable.
+ */
+bot.dom.isContentEditable = function(element) {
+  // Check if browser supports contentEditable.
+  if (!goog.isDef(element['contentEditable'])) {
+    return false;
+  }
+
+  // Checking the element's isContentEditable property is preferred except for
+  // IE where that property is not reliable on IE versions 7, 8, and 9.
+  if (!goog.userAgent.IE && goog.isDef(element['isContentEditable'])) {
+    return element.isContentEditable;
+  }
+
+  // For IE and for browsers where contentEditable is supported but
+  // isContentEditable is not, traverse up the ancestors:
+  function legacyIsContentEditable(e) {
+    if (e.contentEditable == 'inherit') {
+      var parent = bot.dom.getParentElement(e);
+      return parent ? legacyIsContentEditable(parent) : false;
+    } else {
+      return e.contentEditable == 'true';
+    }
+  }
+  return legacyIsContentEditable(element);
+};
+
+
+/**
+ * TODO: Merge isTextual into this function and move to bot.dom.
+ * For Puppet, requires adding support to getVisibleText for grabbing
+ * text from all textual elements.
+ *
+ * Whether the element may contain text the user can edit.
+ *
+ * @param {!Element} element The element to check.
+ * @return {boolean} Whether the element accepts user-typed text.
+ */
+bot.dom.isEditable = function(element) {
+  return bot.dom.isTextual(element) &&
+      !bot.dom.getProperty(element, 'readOnly');
+};
+
+
+/**
+ * Returns the parent element of the given node, or null. This is required
+ * because the parent node may not be another element.
+ *
+ * @param {!Node} node The node who's parent is desired.
+ * @return {Element} The parent element, if available, null otherwise.
+ */
+bot.dom.getParentElement = function(node) {
+  var elem = node.parentNode;
+
+  while (elem &&
+         elem.nodeType != goog.dom.NodeType.ELEMENT &&
+         elem.nodeType != goog.dom.NodeType.DOCUMENT &&
+         elem.nodeType != goog.dom.NodeType.DOCUMENT_FRAGMENT) {
+    elem = elem.parentNode;
+  }
+  return /** @type {Element} */ (bot.dom.isElement(elem) ? elem : null);
+};
+
+
+/**
+ * Retrieves an explicitly-set, inline style value of an element. This returns
+ * '' if there isn't a style attribute on the element or if this style property
+ * has not been explicitly set in script.
+ *
+ * @param {!Element} elem Element to get the style value from.
+ * @param {string} styleName Name of the style property in selector-case.
+ * @return {string} The value of the style property.
+ */
+bot.dom.getInlineStyle = function(elem, styleName) {
+  return goog.style.getStyle(elem, styleName);
+};
+
+
+/**
+ * Retrieves the implicitly-set, effective style of an element, or null if it is
+ * unknown. It returns the computed style where available; otherwise it looks
+ * up the DOM tree for the first style value not equal to 'inherit,' using the
+ * IE currentStyle of each node if available, and otherwise the inline style.
+ * Since the computed, current, and inline styles can be different, the return
+ * value of this function is not always consistent across browsers. See:
+ * http://code.google.com/p/doctype/wiki/ArticleComputedStyleVsCascadedStyle
+ *
+ * @param {!Element} elem Element to get the style value from.
+ * @param {string} propertyName Name of the CSS property.
+ * @return {?string} The value of the style property, or null.
+ */
+bot.dom.getEffectiveStyle = function(elem, propertyName) {
+  var styleName = goog.string.toCamelCase(propertyName);
+  if (styleName == 'float' ||
+      styleName == 'cssFloat' ||
+      styleName == 'styleFloat') {
+    styleName = bot.userAgent.IE_DOC_PRE9 ? 'styleFloat' : 'cssFloat';
+  }
+  var style = goog.style.getComputedStyle(elem, styleName) ||
+      bot.dom.getCascadedStyle_(elem, styleName);
+  if (style === null) {
+    return null;
+  }
+  return bot.color.standardizeColor(styleName, style);
+};
+
+
+/**
+ * Looks up the DOM tree for the first style value not equal to 'inherit,' using
+ * the currentStyle of each node if available, and otherwise the inline style.
+ *
+ * @param {!Element} elem Element to get the style value from.
+ * @param {string} styleName CSS style property in camelCase.
+ * @return {?string} The value of the style property, or null.
+ * @private
+ */
+bot.dom.getCascadedStyle_ = function(elem, styleName) {
+  var style = elem.currentStyle || elem.style;
+  var value = style[styleName];
+  if (!goog.isDef(value) && goog.isFunction(style['getPropertyValue'])) {
+    value = style['getPropertyValue'](styleName);
+  }
+
+  if (value != 'inherit') {
+    return goog.isDef(value) ? value : null;
+  }
+  var parent = bot.dom.getParentElement(elem);
+  return parent ? bot.dom.getCascadedStyle_(parent, styleName) : null;
+};
+
+
+/**
+ * Determines whether an element is what a user would call "shown". This means
+ * that the element is shown in the viewport of the browser, and only has
+ * height and width greater than 0px, and that its visibility is not "hidden"
+ * and its display property is not "none".
+ * Options and Optgroup elements are treated as special cases: they are
+ * considered shown iff they have a enclosing select element that is shown.
+ *
+ * @param {!Element} elem The element to consider.
+ * @param {boolean=} opt_ignoreOpacity Whether to ignore the element's opacity
+ *     when determining whether it is shown; defaults to false.
+ * @return {boolean} Whether or not the element is visible.
+ */
+bot.dom.isShown = function(elem, opt_ignoreOpacity) {
+  if (!bot.dom.isElement(elem)) {
+    throw new Error('Argument to isShown must be of type Element');
+  }
+
+  // By convention, BODY element is always shown: BODY represents the document
+  // and even if there's nothing rendered in there, user can always see there's the document.
+  if (bot.dom.isElement(elem, goog.dom.TagName.BODY)) {
+    return true;
+  }
+
+  // Option or optgroup is shown iff enclosing select is shown (ignoring the
+  // select's opacity).
+  if (bot.dom.isElement(elem, goog.dom.TagName.OPTION) ||
+      bot.dom.isElement(elem, goog.dom.TagName.OPTGROUP)) {
+    var select = /**@type {Element}*/ (goog.dom.getAncestor(elem, function(e) {
+      return bot.dom.isElement(e, goog.dom.TagName.SELECT);
+    }));
+    return !!select && bot.dom.isShown(select, /*ignoreOpacity=*/true);
+  }
+
+  // Image map elements are shown if image that uses it is shown, and
+  // the area of the element is positive.
+  var imageMap = bot.dom.maybeFindImageMap_(elem);
+  if (imageMap) {
+    return !!imageMap.image &&
+           imageMap.rect.width > 0 && imageMap.rect.height > 0 &&
+           bot.dom.isShown(imageMap.image, opt_ignoreOpacity);
+  }
+
+  // Any hidden input is not shown.
+  if (bot.dom.isElement(elem, goog.dom.TagName.INPUT) &&
+      elem.type.toLowerCase() == 'hidden') {
+    return false;
+  }
+
+  // Any NOSCRIPT element is not shown.
+  if (bot.dom.isElement(elem, goog.dom.TagName.NOSCRIPT)) {
+    return false;
+  }
+
+  // Any element with hidden visibility is not shown.
+  if (bot.dom.getEffectiveStyle(elem, 'visibility') == 'hidden') {
+    return false;
+  }
+
+  // Any element with a display style equal to 'none' or that has an ancestor
+  // with display style equal to 'none' is not shown.
+  function displayed(e) {
+    if (bot.dom.getEffectiveStyle(e, 'display') == 'none') {
+      return false;
+    }
+    var parent = bot.dom.getParentElement(e);
+    return !parent || displayed(parent);
+  }
+  if (!displayed(elem)) {
+    return false;
+  }
+
+  // Any transparent element is not shown.
+  if (!opt_ignoreOpacity && bot.dom.getOpacity(elem) == 0) {
+    return false;
+  }
+
+  // Any element without positive size dimensions is not shown.
+  function positiveSize(e) {
+    var rect = bot.dom.getClientRect(e);
+    if (rect.height > 0 && rect.width > 0) {
+      return true;
+    }
+    // A vertical or horizontal SVG Path element will report zero width or
+    // height but is "shown" if it has a positive stroke-width.
+    if (bot.dom.isElement(e, 'PATH') && (rect.height > 0 || rect.width > 0)) {
+      var strokeWidth = bot.dom.getEffectiveStyle(e, 'stroke-width');
+      return !!strokeWidth && (parseInt(strokeWidth, 10) > 0);
+    }
+    // Zero-sized elements should still be considered to have positive size
+    // if they have a child element or text node with positive size, unless
+    // the element has an 'overflow' style of 'hidden'.
+    return bot.dom.getEffectiveStyle(e, 'overflow') != 'hidden' &&
+        goog.array.some(e.childNodes, function(n) {
+          return n.nodeType == goog.dom.NodeType.TEXT ||
+                 (bot.dom.isElement(n) && positiveSize(n));
+        });
+  }
+  if (!positiveSize(elem)) {
+    return false;
+  }
+
+  // Elements that are hidden by overflow are not shown.
+  function hiddenByOverflow(e) {
+    return bot.dom.getOverflowState(e) == bot.dom.OverflowState.HIDDEN &&
+        goog.array.every(e.childNodes, function(n) {
+          return !bot.dom.isElement(n) || hiddenByOverflow(n);
+        });
+  }
+  return !hiddenByOverflow(elem);
+};
+
+
+/**
+ * The kind of overflow area in which an element may be located. NONE if it does
+ * not overflow any ancestor element; HIDDEN if it overflows and cannot be
+ * scrolled into view; SCROLL if it overflows but can be scrolled into view.
+ *
+ * @enum {string}
+ */
+bot.dom.OverflowState = {
+  NONE: 'none',
+  HIDDEN: 'hidden',
+  SCROLL: 'scroll'
+};
+
+
+/**
+ * Returns the overflow state of the given element.
+ *
+ * If an optional coordinate or rectangle region is provided, returns the
+ * overflow state of that region relative to the element. A coordinate is
+ * treated as a 1x1 rectangle whose top-left corner is the coordinate.
+ *
+ * @param {!Element} elem Element.
+ * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
+ *     Coordinate or rectangle relative to the top-left corner of the element.
+ * @return {bot.dom.OverflowState} Overflow state of the element.
+ */
+bot.dom.getOverflowState = function(elem, opt_region) {
+  var region = bot.dom.getClientRegion(elem, opt_region);
+  var ownerDoc = goog.dom.getOwnerDocument(elem);
+  var htmlElem = ownerDoc.documentElement;
+  var bodyElem = ownerDoc.body;
+  var htmlOverflowStyle = bot.dom.getEffectiveStyle(htmlElem, 'overflow');
+  var treatAsFixedPosition;
+
+  // Return the closest ancestor that the given element may overflow.
+  function getOverflowParent(e) {
+    var position = bot.dom.getEffectiveStyle(e, 'position');
+    if (position == 'fixed') {
+      treatAsFixedPosition = true;
+      // Fixed-position element may only overflow the viewport.
+      return e == htmlElem ? null : htmlElem;
+    } else {
+      var parent = bot.dom.getParentElement(e);
+      while (parent && !canBeOverflowed(parent)) {
+        parent = bot.dom.getParentElement(parent);
+      }
+      return parent;
+    }
+
+    function canBeOverflowed(container) {
+      // The HTML element can always be overflowed.
+      if (container == htmlElem) {
+        return true;
+      }
+      // An element cannot overflow an element with an inline display style.
+      var containerDisplay = /** @type {string} */ (
+          bot.dom.getEffectiveStyle(container, 'display'));
+      if (goog.string.startsWith(containerDisplay, 'inline')) {
+        return false;
+      }
+      // An absolute-positioned element cannot overflow a static-positioned one.
+      if (position == 'absolute' &&
+          bot.dom.getEffectiveStyle(container, 'position') == 'static') {
+        return false;
+      }
+      return true;
+    }
+  }
+
+  // Return the x and y overflow styles for the given element.
+  function getOverflowStyles(e) {
+    // When the <html> element has an overflow style of 'visible', it assumes
+    // the overflow style of the body, and the body is really overflow:visible.
+    var overflowElem = e;
+    if (htmlOverflowStyle == 'visible') {
+      // Note: bodyElem will be null/undefined in SVG documents.
+      if (e == htmlElem && bodyElem) {
+        overflowElem = bodyElem;
+      } else if (e == bodyElem) {
+        return {x: 'visible', y: 'visible'};
+      }
+    }
+    var overflow = {
+      x: bot.dom.getEffectiveStyle(overflowElem, 'overflow-x'),
+      y: bot.dom.getEffectiveStyle(overflowElem, 'overflow-y')
+    };
+    // The <html> element cannot have a genuine 'visible' overflow style,
+    // because the viewport can't expand; 'visible' is really 'auto'.
+    if (e == htmlElem) {
+      overflow.x = overflow.x == 'visible' ? 'auto' : overflow.x;
+      overflow.y = overflow.y == 'visible' ? 'auto' : overflow.y;
+    }
+    return overflow;
+  }
+
+  // Returns the scroll offset of the given element.
+  function getScroll(e) {
+    if (e == htmlElem) {
+      return new goog.dom.DomHelper(ownerDoc).getDocumentScroll();
+    } else {
+      return new goog.math.Coordinate(e.scrollLeft, e.scrollTop);
+    }
+  }
+
+  // Check if the element overflows any ancestor element.
+  for (var container = getOverflowParent(elem);
+       !!container;
+       container = getOverflowParent(container)) {
+    var containerOverflow = getOverflowStyles(container);
+
+    // If the container has overflow:visible, the element cannot overflow it.
+    if (containerOverflow.x == 'visible' && containerOverflow.y == 'visible') {
+      continue;
+    }
+
+    var containerRect = bot.dom.getClientRect(container);
+
+    // Zero-sized containers without overflow:visible hide all descendants.
+    if (containerRect.width == 0 || containerRect.height == 0) {
+      return bot.dom.OverflowState.HIDDEN;
+    }
+
+    // Check "underflow": if an element is to the left or above the container
+    var underflowsX = region.right < containerRect.left;
+    var underflowsY = region.bottom < containerRect.top;
+    if ((underflowsX && containerOverflow.x == 'hidden') ||
+        (underflowsY && containerOverflow.y == 'hidden')) {
+      return bot.dom.OverflowState.HIDDEN;
+    } else if ((underflowsX && containerOverflow.x != 'visible') ||
+               (underflowsY && containerOverflow.y != 'visible')) {
+      // When the element is positioned to the left or above a container, we
+      // have to distinguish between the element being completely outside the
+      // container and merely scrolled out of view within the container.
+      var containerScroll = getScroll(container);
+      var unscrollableX = region.right < containerRect.left - containerScroll.x;
+      var unscrollableY = region.bottom < containerRect.top - containerScroll.y;
+      if ((unscrollableX && containerOverflow.x != 'visible') ||
+          (unscrollableY && containerOverflow.x != 'visible')) {
+        return bot.dom.OverflowState.HIDDEN;
+      }
+      var containerState = bot.dom.getOverflowState(container);
+      return containerState == bot.dom.OverflowState.HIDDEN ?
+          bot.dom.OverflowState.HIDDEN : bot.dom.OverflowState.SCROLL;
+    }
+
+    // Check "overflow": if an element is to the right or below a container
+    var overflowsX = region.left >= containerRect.left + containerRect.width;
+    var overflowsY = region.top >= containerRect.top + containerRect.height;
+    if ((overflowsX && containerOverflow.x == 'hidden') ||
+        (overflowsY && containerOverflow.y == 'hidden')) {
+      return bot.dom.OverflowState.HIDDEN;
+    } else if ((overflowsX && containerOverflow.x != 'visible') ||
+               (overflowsY && containerOverflow.y != 'visible')) {
+      // If the element has fixed position and falls outside the scrollable area
+      // of the document, then it is hidden.
+      if (treatAsFixedPosition) {
+        var docScroll = getScroll(container);
+        if ((region.left >= htmlElem.scrollWidth - docScroll.x) ||
+            (region.right >= htmlElem.scrollHeight - docScroll.y)) {
+          return bot.dom.OverflowState.HIDDEN;
+        }
+      }
+      // If the element can be scrolled into view of the parent, it has a scroll
+      // state; unless the parent itself is entirely hidden by overflow, in
+      // which it is also hidden by overflow.
+      var containerState = bot.dom.getOverflowState(container);
+      return containerState == bot.dom.OverflowState.HIDDEN ?
+          bot.dom.OverflowState.HIDDEN : bot.dom.OverflowState.SCROLL;
+    }
+  }
+
+  // Does not overflow any ancestor.
+  return bot.dom.OverflowState.NONE;
+};
+
+
+/**
+ * A regular expression to match the CSS transform matrix syntax.
+ * @private {!RegExp}
+ * @const
+ */
+bot.dom.CSS_TRANSFORM_MATRIX_REGEX_ =
+    new RegExp('matrix\\(([\\d\\.\\-]+), ([\\d\\.\\-]+), ' +
+               '([\\d\\.\\-]+), ([\\d\\.\\-]+), ' +
+               '([\\d\\.\\-]+)(?:px)?, ([\\d\\.\\-]+)(?:px)?\\)');
+
+
+/**
+ * Gets the client rectangle of the DOM element. It often returns the same value
+ * as Element.getBoundingClientRect, but is "fixed" for various scenarios:
+ * 1. Like goog.style.getClientPosition, it adjusts for the inset border in IE.
+ * 2. Gets a rect for <map>'s and <area>'s relative to the image using them.
+ * 3. Gets a rect for SVG elements representing their true bounding box.
+ * 4. Defines the client rect of the <html> element to be the window viewport.
+ *
+ * @param {!Element} elem The element to use.
+ * @return {!goog.math.Rect} The interaction box of the element.
+ */
+bot.dom.getClientRect = function(elem) {
+  var imageMap = bot.dom.maybeFindImageMap_(elem);
+  if (imageMap) {
+    return imageMap.rect;
+  } else if (bot.dom.isElement(elem, goog.dom.TagName.HTML)) {
+    // Define the client rect of the <html> element to be the viewport.
+    var doc = goog.dom.getOwnerDocument(elem);
+    var viewportSize = goog.dom.getViewportSize(goog.dom.getWindow(doc));
+    return new goog.math.Rect(0, 0, viewportSize.width, viewportSize.height);
+  } else {
+    var nativeRect;
+    try {
+      // TODO: in IE and Firefox, getBoundingClientRect includes stroke width,
+      // but getBBox does not.
+      nativeRect = elem.getBoundingClientRect();
+    } catch (e) {
+      // On IE < 9, calling getBoundingClientRect on an orphan element raises
+      // an "Unspecified Error". All other browsers return zeros.
+      return new goog.math.Rect(0, 0, 0, 0);
+    }
+
+    var rect = new goog.math.Rect(nativeRect.left, nativeRect.top,
+        nativeRect.right - nativeRect.left, nativeRect.bottom - nativeRect.top);
+
+    // In IE, the element can additionally be offset by a border around the
+    // documentElement or body element that we have to subtract.
+    if (goog.userAgent.IE && elem.ownerDocument.body) {
+      var doc = goog.dom.getOwnerDocument(elem);
+      rect.left -= doc.documentElement.clientLeft + doc.body.clientLeft;
+      rect.top -= doc.documentElement.clientTop + doc.body.clientTop;
+    }
+
+    // Opera sometimes falsely report zero size bounding rects.
+    if (goog.userAgent.OPERA) {
+      if (rect.width == 0 && elem.offsetWidth > 0) {
+        rect.width = elem.offsetWidth;
+      }
+      if (rect.height == 0 && elem.offsetHeight > 0) {
+        rect.height = elem.offsetHeight;
+      }
+    }
+
+    // On Gecko < 12, getBoundingClientRect does not account for CSS transforms.
+    // TODO: Remove this when we drop support for FF3.6 and FF10.
+    if (goog.userAgent.GECKO && !bot.userAgent.isEngineVersion(12)) {
+      transformLegacyFirefoxClientRect(elem);
+    }
+
+    return rect;
+  }
+
+  function transformLegacyFirefoxClientRect(container) {
+    var win = goog.dom.getWindow(goog.dom.getOwnerDocument(container));
+    var transform = win.getComputedStyle(container, null)['MozTransform'];
+    var matches = transform.match(bot.dom.CSS_TRANSFORM_MATRIX_REGEX_);
+
+    if (matches) {
+      var a = parseFloat(matches[1]), b = parseFloat(matches[2]),
+          c = parseFloat(matches[3]), d = parseFloat(matches[4]),
+          x = parseFloat(matches[5]), y = parseFloat(matches[6]);
+      var right = rect.left + rect.width, bottom = rect.top + rect.height;
+      var leftXa = rect.left * a, rightXa = right * a,
+          leftXb = rect.left * b, rightXb = right * b,
+          topXc = rect.top * c, bottomXc = bottom * c,
+          topXd = rect.top * d, bottomXd = bottom * d;
+      var topLeftX = leftXa + topXc + x,
+          topLeftY = leftXb + topXd + y,
+          topRightX = rightXa + topXc + x,
+          topRightY = rightXb + topXd + y,
+          bottomLeftX = leftXa + bottomXc + x,
+          bottomLeftY = leftXb + bottomXd + y,
+          bottomRightX = rightXa + bottomXc + x,
+          bottomRightY = rightXb + bottomXd + y;
+      rect.left = Math.min(topLeftX, topRightX, bottomLeftX, bottomRightX);
+      rect.top = Math.min(topLeftY, topRightY, bottomLeftY, bottomRightY);
+      var newRight = Math.max(topLeftX, topRightX, bottomLeftX, bottomRightX);
+      var newBottom = Math.max(topLeftY, topRightY, bottomLeftY, bottomRightY);
+      rect.width = newRight - rect.left;
+      rect.height = newBottom - rect.top;
+    }
+
+    // The computed transform style not not take into account parent transforms.
+    var parentContainer = bot.dom.getParentElement(container);
+    if (parentContainer) {
+      transformLegacyFirefoxClientRect(parentContainer);
+    }
+  }
+};
+
+
+/**
+ * If given a <map> or <area> element, finds the corresponding image and client
+ * rectangle of the element; otherwise returns null. The return value is an
+ * object with 'image' and 'rect' properties. When no image uses the given
+ * element, the returned rectangle is present but has zero size.
+ *
+ * @param {!Element} elem Element to test.
+ * @return {?{image: Element, rect: !goog.math.Rect}} Image and rectangle.
+ * @private
+ */
+bot.dom.maybeFindImageMap_ = function(elem) {
+  // If not a <map> or <area>, return null indicating so.
+  var isMap = bot.dom.isElement(elem, goog.dom.TagName.MAP);
+  if (!isMap && !bot.dom.isElement(elem, goog.dom.TagName.AREA)) {
+    return null;
+  }
+
+  // Get the <map> associated with this element, or null if none.
+  var map = isMap ? elem :
+      (bot.dom.isElement(elem.parentNode, goog.dom.TagName.MAP) ?
+          elem.parentNode : null);
+
+  var image = null, rect = null;
+  if (map && map.name) {
+    var mapDoc = goog.dom.getOwnerDocument(map);
+
+    // The "//*" XPath syntax can confuse the closure compiler, so we use
+    // the "/descendant::*" syntax instead.
+    // TODO: Try to find a reproducible case for the compiler bug.
+    // TODO: Restrict to applet, img, input:image, and object nodes.
+    var imageXpath = '/descendant::*[@usemap = "#' + map.name + '"]';
+
+    // TODO: Break dependency of bot.locators on bot.dom,
+    // so bot.locators.findElement can be called here instead.
+    image = bot.locators.xpath.single(imageXpath, mapDoc);
+
+    if (image) {
+      rect = bot.dom.getClientRect(image);
+      if (!isMap && elem.shape.toLowerCase() != 'default') {
+        // Shift and crop the relative area rectangle to the map.
+        var relRect = bot.dom.getAreaRelativeRect_(elem);
+        var relX = Math.min(Math.max(relRect.left, 0), rect.width);
+        var relY = Math.min(Math.max(relRect.top, 0), rect.height);
+        var w = Math.min(relRect.width, rect.width - relX);
+        var h = Math.min(relRect.height, rect.height - relY);
+        rect = new goog.math.Rect(relX + rect.left, relY + rect.top, w, h);
+      }
+    }
+  }
+
+  return {image: image, rect: rect || new goog.math.Rect(0, 0, 0, 0)};
+};
+
+
+/**
+ * Returns the bounding box around an <area> element relative to its enclosing
+ * <map>. Does not apply to <area> elements with shape=='default'.
+ *
+ * @param {!Element} area Area element.
+ * @return {!goog.math.Rect} Bounding box of the area element.
+ * @private
+ */
+bot.dom.getAreaRelativeRect_ = function(area) {
+  var shape = area.shape.toLowerCase();
+  var coords = area.coords.split(',');
+  if (shape == 'rect' && coords.length == 4) {
+    var x = coords[0], y = coords[1];
+    return new goog.math.Rect(x, y, coords[2] - x, coords[3] - y);
+  } else if (shape == 'circle' && coords.length == 3) {
+    var centerX = coords[0], centerY = coords[1], radius = coords[2];
+    return new goog.math.Rect(centerX - radius, centerY - radius,
+                              2 * radius, 2 * radius);
+  } else if (shape == 'poly' && coords.length > 2) {
+    var minX = coords[0], minY = coords[1], maxX = minX, maxY = minY;
+    for (var i = 2; i + 1 < coords.length; i += 2) {
+      minX = Math.min(minX, coords[i]);
+      maxX = Math.max(maxX, coords[i]);
+      minY = Math.min(minY, coords[i + 1]);
+      maxY = Math.max(maxY, coords[i + 1]);
+    }
+    return new goog.math.Rect(minX, minY, maxX - minX, maxY - minY);
+  }
+  return new goog.math.Rect(0, 0, 0, 0);
+};
+
+
+/**
+ * Gets the element's client rectangle as a box, optionally clipped to the
+ * given coordinate or rectangle relative to the client's position. A coordinate
+ * is treated as a 1x1 rectangle whose top-left corner is the coordinate.
+ *
+ * @param {!Element} elem The element.
+ * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
+ *     Coordinate or rectangle relative to the top-left corner of the element.
+ * @return {!goog.math.Box} The client region box.
+ */
+bot.dom.getClientRegion = function(elem, opt_region) {
+  var region = bot.dom.getClientRect(elem).toBox();
+
+  if (opt_region) {
+    var rect = opt_region instanceof goog.math.Rect ? opt_region :
+        new goog.math.Rect(opt_region.x, opt_region.y, 1, 1);
+    region.left = goog.math.clamp(
+        region.left + rect.left, region.left, region.right);
+    region.top = goog.math.clamp(
+        region.top + rect.top, region.top, region.bottom);
+    region.right = goog.math.clamp(
+        region.left + rect.width, region.left, region.right);
+    region.bottom = goog.math.clamp(
+        region.top + rect.height, region.top, region.bottom);
+  }
+
+  return region;
+};
+
+
+/**
+ * Trims leading and trailing whitespace from strings, leaving non-breaking
+ * space characters in place.
+ *
+ * @param {string} str The string to trim.
+ * @return {string} str without any leading or trailing whitespace characters
+ *     except non-breaking spaces.
+ * @private
+ */
+bot.dom.trimExcludingNonBreakingSpaceCharacters_ = function(str) {
+  return str.replace(/^[^\S\xa0]+|[^\S\xa0]+$/g, '');
+};
+
+
+/**
+ * @param {!Element} elem The element to consider.
+ * @return {string} visible text.
+ */
+bot.dom.getVisibleText = function(elem) {
+  var lines = [];
+  bot.dom.appendVisibleTextLinesFromElement_(elem, lines);
+  lines = goog.array.map(
+      lines,
+      bot.dom.trimExcludingNonBreakingSpaceCharacters_);
+  var joined = lines.join('\n');
+  var trimmed = bot.dom.trimExcludingNonBreakingSpaceCharacters_(joined);
+
+  // Replace non-breakable spaces with regular ones.
+  return trimmed.replace(/\xa0/g, ' ');
+};
+
+
+/**
+ * @param {!Element} elem Element.
+ * @param {!Array.<string>} lines Accumulated visible lines of text.
+ * @private
+ */
+bot.dom.appendVisibleTextLinesFromElement_ = function(elem, lines) {
+  function currLine() {
+    return /** @type {string|undefined} */ (goog.array.peek(lines)) || '';
+  }
+
+  // TODO: Add case here for textual form elements.
+  if (bot.dom.isElement(elem, goog.dom.TagName.BR)) {
+    lines.push('');
+  } else {
+    // TODO: properly handle display:run-in
+    var isTD = bot.dom.isElement(elem, goog.dom.TagName.TD);
+    var display = bot.dom.getEffectiveStyle(elem, 'display');
+    // On some browsers, table cells incorrectly show up with block styles.
+    var isBlock = !isTD &&
+        !goog.array.contains(bot.dom.INLINE_DISPLAY_BOXES_, display);
+
+    // Add a newline before block elems when there is text on the current line,
+    // except when the previous sibling has a display: run-in.
+    // Also, do not run-in the previous sibling if this element is floated.
+
+    var previousElementSibling = goog.dom.getPreviousElementSibling(elem);
+    var prevDisplay = (previousElementSibling) ?
+        bot.dom.getEffectiveStyle(previousElementSibling, 'display') : '';
+    // TODO: getEffectiveStyle should mask this for us
+    var thisFloat = bot.dom.getEffectiveStyle(elem, 'float') ||
+        bot.dom.getEffectiveStyle(elem, 'cssFloat') ||
+        bot.dom.getEffectiveStyle(elem, 'styleFloat');
+    var runIntoThis = prevDisplay == 'run-in' && thisFloat == 'none';
+    if (isBlock && !runIntoThis && !goog.string.isEmpty(currLine())) {
+      lines.push('');
+    }
+
+    // This element may be considered unshown, but have a child that is
+    // explicitly shown (e.g. this element has "visibility:hidden").
+    // Nevertheless, any text nodes that are direct descendants of this
+    // element will not contribute to the visible text.
+    var shown = bot.dom.isShown(elem);
+
+    // All text nodes that are children of this element need to know the
+    // effective "white-space" and "text-transform" styles to properly
+    // compute their contribution to visible text. Compute these values once.
+    var whitespace = null, textTransform = null;
+    if (shown) {
+      whitespace = bot.dom.getEffectiveStyle(elem, 'white-space');
+      textTransform = bot.dom.getEffectiveStyle(elem, 'text-transform');
+    }
+
+    goog.array.forEach(elem.childNodes, function(node) {
+      if (node.nodeType == goog.dom.NodeType.TEXT && shown) {
+        var textNode = /** @type {!Text} */ (node);
+        bot.dom.appendVisibleTextLinesFromTextNode_(textNode, lines,
+            whitespace, textTransform);
+      } else if (bot.dom.isElement(node)) {
+        var castElem = /** @type {!Element} */ (node);
+        bot.dom.appendVisibleTextLinesFromElement_(castElem, lines);
+      }
+    });
+
+    var line = currLine();
+
+    // Here we differ from standard innerText implementations (if there were
+    // such a thing). Usually, table cells are separated by a tab, but we
+    // normalize tabs into single spaces.
+    if ((isTD || display == 'table-cell') && line &&
+        !goog.string.endsWith(line, ' ')) {
+      lines[lines.length - 1] += ' ';
+    }
+
+    // Add a newline after block elems when there is text on the current line,
+    // and the current element isn't marked as run-in.
+    if (isBlock && display != 'run-in' && !goog.string.isEmpty(line)) {
+      lines.push('');
+    }
+  }
+};
+
+
+/**
+ * Elements with one of these effective "display" styles are treated as inline
+ * display boxes and have their visible text appended to the current line.
+ * @private {!Array.<string>}
+ * @const
+ */
+bot.dom.INLINE_DISPLAY_BOXES_ = [
+  'inline',
+  'inline-block',
+  'inline-table',
+  'none',
+  'table-cell',
+  'table-column',
+  'table-column-group'
+];
+
+
+/**
+ * @param {!Text} textNode Text node.
+ * @param {!Array.<string>} lines Accumulated visible lines of text.
+ * @param {?string} whitespace Parent element's "white-space" style.
+ * @param {?string} textTransform Parent element's "text-transform" style.
+ * @private
+ */
+bot.dom.appendVisibleTextLinesFromTextNode_ = function(textNode, lines,
+    whitespace, textTransform) {
+  // First, remove zero-width characters. Do this before regularizing spaces as
+  // the zero-width space is both zero-width and a space, but we do not want to
+  // make it visible by converting it to a regular space.
+  // The replaced characters are:
+  //   U+200B: Zero-width space
+  //   U+200E: Left-to-right mark
+  //   U+200F: Right-to-left mark
+  var text = textNode.nodeValue.replace(/[\u200b\u200e\u200f]/g, '');
+
+  // Canonicalize the new lines, and then collapse new lines
+  // for the whitespace styles that collapse. See:
+  // https://developer.mozilla.org/en/CSS/white-space
+  text = goog.string.canonicalizeNewlines(text);
+  if (whitespace == 'normal' || whitespace == 'nowrap') {
+    text = text.replace(/\n/g, ' ');
+  }
+
+  // For pre and pre-wrap whitespace styles, convert all breaking spaces to be
+  // non-breaking, otherwise, collapse all breaking spaces. Breaking spaces are
+  // converted to regular spaces by getVisibleText().
+  if (whitespace == 'pre' || whitespace == 'pre-wrap') {
+    text = text.replace(/[ \f\t\v\u2028\u2029]/g, '\xa0');
+  } else {
+    text = text.replace(/[\ \f\t\v\u2028\u2029]+/g, ' ');
+  }
+
+  if (textTransform == 'capitalize') {
+    text = text.replace(/(^|\s)(\S)/g, function() {
+      return arguments[1] + arguments[2].toUpperCase();
+    });
+  } else if (textTransform == 'uppercase') {
+    text = text.toUpperCase();
+  } else if (textTransform == 'lowercase') {
+    text = text.toLowerCase();
+  }
+
+  var currLine = lines.pop() || '';
+  if (goog.string.endsWith(currLine, ' ') &&
+      goog.string.startsWith(text, ' ')) {
+    text = text.substr(1);
+  }
+  lines.push(currLine + text);
+};
+
+
+/**
+ * Gets the opacity of a node (x-browser).
+ * This gets the inline style opacity of the node and takes into account the
+ * cascaded or the computed style for this node.
+ *
+ * @param {!Element} elem Element whose opacity has to be found.
+ * @return {number} Opacity between 0 and 1.
+ */
+bot.dom.getOpacity = function(elem) {
+  // TODO: Does this need to deal with rgba colors?
+  if (!bot.userAgent.IE_DOC_PRE9) {
+    return bot.dom.getOpacityNonIE_(elem);
+  } else {
+    if (bot.dom.getEffectiveStyle(elem, 'position') == 'relative') {
+      // Filter does not apply to non positioned elements.
+      return 1;
+    }
+
+    var opacityStyle = bot.dom.getEffectiveStyle(elem, 'filter');
+    var groups = opacityStyle.match(/^alpha\(opacity=(\d*)\)/) ||
+        opacityStyle.match(
+        /^progid:DXImageTransform.Microsoft.Alpha\(Opacity=(\d*)\)/);
+
+    if (groups) {
+      return Number(groups[1]) / 100;
+    } else {
+      return 1; // Opaque.
+    }
+  }
+};
+
+
+/**
+ * Implementation of getOpacity for browsers that do support
+ * the "opacity" style.
+ *
+ * @param {!Element} elem Element whose opacity has to be found.
+ * @return {number} Opacity between 0 and 1.
+ * @private
+ */
+bot.dom.getOpacityNonIE_ = function(elem) {
+  // By default the element is opaque.
+  var elemOpacity = 1;
+
+  var opacityStyle = bot.dom.getEffectiveStyle(elem, 'opacity');
+  if (opacityStyle) {
+    elemOpacity = Number(opacityStyle);
+  }
+
+  // Let's apply the parent opacity to the element.
+  var parentElement = bot.dom.getParentElement(elem);
+  if (parentElement) {
+    elemOpacity = elemOpacity * bot.dom.getOpacityNonIE_(parentElement);
+  }
+  return elemOpacity;
+};
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Browser atom for injecting JavaScript into the page under
+ * test. There is no point in using this atom directly from JavaScript.
+ * Instead, it is intended to be used in its compiled form when injecting
+ * script from another language (e.g. C++).
+ *
+ * TODO: Add an example
+ */
+
+goog.provide('bot.inject');
+goog.provide('bot.inject.cache');
+
+goog.require('bot');
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+goog.require('bot.json');
+/**
+ * @suppress {extraRequire} Used as a forward declaration which causes
+ * compilation errors if missing.
+ */
+goog.require('bot.response.ResponseObject');
+goog.require('goog.array');
+goog.require('goog.dom.NodeType');
+goog.require('goog.object');
+goog.require('goog.userAgent');
+
+
+/**
+ * Type definition for the WebDriver's JSON wire protocol representation
+ * of a DOM element.
+ * @typedef {{ELEMENT: string}}
+ * @see bot.inject.ELEMENT_KEY
+ * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol
+ */
+bot.inject.JsonElement;
+
+
+/**
+ * Type definition for a cached Window object that can be referenced in
+ * WebDriver's JSON wire protocol. Note, this is a non-standard
+ * representation.
+ * @typedef {{WINDOW: string}}
+ * @see bot.inject.WINDOW_KEY
+ */
+bot.inject.JsonWindow;
+
+
+/**
+ * Key used to identify DOM elements in the WebDriver wire protocol.
+ * @type {string}
+ * @const
+ * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol
+ */
+bot.inject.ELEMENT_KEY = 'ELEMENT';
+
+
+/**
+ * Key used to identify Window objects in the WebDriver wire protocol.
+ * @type {string}
+ * @const
+ */
+bot.inject.WINDOW_KEY = 'WINDOW';
+
+
+/**
+ * Converts an element to a JSON friendly value so that it can be
+ * stringified for transmission to the injector. Values are modified as
+ * follows:
+ * <ul>
+ * <li>booleans, numbers, strings, and null are returned as is</li>
+ * <li>undefined values are returned as null</li>
+ * <li>functions are returned as a string</li>
+ * <li>each element in an array is recursively processed</li>
+ * <li>DOM Elements are wrapped in object-literals as dictated by the
+ *     WebDriver wire protocol</li>
+ * <li>all other objects will be treated as hash-maps, and will be
+ *     recursively processed for any string and number key types (all
+ *     other key types are discarded as they cannot be converted to JSON).
+ * </ul>
+ *
+ * @param {*} value The value to make JSON friendly.
+ * @return {*} The JSON friendly value.
+ * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol
+ */
+bot.inject.wrapValue = function(value) {
+  switch (goog.typeOf(value)) {
+    case 'string':
+    case 'number':
+    case 'boolean':
+      return value;
+
+    case 'function':
+      return value.toString();
+
+    case 'array':
+      return goog.array.map(/**@type {goog.array.ArrayLike}*/ (value),
+          bot.inject.wrapValue);
+
+    case 'object':
+      // Since {*} expands to {Object|boolean|number|string|undefined}, the
+      // JSCompiler complains that it is too broad a type for the remainder of
+      // this block where {!Object} is expected. Downcast to prevent generating
+      // a ton of compiler warnings.
+      value = /**@type {!Object}*/ (value);
+
+      // Sniff out DOM elements. We're using duck-typing instead of an
+      // instanceof check since the instanceof might not always work
+      // (e.g. if the value originated from another Firefox component)
+      if (goog.object.containsKey(value, 'nodeType') &&
+          (value['nodeType'] == goog.dom.NodeType.ELEMENT ||
+           value['nodeType'] == goog.dom.NodeType.DOCUMENT)) {
+        var ret = {};
+        ret[bot.inject.ELEMENT_KEY] =
+            bot.inject.cache.addElement(/**@type {!Element}*/ (value));
+        return ret;
+      }
+
+      // Check if this is a Window
+      if (goog.object.containsKey(value, 'document')) {
+        var ret = {};
+        ret[bot.inject.WINDOW_KEY] =
+            bot.inject.cache.addElement(/**@type{!Window}*/ (value));
+        return ret;
+      }
+
+      if (goog.isArrayLike(value)) {
+        return goog.array.map(/**@type {goog.array.ArrayLike}*/ (value),
+            bot.inject.wrapValue);
+      }
+
+      var filtered = goog.object.filter(value, function(val, key) {
+        return goog.isNumber(key) || goog.isString(key);
+      });
+      return goog.object.map(filtered, bot.inject.wrapValue);
+
+    default:  // goog.typeOf(value) == 'undefined' || 'null'
+      return null;
+  }
+};
+
+
+/**
+ * Unwraps any DOM element's encoded in the given {@code value}.
+ * @param {*} value The value to unwrap.
+ * @param {Document=} opt_doc The document whose cache to retrieve wrapped
+ *     elements from. Defaults to the current document.
+ * @return {*} The unwrapped value.
+ */
+bot.inject.unwrapValue = function(value, opt_doc) {
+  if (goog.isArray(value)) {
+    return goog.array.map(/**@type {goog.array.ArrayLike}*/ (value),
+        function(v) { return bot.inject.unwrapValue(v, opt_doc); });
+  } else if (goog.isObject(value)) {
+    if (typeof value == 'function') {
+      return value;
+    }
+
+    if (goog.object.containsKey(value, bot.inject.ELEMENT_KEY)) {
+      return bot.inject.cache.getElement(value[bot.inject.ELEMENT_KEY],
+          opt_doc);
+    }
+
+    if (goog.object.containsKey(value, bot.inject.WINDOW_KEY)) {
+      return bot.inject.cache.getElement(value[bot.inject.WINDOW_KEY],
+          opt_doc);
+    }
+
+    return goog.object.map(value, function(val) {
+      return bot.inject.unwrapValue(val, opt_doc);
+    });
+  }
+  return value;
+};
+
+
+/**
+ * Recompiles {@code fn} in the context of another window so that the
+ * correct symbol table is used when the function is executed. This
+ * function assumes the {@code fn} can be decompiled to its source using
+ * {@code Function.prototype.toString} and that it only refers to symbols
+ * defined in the target window's context.
+ *
+ * @param {!(Function|string)} fn Either the function that shold be
+ *     recompiled, or a string defining the body of an anonymous function
+ *     that should be compiled in the target window's context.
+ * @param {!Window} theWindow The window to recompile the function in.
+ * @return {!Function} The recompiled function.
+ * @private
+ */
+bot.inject.recompileFunction_ = function(fn, theWindow) {
+  if (goog.isString(fn)) {
+    try {
+      return new theWindow['Function'](fn);
+    } catch (ex) {
+      // Try to recover if in IE5-quirks mode
+      // Need to initialize the script engine on the passed-in window
+      if (goog.userAgent.IE && theWindow.execScript) {
+        theWindow.execScript(';');
+        return new theWindow['Function'](fn);
+      }
+      throw ex;
+    }
+  }
+  return theWindow == window ? fn : new theWindow['Function'](
+      'return (' + fn + ').apply(null,arguments);');
+};
+
+
+/**
+ * Executes an injected script. This function should never be called from
+ * within JavaScript itself. Instead, it is used from an external source that
+ * is injecting a script for execution.
+ *
+ * <p/>For example, in a WebDriver Java test, one might have:
+ * <pre><code>
+ * Object result = ((JavascriptExecutor) driver).executeScript(
+ *     "return arguments[0] + arguments[1];", 1, 2);
+ * </code></pre>
+ *
+ * <p/>Once transmitted to the driver, this command would be injected into the
+ * page for evaluation as:
+ * <pre><code>
+ * bot.inject.executeScript(
+ *     function() {return arguments[0] + arguments[1];},
+ *     [1, 2]);
+ * </code></pre>
+ *
+ * <p/>The details of how this actually gets injected for evaluation is left
+ * as an implementation detail for clients of this library.
+ *
+ * @param {!(Function|string)} fn Either the function to execute, or a string
+ *     defining the body of an anonymous function that should be executed. This
+ *     function should only contain references to symbols defined in the context
+ *     of the target window ({@code opt_window}). Any references to symbols
+ *     defined in this context will likely generate a ReferenceError.
+ * @param {Array.<*>} args An array of wrapped script arguments, as defined by
+ *     the WebDriver wire protocol.
+ * @param {boolean=} opt_stringify Whether the result should be returned as a
+ *     serialized JSON string.
+ * @param {!Window=} opt_window The window in whose context the function should
+ *     be invoked; defaults to the current window.
+ * @return {!(string|bot.response.ResponseObject)} The response object. If
+ *     opt_stringify is true, the result will be serialized and returned in
+ *     string format.
+ */
+bot.inject.executeScript = function(fn, args, opt_stringify, opt_window) {
+  var win = opt_window || bot.getWindow();
+  var ret;
+  try {
+    fn = bot.inject.recompileFunction_(fn, win);
+    var unwrappedArgs = /**@type {Object}*/ (bot.inject.unwrapValue(args,
+        win.document));
+    ret = bot.inject.wrapResponse(fn.apply(null, unwrappedArgs));
+  } catch (ex) {
+    ret = bot.inject.wrapError(ex);
+  }
+  return opt_stringify ? bot.json.stringify(ret) : ret;
+};
+
+
+/**
+ * Executes an injected script, which is expected to finish asynchronously
+ * before the given {@code timeout}. When the script finishes or an error
+ * occurs, the given {@code onDone} callback will be invoked. This callback
+ * will have a single argument, a {@link bot.response.ResponseObject} object.
+ *
+ * The script signals its completion by invoking a supplied callback given
+ * as its last argument. The callback may be invoked with a single value.
+ *
+ * The script timeout event will be scheduled with the provided window,
+ * ensuring the timeout is synchronized with that window's event queue.
+ * Furthermore, asynchronous scripts do not work across new page loads; if an
+ * "unload" event is fired on the window while an asynchronous script is
+ * pending, the script will be aborted and an error will be returned.
+ *
+ * Like {@code bot.inject.executeScript}, this function should only be called
+ * from an external source. It handles wrapping and unwrapping of input/output
+ * values.
+ *
+ * @param {(!Function|string)} fn Either the function to execute, or a string
+ *     defining the body of an anonymous function that should be executed. This
+ *     function should only contain references to symbols defined in the context
+ *     of the target window ({@code opt_window}). Any references to symbols
+ *     defined in this context will likely generate a ReferenceError.
+ * @param {Array.<*>} args An array of wrapped script arguments, as defined by
+ *     the WebDriver wire protocol.
+ * @param {number} timeout The amount of time, in milliseconds, the script
+ *     should be permitted to run; must be non-negative.
+ * @param {function(string)|function(!bot.response.ResponseObject)} onDone
+ *     The function to call when the given {@code fn} invokes its callback,
+ *     or when an exception or timeout occurs. This will always be called.
+ * @param {boolean=} opt_stringify Whether the result should be returned as a
+ *     serialized JSON string.
+ * @param {!Window=} opt_window The window to synchronize the script with;
+ *     defaults to the current window.
+ */
+bot.inject.executeAsyncScript = function(fn, args, timeout, onDone,
+                                         opt_stringify, opt_window) {
+  var win = opt_window || window;
+  var timeoutId;
+  var responseSent = false;
+
+  function sendResponse(status, value) {
+    if (!responseSent) {
+      if (win.removeEventListener) {
+        win.removeEventListener('unload', onunload, true);
+      } else {
+        win.detachEvent('onunload', onunload);
+      }
+
+      win.clearTimeout(timeoutId);
+      if (status != bot.ErrorCode.SUCCESS) {
+        var err = new bot.Error(status, value.message || value + '');
+        err.stack = value.stack;
+        value = bot.inject.wrapError(err);
+      } else {
+        value = bot.inject.wrapResponse(value);
+      }
+      onDone(opt_stringify ? bot.json.stringify(value) : value);
+      responseSent = true;
+    }
+  }
+  var sendError = goog.partial(sendResponse, bot.ErrorCode.UNKNOWN_ERROR);
+
+  if (win.closed) {
+    sendError('Unable to execute script; the target window is closed.');
+    return;
+  }
+
+  fn = bot.inject.recompileFunction_(fn, win);
+
+  args = /** @type {Array.<*>} */ (bot.inject.unwrapValue(args, win.document));
+  args.push(goog.partial(sendResponse, bot.ErrorCode.SUCCESS));
+
+  if (win.addEventListener) {
+    win.addEventListener('unload', onunload, true);
+  } else {
+    win.attachEvent('onunload', onunload);
+  }
+
+  var startTime = goog.now();
+  try {
+    fn.apply(win, args);
+
+    // Register our timeout *after* the function has been invoked. This will
+    // ensure we don't timeout on a function that invokes its callback after
+    // a 0-based timeout.
+    timeoutId = win.setTimeout(function() {
+      sendResponse(bot.ErrorCode.SCRIPT_TIMEOUT,
+                   Error('Timed out waiting for asyncrhonous script result ' +
+                         'after ' + (goog.now() - startTime) + ' ms'));
+    }, Math.max(0, timeout));
+  } catch (ex) {
+    sendResponse(ex.code || bot.ErrorCode.UNKNOWN_ERROR, ex);
+  }
+
+  function onunload() {
+    sendResponse(bot.ErrorCode.UNKNOWN_ERROR,
+        Error('Detected a page unload event; asynchronous script ' +
+              'execution does not work across page loads.'));
+  }
+};
+
+
+/**
+ * Wraps the response to an injected script that executed successfully so it
+ * can be JSON-ified for transmission to the process that injected this
+ * script.
+ * @param {*} value The script result.
+ * @return {{status:bot.ErrorCode,value:*}} The wrapped value.
+ * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol#Responses
+ */
+bot.inject.wrapResponse = function(value) {
+  return {
+    'status': bot.ErrorCode.SUCCESS,
+    'value': bot.inject.wrapValue(value)
+  };
+};
+
+
+/**
+ * Wraps a JavaScript error in an object-literal so that it can be JSON-ified
+ * for transmission to the process that injected this script.
+ * @param {Error} err The error to wrap.
+ * @return {{status:bot.ErrorCode,value:*}} The wrapped error object.
+ * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol#Failed_Commands
+ */
+bot.inject.wrapError = function(err) {
+  // TODO: Parse stackTrace
+  return {
+    'status': goog.object.containsKey(err, 'code') ?
+        err['code'] : bot.ErrorCode.UNKNOWN_ERROR,
+    // TODO: Parse stackTrace
+    'value': {
+      'message': err.message
+    }
+  };
+};
+
+
+/**
+ * The property key used to store the element cache on the DOCUMENT node
+ * when it is injected into the page. Since compiling each browser atom results
+ * in a different symbol table, we must use this known key to access the cache.
+ * This ensures the same object is used between injections of different atoms.
+ * @private {string}
+ * @const
+ */
+bot.inject.cache.CACHE_KEY_ = '$wdc_';
+
+
+/**
+ * The prefix for each key stored in an cache.
+ * @type {string}
+ * @const
+ */
+bot.inject.cache.ELEMENT_KEY_PREFIX = ':wdc:';
+
+
+/**
+ * Retrieves the cache object for the given window. Will initialize the cache
+ * if it does not yet exist.
+ * @param {Document=} opt_doc The document whose cache to retrieve. Defaults to
+ *     the current document.
+ * @return {Object.<string, (Element|Window)>} The cache object.
+ * @private
+ */
+bot.inject.cache.getCache_ = function(opt_doc) {
+  var doc = opt_doc || document;
+  var cache = doc[bot.inject.cache.CACHE_KEY_];
+  if (!cache) {
+    cache = doc[bot.inject.cache.CACHE_KEY_] = {};
+    // Store the counter used for generated IDs in the cache so that it gets
+    // reset whenever the cache does.
+    cache.nextId = goog.now();
+  }
+  // Sometimes the nextId does not get initialized and returns NaN
+  // TODO: Generate UID on the fly instead.
+  if (!cache.nextId) {
+    cache.nextId = goog.now();
+  }
+  return cache;
+};
+
+
+/**
+ * Adds an element to its ownerDocument's cache.
+ * @param {(Element|Window)} el The element or Window object to add.
+ * @return {string} The key generated for the cached element.
+ */
+bot.inject.cache.addElement = function(el) {
+  // Check if the element already exists in the cache.
+  var cache = bot.inject.cache.getCache_(el.ownerDocument);
+  var id = goog.object.findKey(cache, function(value) {
+    return value == el;
+  });
+  if (!id) {
+    id = bot.inject.cache.ELEMENT_KEY_PREFIX + cache.nextId++;
+    cache[id] = el;
+  }
+  return id;
+};
+
+
+/**
+ * Retrieves an element from the cache. Will verify that the element is
+ * still attached to the DOM before returning.
+ * @param {string} key The element's key in the cache.
+ * @param {Document=} opt_doc The document whose cache to retrieve the element
+ *     from. Defaults to the current document.
+ * @return {Element|Window} The cached element.
+ */
+bot.inject.cache.getElement = function(key, opt_doc) {
+  key = decodeURIComponent(key);
+  var doc = opt_doc || document;
+  var cache = bot.inject.cache.getCache_(doc);
+  if (!goog.object.containsKey(cache, key)) {
+    // Throw STALE_ELEMENT_REFERENCE instead of NO_SUCH_ELEMENT since the
+    // key may have been defined by a prior document's cache.
+    throw new bot.Error(bot.ErrorCode.STALE_ELEMENT_REFERENCE,
+        'Element does not exist in cache');
+  }
+
+  var el = cache[key];
+
+  // If this is a Window check if it's closed
+  if (goog.object.containsKey(el, 'setInterval')) {
+    if (el.closed) {
+      delete cache[key];
+      throw new bot.Error(bot.ErrorCode.NO_SUCH_WINDOW,
+          'Window has been closed.');
+    }
+    return el;
+  }
+
+  // Make sure the element is still attached to the DOM before returning.
+  var node = el;
+  while (node) {
+    if (node == doc.documentElement) {
+      return el;
+    }
+    node = node.parentNode;
+  }
+  delete cache[key];
+  throw new bot.Error(bot.ErrorCode.STALE_ELEMENT_REFERENCE,
+      'Element is no longer attached to the DOM');
+};
+
+// Copyright 2012 Software Freedom Conservancy
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Utilities related to color and color conversion.
+ * Some of this code is borrowed and modified from goog.color and
+ * goog.color.alpha.
+ */
+
+goog.provide('bot.color');
+
+goog.require('goog.array');
+goog.require('goog.color.names');
+
+
+/**
+ * Returns a property, with a standardized color if it contains a
+ * convertible color.
+ * @param {string} propertyName Name of the CSS property in camelCase.
+ * @param {string} propertyValue The value of the CSS property.
+ * @return {string} The value, in a standardized format
+ *    if it is a color property.
+ */
+bot.color.standardizeColor = function(propertyName, propertyValue) {
+  if (!goog.array.contains(bot.color.COLOR_PROPERTIES_, propertyName)) {
+    return propertyValue;
+  }
+  var rgba =
+      bot.color.maybeParseRgbaColor_(propertyValue) ||
+      bot.color.maybeParseRgbColor_(propertyValue) ||
+      bot.color.maybeConvertHexOrColorName_(propertyValue);
+  return rgba ? 'rgba(' + rgba.join(', ') + ')' : propertyValue;
+};
+
+
+/**
+ * Used to determine whether a css property contains a color and
+ * should therefore be standardized to rgba.
+ * These are  extracted from the W3C CSS spec:
+ *
+ * http://www.w3.org/TR/CSS/#properties
+ *
+ * @const
+ * @private {!Array.<string>}
+ */
+bot.color.COLOR_PROPERTIES_ = [
+  'backgroundColor',
+  'borderTopColor',
+  'borderRightColor',
+  'borderBottomColor',
+  'borderLeftColor',
+  'color',
+  'outlineColor'
+];
+
+
+/**
+ * Regular expression for extracting the digits in a hex color triplet.
+ * @private {!RegExp}
+ * @const
+ */
+bot.color.HEX_TRIPLET_RE_ = /#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])/;
+
+
+/**
+ * Converts a hex representation of a color to RGB.
+ * @param {string} hexOrColorName Color to convert.
+ * @return {Array} array containing [r, g, b, 1] as ints in [0, 255] or null
+ *     for invalid colors.
+ * @private
+ */
+bot.color.maybeConvertHexOrColorName_ = function(hexOrColorName) {
+  hexOrColorName = hexOrColorName.toLowerCase();
+  var hex = goog.color.names[hexOrColorName.toLowerCase()];
+  if (!hex) {
+    hex = hexOrColorName.charAt(0) == '#' ?
+        hexOrColorName : '#' + hexOrColorName;
+    if (hex.length == 4) { // of the form #RGB
+      hex = hex.replace(bot.color.HEX_TRIPLET_RE_, '#$1$1$2$2$3$3');
+    }
+
+    if (!bot.color.VALID_HEX_COLOR_RE_.test(hex)) {
+      return null;
+    }
+  }
+
+  var r = parseInt(hex.substr(1, 2), 16);
+  var g = parseInt(hex.substr(3, 2), 16);
+  var b = parseInt(hex.substr(5, 2), 16);
+
+  return [r, g, b, 1];
+};
+
+
+/**
+ * Helper for isValidHexColor_.
+ * @private {!RegExp}
+ * @const
+ */
+bot.color.VALID_HEX_COLOR_RE_ = /^#(?:[0-9a-f]{3}){1,2}$/i;
+
+
+/**
+ * Regular expression for matching and capturing RGBA style strings.
+ * @private {!RegExp}
+ * @const
+ */
+bot.color.RGBA_COLOR_RE_ =
+    /^(?:rgba)?\((\d{1,3}),\s?(\d{1,3}),\s?(\d{1,3}),\s?(0|1|0\.\d*)\)$/i;
+
+
+/**
+ * Attempts to parse a string as an rgba color.  We expect strings of the
+ * format '(r, g, b, a)', or 'rgba(r, g, b, a)', where r, g, b are ints in
+ * [0, 255] and a is a float in [0, 1].
+ * @param {string} str String to check.
+ * @return {Array.<number>} the integers [r, g, b, a] for valid colors or null
+ *     for invalid colors.
+ * @private
+ */
+bot.color.maybeParseRgbaColor_ = function(str) {
+  // Each component is separate (rather than using a repeater) so we can
+  // capture the match. Also, we explicitly set each component to be either 0,
+  // or start with a non-zero, to prevent octal numbers from slipping through.
+  var regExpResultArray = str.match(bot.color.RGBA_COLOR_RE_);
+  if (regExpResultArray) {
+    var r = Number(regExpResultArray[1]);
+    var g = Number(regExpResultArray[2]);
+    var b = Number(regExpResultArray[3]);
+    var a = Number(regExpResultArray[4]);
+    if (r >= 0 && r <= 255 &&
+        g >= 0 && g <= 255 &&
+        b >= 0 && b <= 255 &&
+        a >= 0 && a <= 1) {
+      return [r, g, b, a];
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Regular expression for matching and capturing RGB style strings.
+ * @private {!RegExp}
+ * @const
+ */
+bot.color.RGB_COLOR_RE_ =
+    /^(?:rgb)?\((0|[1-9]\d{0,2}),\s?(0|[1-9]\d{0,2}),\s?(0|[1-9]\d{0,2})\)$/i;
+
+
+/**
+ * Attempts to parse a string as an rgb color.  We expect strings of the format
+ * '(r, g, b)', or 'rgb(r, g, b)', where each color component is an int in
+ * [0, 255].
+ * @param {string} str String to check.
+ * @return {Array.<number>} the integers [r, g, b, 1] for valid colors or null
+ *     for invalid colors.
+ * @private
+ */
+bot.color.maybeParseRgbColor_ = function(str) {
+  // Each component is separate (rather than using a repeater) so we can
+  // capture the match. Also, we explicitly set each component to be either 0,
+  // or start with a non-zero, to prevent octal numbers from slipping through.
+  var regExpResultArray = str.match(bot.color.RGB_COLOR_RE_);
+  if (regExpResultArray) {
+    var r = Number(regExpResultArray[1]);
+    var g = Number(regExpResultArray[2]);
+    var b = Number(regExpResultArray[3]);
+    if (r >= 0 && r <= 255 &&
+        g >= 0 && g <= 255 &&
+        b >= 0 && b <= 255) {
+      return [r, g, b, 1];
+    }
+  }
+  return null;
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Atoms for frame handling.
+ *
+ */
+
+
+goog.provide('bot.frame');
+
+goog.require('bot.locators');
+goog.require('goog.dom');
+goog.require('goog.dom.TagName');
+
+
+/**
+ * @return {!Window} The top window.
+ */
+bot.frame.defaultContent = function() {
+  return bot.getWindow().top;
+};
+
+
+/**
+ * @return {!Element} The currently active element.
+ */
+bot.frame.activeElement = function() {
+  return document.activeElement || document.body;
+};
+
+
+/**
+ * Gets the parent frame of the specified frame.
+ *
+ * @param {!Window=} opt_root The window get the parent of.
+ *     Defaults to {@code bot.getWindow()}.
+ * @return {Window} The frame if found, null otherwise.
+ */
+bot.frame.parentFrame = function(opt_root) {
+  var domWindow = opt_root || bot.getWindow();
+  return domWindow.parent;
+};
+
+
+/**
+ * Returns a reference to the window object corresponding to the given element.
+ * Note that the element must be a frame or an iframe.
+ *
+ * @param {!(HTMLIFrameElement|HTMLFrameElement)} element The iframe or frame
+ *     element.
+ * @return {Window} The window reference for the given iframe or frame element.
+ */
+bot.frame.getFrameWindow = function(element) {
+  if (bot.frame.isFrame_(element)) {
+    var frame = /** @type {HTMLFrameElement|HTMLIFrameElement} */ (element);
+    return goog.dom.getFrameContentWindow(frame);
+  }
+  throw new bot.Error(bot.ErrorCode.NO_SUCH_FRAME,
+      "The given element isn't a frame or an iframe.");
+};
+
+
+/**
+ * Returns whether an element is a frame (or iframe).
+ *
+ * @param {!Element} element The element to check.
+ * @return {boolean} Whether the element is a frame (or iframe).
+ * @private
+ */
+bot.frame.isFrame_ = function(element) {
+  return bot.dom.isElement(element, goog.dom.TagName.FRAME) ||
+         bot.dom.isElement(element, goog.dom.TagName.IFRAME);
+};
+
+
+/**
+ * Looks for a frame by its name or id (preferring name over id)
+ * under the given root. If no frame was found, we look for an
+ * iframe by name or id.
+ *
+ * @param {(string|number)} nameOrId The frame's name, the frame's id, or the
+ *     index of the frame in the containing window.
+ * @param {!Window=} opt_root The window to perform the search under.
+ *     Defaults to {@code bot.getWindow()}.
+ * @return {Window} The window if found, null otherwise.
+ */
+bot.frame.findFrameByNameOrId = function(nameOrId, opt_root) {
+  var domWindow = opt_root || bot.getWindow();
+
+  // Lookup frame by name
+  var numFrames = domWindow.frames.length;
+  for (var i = 0; i < numFrames; i++) {
+    var frame = domWindow.frames[i];
+    var frameElement = frame.frameElement || frame;
+    if (frameElement.name == nameOrId) {
+      // This is needed because Safari 4 returns
+      // an HTMLFrameElement instead of a Window object.
+      if (frame.document) {
+        return frame;
+      } else {
+        return goog.dom.getFrameContentWindow(frame);
+      }
+    }
+  }
+
+  // Lookup frame by id
+  var elements = bot.locators.findElements({id: nameOrId}, domWindow.document);
+  for (var i = 0; i < elements.length; i++) {
+    if (bot.frame.isFrame_(elements[i])) {
+      return goog.dom.getFrameContentWindow(elements[i]);
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Looks for a frame by its index under the given root.
+ *
+ * @param {number} index The frame's index.
+ * @param {!Window=} opt_root The window to perform
+ *     the search under. Defaults to {@code bot.getWindow()}.
+ * @return {Window} The frame if found, null otherwise.
+ */
+bot.frame.findFrameByIndex = function(index, opt_root) {
+  var domWindow = opt_root || bot.getWindow();
+  return domWindow.frames[index] || null;
+};
+
+
+/**
+ * Gets the index of a frame in the given window. Note that the element must
+ * be a frame or an iframe.
+ *
+ * @param {!(HTMLIFrameElement|HTMLFrameElement)} element The iframe or frame
+ *     element.
+ * @param {!Window=} opt_root The window to perform the search under. Defaults
+ *     to {@code bot.getWindow()}.
+ * @return {?number} The index of the frame if found, null otherwise.
+ */
+bot.frame.getFrameIndex = function(element, opt_root) {
+  try {
+    var elementWindow = element.contentWindow;
+  } catch (e) {
+    // Happens in IE{7,8} if a frame doesn't have an enclosing frameset.
+    return null;
+  }
+
+  if (!bot.frame.isFrame_(element)) {
+    return null;
+  }
+
+  var domWindow = opt_root || bot.getWindow();
+  for (var i = 0; i < domWindow.frames.length; i++) {
+    if (elementWindow == domWindow.frames[i]) {
+      return i;
+    }
+  }
+  return null;
 };
 // Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
@@ -6851,526 +13037,6 @@ bot.Device.EventEmitter.prototype.fireMSPointerEvent = function(
     target, type, args) {
   return bot.events.fire(target, type, args);
 };
-// Copyright 2012 WebDriver committers
-// Copyright 2012 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Provides JSON utilities that uses native JSON parsing where
- * possible (a feature not currently offered by Closure).
- */
-
-goog.provide('bot.json');
-
-goog.require('bot.userAgent');
-goog.require('goog.json');
-goog.require('goog.userAgent');
-
-
-/**
- * @define {boolean} NATIVE_JSON indicates whether the code should rely on the
- * native {@code JSON} functions, if available.
- *
- * <p>The JSON functions can be defined by external libraries like Prototype
- * and setting this flag to false forces the use of Closure's goog.json
- * implementation.
- *
- * <p>If your JavaScript can be loaded by a third_party site and you are wary
- * about relying on the native functions, specify
- * "--define bot.json.NATIVE_JSON=false" to the Closure compiler.
- */
-bot.json.NATIVE_JSON = true;
-
-
-/**
- * Whether the current browser supports the native JSON interface.
- * @const
- * @see http://caniuse.com/#search=JSON
- * @private {boolean}
- */
-bot.json.SUPPORTS_NATIVE_JSON_ =
-    // List WebKit and Opera first since every supported version of these
-    // browsers supports native JSON (and we can compile away large chunks of
-    // code for individual fragments by setting the appropriate compiler flags).
-    goog.userAgent.WEBKIT || goog.userAgent.OPERA ||
-        (goog.userAgent.GECKO && bot.userAgent.isEngineVersion(3.5)) ||
-        (goog.userAgent.IE && bot.userAgent.isEngineVersion(8));
-
-
-/**
- * Converts a JSON object to its string representation.
- * @param {*} jsonObj The input object.
- * @param {?(function(string, *): *)=} opt_replacer A replacer function called
- *     for each (key, value) pair that determines how the value should be
- *     serialized. By default, this just returns the value and allows default
- *     serialization to kick in.
- * @return {string} A JSON string representation of the input object.
- */
-bot.json.stringify = bot.json.NATIVE_JSON && bot.json.SUPPORTS_NATIVE_JSON_ ?
-    JSON.stringify : goog.json.serialize;
-
-
-/**
- * Parses a JSON string and returns the result.
- * @param {string} jsonStr The string to parse.
- * @return {*} The JSON object.
- * @throws {Error} If the input string is an invalid JSON string.
- */
-bot.json.parse = bot.json.NATIVE_JSON && bot.json.SUPPORTS_NATIVE_JSON_ ?
-    JSON.parse : goog.json.parse;
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Similar to goog.userAgent.isVersion, but with support for
- * getting the version information when running in a firefox extension.
- */
-goog.provide('bot.userAgent');
-
-goog.require('goog.string');
-goog.require('goog.userAgent');
-goog.require('goog.userAgent.product');
-goog.require('goog.userAgent.product.isVersion');
-
-
-/**
- * Whether the rendering engine version of the current browser is equal to or
- * greater than the given version. This implementation differs from
- * goog.userAgent.isVersion in the following ways:
- * <ol>
- * <li>in a Firefox extension, tests the engine version through the XUL version
- *     comparator service, because no window.navigator object is available
- * <li>in IE, compares the given version to the current documentMode
- * </ol>
- *
- * @param {string|number} version The version number to check.
- * @return {boolean} Whether the browser engine version is the same or higher
- *     than the given version.
- */
-bot.userAgent.isEngineVersion = function(version) {
-  if (bot.userAgent.FIREFOX_EXTENSION) {
-    return bot.userAgent.FIREFOX_EXTENSION_IS_ENGINE_VERSION_(version);
-  } else if (goog.userAgent.IE) {
-    return goog.string.compareVersions(
-        /** @type {number} */ (goog.userAgent.DOCUMENT_MODE), version) >= 0;
-  } else {
-    return goog.userAgent.isVersionOrHigher(version);
-  }
-};
-
-
-/**
- * Whether the product version of the current browser is equal to or greater
- * than the given version. This implementation differs from
- * goog.userAgent.product.isVersion in the following ways:
- * <ol>
- * <li>in a Firefox extension, tests the product version through the XUL version
- *     comparator service, because no window.navigator object is available
- * <li>on Android, always compares to the version to the OS version
- * </ol>
- *
- * @param {string|number} version The version number to check.
- * @return {boolean} Whether the browser product version is the same or higher
- *     than the given version.
- */
-bot.userAgent.isProductVersion = function(version) {
-  if (bot.userAgent.FIREFOX_EXTENSION) {
-    return bot.userAgent.FIREFOX_EXTENSION_IS_PRODUCT_VERSION_(version);
-  } else if (goog.userAgent.product.ANDROID) {
-    return goog.string.compareVersions(
-        bot.userAgent.ANDROID_VERSION_, version) >= 0;
-  } else {
-    return goog.userAgent.product.isVersion(version);
-  }
-};
-
-
-/**
- * When we are in a Firefox extension, this is a function that accepts a version
- * and returns whether the version of Gecko we are on is the same or higher
- * than the given version. When we are not in a Firefox extension, this is null.
- * @private {(undefined|function((string|number)): boolean)}
- */
-bot.userAgent.FIREFOX_EXTENSION_IS_ENGINE_VERSION_;
-
-
-/**
- * When we are in a Firefox extension, this is a function that accepts a version
- * and returns whether the version of Firefox we are on is the same or higher
- * than the given version. When we are not in a Firefox extension, this is null.
- * @private {(undefined|function((string|number)): boolean)}
- */
-bot.userAgent.FIREFOX_EXTENSION_IS_PRODUCT_VERSION_;
-
-
-/**
- * Whether we are in a Firefox extension.
- *
- * @const
- * @type {boolean}
- */
-bot.userAgent.FIREFOX_EXTENSION = (function() {
-  // False if this browser is not a Gecko browser.
-  if (!goog.userAgent.GECKO) {
-    return false;
-  }
-
-  // False if this code isn't running in an extension.
-  var Components = goog.global.Components;
-  if (!Components) {
-    return false;
-  }
-  try {
-    if (!Components['classes']) {
-      return false;
-    }
-  } catch (e) {
-    return false;
-  }
-
-  // Populate the version checker functions.
-  var cc = Components['classes'];
-  var ci = Components['interfaces'];
-  var versionComparator = cc['@mozilla.org/xpcom/version-comparator;1'][
-      'getService'](ci['nsIVersionComparator']);
-  var appInfo = cc['@mozilla.org/xre/app-info;1']['getService'](
-      ci['nsIXULAppInfo']);
-  var geckoVersion = appInfo['platformVersion'];
-  var firefoxVersion = appInfo['version'];
-
-  bot.userAgent.FIREFOX_EXTENSION_IS_ENGINE_VERSION_ = function(version) {
-    return versionComparator.compare(geckoVersion, '' + version) >= 0;
-  };
-  bot.userAgent.FIREFOX_EXTENSION_IS_PRODUCT_VERSION_ = function(version) {
-    return versionComparator.compare(firefoxVersion, '' + version) >= 0;
-  };
-
-  return true;
-})();
-
-
-/**
- * Whether we are on IOS.
- *
- * @const
- * @type {boolean}
- */
-bot.userAgent.IOS = goog.userAgent.product.IPAD ||
-                    goog.userAgent.product.IPHONE;
-
-
-/**
- * Whether we are on a mobile browser.
- *
- * @const
- * @type {boolean}
- */
-bot.userAgent.MOBILE = bot.userAgent.IOS || goog.userAgent.product.ANDROID;
-
-
-/**
- * Android Operating System Version.
- * @private {string}
- * @const
- */
-bot.userAgent.ANDROID_VERSION_ = (function() {
-  if (goog.userAgent.product.ANDROID) {
-    var userAgentString = goog.userAgent.getUserAgentString();
-    var match = /Android\s+([0-9\.]+)/.exec(userAgentString);
-    return match ? match[1] : '0';
-  } else {
-    return '0';
-  }
-})();
-
-
-/**
- * Whether the current document is IE in a documentMode older than 8.
- * @type {boolean}
- * @const
- */
-bot.userAgent.IE_DOC_PRE8 = goog.userAgent.IE &&
-    !goog.userAgent.isDocumentModeOrHigher(8);
-
-
-/**
- * Whether the current document is IE in IE9 (or newer) standards mode.
- * @type {boolean}
- * @const
- */
-bot.userAgent.IE_DOC_9 = goog.userAgent.isDocumentModeOrHigher(9);
-
-
-/**
- * Whether the current document is IE in a documentMode older than 9.
- * @type {boolean}
- * @const
- */
-bot.userAgent.IE_DOC_PRE9 = goog.userAgent.IE &&
-    !goog.userAgent.isDocumentModeOrHigher(9);
-
-
-/**
- * Whether the current document is IE in IE10 (or newer) standards mode.
- * @type {boolean}
- * @const
- */
-bot.userAgent.IE_DOC_10 = goog.userAgent.isDocumentModeOrHigher(10);
-
-
-/**
- * Whether the current document is IE in a documentMode older than 10.
- * @type {boolean}
- * @const
- */
-bot.userAgent.IE_DOC_PRE10 = goog.userAgent.IE &&
-    !goog.userAgent.isDocumentModeOrHigher(10);
-
-
-/**
- * Whether the current browser is Android pre-gingerbread.
- * @type {boolean}
- * @const
- */
-bot.userAgent.ANDROID_PRE_GINGERBREAD = goog.userAgent.product.ANDROID &&
-    !bot.userAgent.isProductVersion(2.3);
-
-
-/**
- * Whether the current browser is Android pre-icecreamsandwich
- * @type {boolean}
- * @const
- */
-bot.userAgent.ANDROID_PRE_ICECREAMSANDWICH = goog.userAgent.product.ANDROID &&
-    !bot.userAgent.isProductVersion(4);
-
-
-/**
- * Whether the current browser is Safari 6.
- * @type {boolean}
- * @const
- */
-bot.userAgent.SAFARI_6 = goog.userAgent.product.SAFARI &&
-    bot.userAgent.isProductVersion(6);
-
-
-/**
- * Whether the current browser is Windows Phone.
- * @type {boolean}
- * @const
- */
-bot.userAgent.WINDOWS_PHONE = goog.userAgent.IE &&
-    goog.userAgent.getUserAgentString().indexOf('IEMobile') != -1;
-// Copyright 2012 Software Freedom Conservancy
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Utilities related to color and color conversion.
- * Some of this code is borrowed and modified from goog.color and
- * goog.color.alpha.
- */
-
-goog.provide('bot.color');
-
-goog.require('goog.array');
-goog.require('goog.color.names');
-
-
-/**
- * Returns a property, with a standardized color if it contains a
- * convertible color.
- * @param {string} propertyName Name of the CSS property in camelCase.
- * @param {string} propertyValue The value of the CSS property.
- * @return {string} The value, in a standardized format
- *    if it is a color property.
- */
-bot.color.standardizeColor = function(propertyName, propertyValue) {
-  if (!goog.array.contains(bot.color.COLOR_PROPERTIES_, propertyName)) {
-    return propertyValue;
-  }
-  var rgba =
-      bot.color.maybeParseRgbaColor_(propertyValue) ||
-      bot.color.maybeParseRgbColor_(propertyValue) ||
-      bot.color.maybeConvertHexOrColorName_(propertyValue);
-  return rgba ? 'rgba(' + rgba.join(', ') + ')' : propertyValue;
-};
-
-
-/**
- * Used to determine whether a css property contains a color and
- * should therefore be standardized to rgba.
- * These are  extracted from the W3C CSS spec:
- *
- * http://www.w3.org/TR/CSS/#properties
- *
- * @const
- * @private {!Array.<string>}
- */
-bot.color.COLOR_PROPERTIES_ = [
-  'backgroundColor',
-  'borderTopColor',
-  'borderRightColor',
-  'borderBottomColor',
-  'borderLeftColor',
-  'color',
-  'outlineColor'
-];
-
-
-/**
- * Regular expression for extracting the digits in a hex color triplet.
- * @private {!RegExp}
- * @const
- */
-bot.color.HEX_TRIPLET_RE_ = /#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])/;
-
-
-/**
- * Converts a hex representation of a color to RGB.
- * @param {string} hexOrColorName Color to convert.
- * @return {Array} array containing [r, g, b, 1] as ints in [0, 255] or null
- *     for invalid colors.
- * @private
- */
-bot.color.maybeConvertHexOrColorName_ = function(hexOrColorName) {
-  hexOrColorName = hexOrColorName.toLowerCase();
-  var hex = goog.color.names[hexOrColorName.toLowerCase()];
-  if (!hex) {
-    hex = hexOrColorName.charAt(0) == '#' ?
-        hexOrColorName : '#' + hexOrColorName;
-    if (hex.length == 4) { // of the form #RGB
-      hex = hex.replace(bot.color.HEX_TRIPLET_RE_, '#$1$1$2$2$3$3');
-    }
-
-    if (!bot.color.VALID_HEX_COLOR_RE_.test(hex)) {
-      return null;
-    }
-  }
-
-  var r = parseInt(hex.substr(1, 2), 16);
-  var g = parseInt(hex.substr(3, 2), 16);
-  var b = parseInt(hex.substr(5, 2), 16);
-
-  return [r, g, b, 1];
-};
-
-
-/**
- * Helper for isValidHexColor_.
- * @private {!RegExp}
- * @const
- */
-bot.color.VALID_HEX_COLOR_RE_ = /^#(?:[0-9a-f]{3}){1,2}$/i;
-
-
-/**
- * Regular expression for matching and capturing RGBA style strings.
- * @private {!RegExp}
- * @const
- */
-bot.color.RGBA_COLOR_RE_ =
-    /^(?:rgba)?\((\d{1,3}),\s?(\d{1,3}),\s?(\d{1,3}),\s?(0|1|0\.\d*)\)$/i;
-
-
-/**
- * Attempts to parse a string as an rgba color.  We expect strings of the
- * format '(r, g, b, a)', or 'rgba(r, g, b, a)', where r, g, b are ints in
- * [0, 255] and a is a float in [0, 1].
- * @param {string} str String to check.
- * @return {Array.<number>} the integers [r, g, b, a] for valid colors or null
- *     for invalid colors.
- * @private
- */
-bot.color.maybeParseRgbaColor_ = function(str) {
-  // Each component is separate (rather than using a repeater) so we can
-  // capture the match. Also, we explicitly set each component to be either 0,
-  // or start with a non-zero, to prevent octal numbers from slipping through.
-  var regExpResultArray = str.match(bot.color.RGBA_COLOR_RE_);
-  if (regExpResultArray) {
-    var r = Number(regExpResultArray[1]);
-    var g = Number(regExpResultArray[2]);
-    var b = Number(regExpResultArray[3]);
-    var a = Number(regExpResultArray[4]);
-    if (r >= 0 && r <= 255 &&
-        g >= 0 && g <= 255 &&
-        b >= 0 && b <= 255 &&
-        a >= 0 && a <= 1) {
-      return [r, g, b, a];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Regular expression for matching and capturing RGB style strings.
- * @private {!RegExp}
- * @const
- */
-bot.color.RGB_COLOR_RE_ =
-    /^(?:rgb)?\((0|[1-9]\d{0,2}),\s?(0|[1-9]\d{0,2}),\s?(0|[1-9]\d{0,2})\)$/i;
-
-
-/**
- * Attempts to parse a string as an rgb color.  We expect strings of the format
- * '(r, g, b)', or 'rgb(r, g, b)', where each color component is an int in
- * [0, 255].
- * @param {string} str String to check.
- * @return {Array.<number>} the integers [r, g, b, 1] for valid colors or null
- *     for invalid colors.
- * @private
- */
-bot.color.maybeParseRgbColor_ = function(str) {
-  // Each component is separate (rather than using a repeater) so we can
-  // capture the match. Also, we explicitly set each component to be either 0,
-  // or start with a non-zero, to prevent octal numbers from slipping through.
-  var regExpResultArray = str.match(bot.color.RGB_COLOR_RE_);
-  if (regExpResultArray) {
-    var r = Number(regExpResultArray[1]);
-    var g = Number(regExpResultArray[2]);
-    var b = Number(regExpResultArray[3]);
-    if (r >= 0 && r <= 255 &&
-        g >= 0 && g <= 255 &&
-        b >= 0 && b <= 255) {
-      return [r, g, b, 1];
-    }
-  }
-  return null;
-};
 // Copyright 2010 WebDriver committers
 // Copyright 2010 Google Inc.
 //
@@ -7413,8 +13079,7 @@ goog.require('goog.userAgent');
  * A keyboard that provides atomic typing actions.
  *
  * @constructor
- * @param {{pressed: !Array.<!bot.Keyboard.Key>,
-            currentPos: number}=} opt_state Optional keyboard state.
+ * @param {bot.Keyboard.State=} opt_state Optional keyboard state.
  * @extends {bot.Device}
  */
 bot.Keyboard = function(opt_state) {
@@ -7436,10 +13101,18 @@ bot.Keyboard = function(opt_state) {
       this.setKeyPressed_(/** @type {!bot.Keyboard.Key} */ (key), true);
     }, this);
 
-    this.currentPos_ = opt_state['currentPos'];
+    this.currentPos_ = opt_state['currentPos'] || 0;
   }
 };
 goog.inherits(bot.Keyboard, bot.Device);
+
+
+/**
+ * Describes the current state of a keyboard.
+ * @typedef {{pressed: !Array.<!bot.Keyboard.Key>,
+ *            currentPos: number}}
+ */
+bot.Keyboard.State;
 
 
 /**
@@ -7969,8 +13642,12 @@ bot.Keyboard.prototype.updateOnCharacter_ = function(key) {
 
   var character = this.getChar_(key);
   var newPos = goog.dom.selection.getStart(this.getElement()) + 1;
-  goog.dom.selection.setText(this.getElement(), character);
-  goog.dom.selection.setStart(this.getElement(), newPos);
+  if (bot.Keyboard.supportsSelection(this.getElement())) {
+    goog.dom.selection.setText(this.getElement(), character);
+    goog.dom.selection.setStart(this.getElement(), newPos);
+  } else {
+    this.getElement().value += character;
+  }
   if (goog.userAgent.WEBKIT) {
     this.fireHtmlEvent(bot.events.EventType.TEXTINPUT);
   }
@@ -7995,8 +13672,12 @@ bot.Keyboard.prototype.updateOnEnter_ = function() {
   if (bot.dom.isElement(this.getElement(), goog.dom.TagName.TEXTAREA)) {
     var newPos = goog.dom.selection.getStart(this.getElement()) +
         bot.Keyboard.NEW_LINE_.length;
-    goog.dom.selection.setText(this.getElement(), bot.Keyboard.NEW_LINE_);
-    goog.dom.selection.setStart(this.getElement(), newPos);
+    if (bot.Keyboard.supportsSelection(this.getElement())) {
+      goog.dom.selection.setText(this.getElement(), bot.Keyboard.NEW_LINE_);
+      goog.dom.selection.setStart(this.getElement(), newPos);
+    } else {
+      this.getElement().value += bot.Keyboard.NEW_LINE_;
+    }
     if (!goog.userAgent.IE) {
       this.fireHtmlEvent(bot.events.EventType.INPUT);
     }
@@ -8016,6 +13697,7 @@ bot.Keyboard.prototype.updateOnBackspaceOrDelete_ = function(key) {
 
   // Determine what should be deleted.  If text is already selected, that
   // text is deleted, else we move left/right from the current cursor.
+  bot.Keyboard.checkCanUpdateSelection_(this.getElement());
   var endpoints = goog.dom.selection.getEndPoints(this.getElement());
   if (endpoints[0] == endpoints[1]) {
     if (key == bot.Keyboard.Keys.BACKSPACE) {
@@ -8058,6 +13740,7 @@ bot.Keyboard.prototype.updateOnBackspaceOrDelete_ = function(key) {
  * @private
  */
 bot.Keyboard.prototype.updateOnLeftOrRight_ = function(key) {
+  bot.Keyboard.checkCanUpdateSelection_(this.getElement());
   var element = this.getElement();
   var start = goog.dom.selection.getStart(element);
   var end = goog.dom.selection.getEnd(element);
@@ -8124,6 +13807,7 @@ bot.Keyboard.prototype.updateOnLeftOrRight_ = function(key) {
  * @private
  */
 bot.Keyboard.prototype.updateOnHomeOrEnd_ = function(key) {
+  bot.Keyboard.checkCanUpdateSelection_(this.getElement());
   var element = this.getElement();
   var start = goog.dom.selection.getStart(element);
   var end = goog.dom.selection.getEnd(element);
@@ -8155,6 +13839,47 @@ bot.Keyboard.prototype.updateOnHomeOrEnd_ = function(key) {
     }
     this.updateCurrentPos_(element.value.length);
   }
+};
+
+
+/**
+ * Checks that the cursor position can be updated for the given element.
+ * @param {!Element} element The element to test.
+ * @throws {Error} If the cursor position cannot be updated for the given
+ *     element.
+ * @see https://code.google.com/p/chromium/issues/detail?id=330456
+ * @private
+ * @suppress {uselessCode}
+ */
+bot.Keyboard.checkCanUpdateSelection_ = function(element) {
+  try {
+    element.selectionStart;
+  } catch (ex) {
+    // The native error message is actually pretty informative, just add a
+    // reference to the relevant Chrome bug to provide more context.
+    if (ex.message.indexOf('does not support selection.') != -1) {
+      // message is a readonly property, so need to rethrow.
+      throw Error(ex.message + ' (For more information, see ' +
+          'https://code.google.com/p/chromium/issues/detail?id=330456)');
+    }
+    throw ex;
+  }
+};
+
+
+/**
+ * @param {!Element} element The element to test.
+ * @return {boolean} Whether the given element supports the input element
+ *     selection API.
+ * @see https://code.google.com/p/chromium/issues/detail?id=330456
+ */
+bot.Keyboard.supportsSelection = function(element) {
+  try {
+    bot.Keyboard.checkCanUpdateSelection_(element);
+  } catch (ex) {
+    return false;
+  }
+  return true;
 };
 
 
@@ -8217,8 +13942,7 @@ bot.Keyboard.prototype.moveCursor = function(element) {
 /**
  * Serialize the current state of the keyboard.
  *
- * @return {{pressed: !Array.<!bot.Keyboard.Key>, currentPos: number}} The
- *     current keyboard state.
+ * @return {bot.Keyboard.State} The current keyboard state.
  */
 bot.Keyboard.prototype.getState = function() {
   // Need to use quoted literals here, so the compiler will not rename the
@@ -8241,4234 +13965,6 @@ bot.Keyboard.prototype.getState = function() {
  */
 bot.Keyboard.prototype.getModifiersState = function() {
   return this.modifiersState;
-};
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Utilities for working with errors as defined by WebDriver's
- * wire protocol: http://code.google.com/p/selenium/wiki/JsonWireProtocol.
- */
-
-goog.provide('bot.Error');
-goog.provide('bot.ErrorCode');
-
-
-/**
- * Error codes from the WebDriver wire protocol:
- * http://code.google.com/p/selenium/wiki/JsonWireProtocol#Response_Status_Codes
- *
- * @enum {number}
- */
-bot.ErrorCode = {
-  SUCCESS: 0,  // Included for completeness
-
-  NO_SUCH_ELEMENT: 7,
-  NO_SUCH_FRAME: 8,
-  UNKNOWN_COMMAND: 9,
-  UNSUPPORTED_OPERATION: 9,  // Alias.
-  STALE_ELEMENT_REFERENCE: 10,
-  ELEMENT_NOT_VISIBLE: 11,
-  INVALID_ELEMENT_STATE: 12,
-  UNKNOWN_ERROR: 13,
-  ELEMENT_NOT_SELECTABLE: 15,
-  JAVASCRIPT_ERROR: 17,
-  XPATH_LOOKUP_ERROR: 19,
-  TIMEOUT: 21,
-  NO_SUCH_WINDOW: 23,
-  INVALID_COOKIE_DOMAIN: 24,
-  UNABLE_TO_SET_COOKIE: 25,
-  MODAL_DIALOG_OPENED: 26,
-  NO_MODAL_DIALOG_OPEN: 27,
-  SCRIPT_TIMEOUT: 28,
-  INVALID_ELEMENT_COORDINATES: 29,
-  IME_NOT_AVAILABLE: 30,
-  IME_ENGINE_ACTIVATION_FAILED: 31,
-  INVALID_SELECTOR_ERROR: 32,
-  SESSION_NOT_CREATED: 33,
-  MOVE_TARGET_OUT_OF_BOUNDS: 34,
-  SQL_DATABASE_ERROR: 35,
-  INVALID_XPATH_SELECTOR: 51,
-  INVALID_XPATH_SELECTOR_RETURN_TYPE: 52,
-  // The following error codes are derived straight from HTTP return codes.
-  METHOD_NOT_ALLOWED: 405
-};
-
-
-
-/**
- * Error extension that includes error status codes from the WebDriver wire
- * protocol:
- * http://code.google.com/p/selenium/wiki/JsonWireProtocol#Response_Status_Codes
- *
- * @param {!bot.ErrorCode} code The error's status code.
- * @param {string=} opt_message Optional error message.
- * @constructor
- * @extends {Error}
- */
-bot.Error = function(code, opt_message) {
-
-  /**
-   * This error's status code.
-   * @type {!bot.ErrorCode}
-   */
-  this.code = code;
-
-  /** @type {string} */
-  this.state =
-      bot.Error.CODE_TO_STATE_[code] || bot.Error.State.UNKNOWN_ERROR;
-
-  /** @override */
-  this.message = opt_message || '';
-
-  var name = this.state.replace(/((?:^|\s+)[a-z])/g, function(str) {
-    // IE<9 does not support String#trim(). Also, IE does not include 0xa0
-    // (the non-breaking-space) in the \s character class, so we have to
-    // explicitly include it.
-    return str.toUpperCase().replace(/^[\s\xa0]+/g, '');
-  });
-
-  var l = name.length - 'Error'.length;
-  if (l < 0 || name.indexOf('Error', l) != l) {
-    name += 'Error';
-  }
-
-  /** @override */
-  this.name = name;
-
-  // Generate a stacktrace for our custom error; ensure the error has our
-  // custom name and message so the stack prints correctly in all browsers.
-  var template = new Error(this.message);
-  template.name = this.name;
-
-  /** @override */
-  this.stack = template.stack || '';
-};
-goog.inherits(bot.Error, Error);
-
-
-/**
- * Status strings enumerated in the W3C WebDriver working draft.
- * @enum {string}
- * @see http://www.w3.org/TR/webdriver/#status-codes
- */
-bot.Error.State = {
-  ELEMENT_NOT_SELECTABLE: 'element not selectable',
-  ELEMENT_NOT_VISIBLE: 'element not visible',
-  IME_ENGINE_ACTIVATION_FAILED: 'ime engine activation failed',
-  IME_NOT_AVAILABLE: 'ime not available',
-  INVALID_COOKIE_DOMAIN: 'invalid cookie domain',
-  INVALID_ELEMENT_COORDINATES: 'invalid element coordinates',
-  INVALID_ELEMENT_STATE: 'invalid element state',
-  INVALID_SELECTOR: 'invalid selector',
-  JAVASCRIPT_ERROR: 'javascript error',
-  MOVE_TARGET_OUT_OF_BOUNDS: 'move target out of bounds',
-  NO_SUCH_ALERT: 'no such alert',
-  NO_SUCH_DOM: 'no such dom',
-  NO_SUCH_ELEMENT: 'no such element',
-  NO_SUCH_FRAME: 'no such frame',
-  NO_SUCH_WINDOW: 'no such window',
-  SCRIPT_TIMEOUT: 'script timeout',
-  SESSION_NOT_CREATED: 'session not created',
-  STALE_ELEMENT_REFERENCE: 'stale element reference',
-  SUCCESS: 'success',
-  TIMEOUT: 'timeout',
-  UNABLE_TO_SET_COOKIE: 'unable to set cookie',
-  UNEXPECTED_ALERT_OPEN: 'unexpected alert open',
-  UNKNOWN_COMMAND: 'unknown command',
-  UNKNOWN_ERROR: 'unknown error',
-  UNSUPPORTED_OPERATION: 'unsupported operation'
-};
-
-
-/**
- * A map of error codes to state string.
- * @private {!Object.<bot.ErrorCode, bot.Error.State>}
- */
-bot.Error.CODE_TO_STATE_ = {};
-goog.scope(function() {
-  var map = bot.Error.CODE_TO_STATE_;
-  var code = bot.ErrorCode;
-  var state = bot.Error.State;
-
-  map[code.ELEMENT_NOT_SELECTABLE] = state.ELEMENT_NOT_SELECTABLE;
-  map[code.ELEMENT_NOT_VISIBLE] = state.ELEMENT_NOT_VISIBLE;
-  map[code.IME_ENGINE_ACTIVATION_FAILED] = state.IME_ENGINE_ACTIVATION_FAILED;
-  map[code.IME_NOT_AVAILABLE] = state.IME_NOT_AVAILABLE;
-  map[code.INVALID_COOKIE_DOMAIN] = state.INVALID_COOKIE_DOMAIN;
-  map[code.INVALID_ELEMENT_COORDINATES] = state.INVALID_ELEMENT_COORDINATES;
-  map[code.INVALID_ELEMENT_STATE] = state.INVALID_ELEMENT_STATE;
-  map[code.INVALID_SELECTOR_ERROR] = state.INVALID_SELECTOR;
-  map[code.INVALID_XPATH_SELECTOR] = state.INVALID_SELECTOR;
-  map[code.INVALID_XPATH_SELECTOR_RETURN_TYPE] = state.INVALID_SELECTOR;
-  map[code.JAVASCRIPT_ERROR] = state.JAVASCRIPT_ERROR;
-  map[code.METHOD_NOT_ALLOWED] = state.UNSUPPORTED_OPERATION;
-  map[code.MOVE_TARGET_OUT_OF_BOUNDS] = state.MOVE_TARGET_OUT_OF_BOUNDS;
-  map[code.NO_MODAL_DIALOG_OPEN] = state.NO_SUCH_ALERT;
-  map[code.NO_SUCH_ELEMENT] = state.NO_SUCH_ELEMENT;
-  map[code.NO_SUCH_FRAME] = state.NO_SUCH_FRAME;
-  map[code.NO_SUCH_WINDOW] = state.NO_SUCH_WINDOW;
-  map[code.SCRIPT_TIMEOUT] = state.SCRIPT_TIMEOUT;
-  map[code.SESSION_NOT_CREATED] = state.SESSION_NOT_CREATED;
-  map[code.STALE_ELEMENT_REFERENCE] = state.STALE_ELEMENT_REFERENCE;
-  map[code.SUCCESS] = state.SUCCESS;
-  map[code.TIMEOUT] = state.TIMEOUT;
-  map[code.UNABLE_TO_SET_COOKIE] = state.UNABLE_TO_SET_COOKIE;
-  map[code.MODAL_DIALOG_OPENED] = state.UNEXPECTED_ALERT_OPEN;
-  map[code.UNKNOWN_ERROR] = state.UNKNOWN_ERROR;
-  map[code.UNSUPPORTED_OPERATION] = state.UNKNOWN_COMMAND;
-});  // goog.scope
-
-
-/**
- * Flag used for duck-typing when this code is embedded in a Firefox extension.
- * This is required since an Error thrown in one component and then reported
- * to another will fail instanceof checks in the second component.
- * @type {boolean}
- */
-bot.Error.prototype.isAutomationError = true;
-
-
-if (goog.DEBUG) {
-  /** @return {string} The string representation of this error. */
-  bot.Error.prototype.toString = function() {
-    return this.name + ': ' + this.message;
-  };
-}
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview The file contains an abstraction of a mouse for
- * simulating the mouse actions.
- */
-
-goog.provide('bot.Mouse');
-goog.provide('bot.Mouse.Button');
-goog.provide('bot.Mouse.State');
-
-goog.require('bot');
-goog.require('bot.Device');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-goog.require('bot.dom');
-goog.require('bot.events.EventType');
-goog.require('bot.userAgent');
-goog.require('goog.dom');
-goog.require('goog.dom.TagName');
-goog.require('goog.math.Coordinate');
-goog.require('goog.userAgent');
-
-
-
-/**
- * A mouse that provides atomic mouse actions. This mouse currently only
- * supports having one button pressed at a time.
- * @param {bot.Mouse.State=} opt_state The mouse's initial state.
- * @param {bot.Device.ModifiersState=} opt_modifiersState State of the keyboard.
- * @param {bot.Device.EventEmitter=} opt_eventEmitter An object that should be
- *     used to fire events.
- * @constructor
- * @extends {bot.Device}
- */
-bot.Mouse = function(opt_state, opt_modifiersState, opt_eventEmitter) {
-  goog.base(this, opt_modifiersState, opt_eventEmitter);
-
-  /** @private {?bot.Mouse.Button} */
-  this.buttonPressed_ = null;
-
-  /** @private {Element} */
-  this.elementPressed_ = null;
-
-  /** @private {!goog.math.Coordinate} */
-  this.clientXY_ = new goog.math.Coordinate(0, 0);
-
-  /** @private {boolean} */
-  this.nextClickIsDoubleClick_ = false;
-
-  /**
-   * Whether this Mouse has ever explicitly interacted with any element.
-   * @private {boolean}
-   */
-  this.hasEverInteracted_ = false;
-
-  if (opt_state) {
-    this.buttonPressed_ = opt_state.buttonPressed;
-
-    try {
-      if (bot.dom.isElement(opt_state.elementPressed)) {
-        this.elementPressed_ = opt_state.elementPressed;
-      }
-    } catch (ignored) {
-      this.buttonPressed_ = null;
-    }
-
-    this.clientXY_ = opt_state.clientXY;
-    this.nextClickIsDoubleClick_ = opt_state.nextClickIsDoubleClick;
-    this.hasEverInteracted_ = opt_state.hasEverInteracted;
-
-    try {
-      if (bot.dom.isElement(opt_state.element)) {
-        this.setElement(/** @type {!Element} */ (opt_state.element));
-      }
-    } catch (ignored) {
-      this.buttonPressed_ = null;
-    }
-  }
-};
-goog.inherits(bot.Mouse, bot.Device);
-
-
-/**
-  * @typedef {{buttonPressed: ?bot.Mouse.Button,
-  *           elementPressed: Element,
-  *           clientXY: !goog.math.Coordinate,
-  *           nextClickIsDoubleClick: boolean,
-  *           hasEverInteracted: boolean,
-  *           element: Element}}
-  */
-bot.Mouse.State;
-
-
-/**
- * Enumeration of mouse buttons that can be pressed.
- *
- * @enum {number}
- */
-bot.Mouse.Button = {
-  LEFT: 0,
-  MIDDLE: 1,
-  RIGHT: 2
-};
-
-
-/**
- * Index to indicate no button pressed in bot.Mouse.MOUSE_BUTTON_VALUE_MAP_.
- * @private {number}
- * @const
- */
-bot.Mouse.NO_BUTTON_VALUE_INDEX_ = 3;
-
-
-/**
- * Maps mouse events to an array of button argument value for each mouse button.
- * The array is indexed by the bot.Mouse.Button values. It encodes this table,
- * where each cell contains the (left/middle/right/none) button values.
- * <pre>
- *               click/    mouseup/   mouseout/  mousemove  contextmenu
- *               dblclick  mousedown  mouseover
- * IE_DOC_PRE9   0 0 0 X   1 4 2 X    0 0 0 0    1 4 2 0    X X 0 X
- * WEBKIT/IE9    0 1 2 X   0 1 2 X    0 1 2 0    0 1 2 0    X X 2 X
- * GECKO/OPERA   0 1 2 X   0 1 2 X    0 0 0 0    0 0 0 0    X X 2 X
- * </pre>
- * @private {!Object.<bot.events.EventType, !Array.<?number>>}
- * @const
- */
-bot.Mouse.MOUSE_BUTTON_VALUE_MAP_ = (function() {
-  // EventTypes can safely be used as keys without collisions in a JS Object,
-  // because its toString method returns a unique string (the event type name).
-  var buttonValueMap = {};
-  if (bot.userAgent.IE_DOC_PRE9) {
-    buttonValueMap[bot.events.EventType.CLICK] = [0, 0, 0, null];
-    buttonValueMap[bot.events.EventType.CONTEXTMENU] = [null, null, 0, null];
-    buttonValueMap[bot.events.EventType.MOUSEUP] = [1, 4, 2, null];
-    buttonValueMap[bot.events.EventType.MOUSEOUT] = [0, 0, 0, 0];
-    buttonValueMap[bot.events.EventType.MOUSEMOVE] = [1, 4, 2, 0];
-  } else if (goog.userAgent.WEBKIT || bot.userAgent.IE_DOC_9) {
-    buttonValueMap[bot.events.EventType.CLICK] = [0, 1, 2, null];
-    buttonValueMap[bot.events.EventType.CONTEXTMENU] = [null, null, 2, null];
-    buttonValueMap[bot.events.EventType.MOUSEUP] = [0, 1, 2, null];
-    buttonValueMap[bot.events.EventType.MOUSEOUT] = [0, 1, 2, 0];
-    buttonValueMap[bot.events.EventType.MOUSEMOVE] = [0, 1, 2, 0];
-  } else {
-    buttonValueMap[bot.events.EventType.CLICK] = [0, 1, 2, null];
-    buttonValueMap[bot.events.EventType.CONTEXTMENU] = [null, null, 2, null];
-    buttonValueMap[bot.events.EventType.MOUSEUP] = [0, 1, 2, null];
-    buttonValueMap[bot.events.EventType.MOUSEOUT] = [0, 0, 0, 0];
-    buttonValueMap[bot.events.EventType.MOUSEMOVE] = [0, 0, 0, 0];
-  }
-
-  if (bot.userAgent.IE_DOC_10) {
-    buttonValueMap[bot.events.EventType.MSPOINTERDOWN] =
-        buttonValueMap[bot.events.EventType.MOUSEUP];
-    buttonValueMap[bot.events.EventType.MSPOINTERUP] =
-        buttonValueMap[bot.events.EventType.MOUSEUP];
-    buttonValueMap[bot.events.EventType.MSPOINTERMOVE] = [-1, -1, -1, -1];
-    buttonValueMap[bot.events.EventType.MSPOINTEROUT] =
-        buttonValueMap[bot.events.EventType.MSPOINTERMOVE];
-    buttonValueMap[bot.events.EventType.MSPOINTEROVER] =
-        buttonValueMap[bot.events.EventType.MSPOINTERMOVE];
-  }
-
-  buttonValueMap[bot.events.EventType.DBLCLICK] =
-      buttonValueMap[bot.events.EventType.CLICK];
-  buttonValueMap[bot.events.EventType.MOUSEDOWN] =
-      buttonValueMap[bot.events.EventType.MOUSEUP];
-  buttonValueMap[bot.events.EventType.MOUSEOVER] =
-      buttonValueMap[bot.events.EventType.MOUSEOUT];
-  return buttonValueMap;
-})();
-
-
-/**
- * Maps mouse events to corresponding MSPointer event.
- * @private {!Object.<bot.events.EventType, bot.events.EventType>}
- */
-bot.Mouse.MOUSE_EVENT_MAP_ = (function() {
-  var map = {};
-  map[bot.events.EventType.MOUSEDOWN] = bot.events.EventType.MSPOINTERDOWN;
-  map[bot.events.EventType.MOUSEMOVE] = bot.events.EventType.MSPOINTERMOVE;
-  map[bot.events.EventType.MOUSEOUT] = bot.events.EventType.MSPOINTEROUT;
-  map[bot.events.EventType.MOUSEOVER] = bot.events.EventType.MSPOINTEROVER;
-  map[bot.events.EventType.MOUSEUP] = bot.events.EventType.MSPOINTERUP;
-  return map;
-})();
-
-
-/**
- * Attempts to fire a mousedown event and then returns whether or not the
- * element should receive focus as a result of the mousedown.
- *
- * @return {boolean} Whether to focus on the element after the mousedown.
- * @private
- */
-bot.Mouse.prototype.fireMousedown_ = function() {
-  // On some browsers, a mouse down event on an OPTION or SELECT element cause
-  // the SELECT to open, blocking further JS execution. This is undesirable,
-  // and so needs to be detected. We always focus in this case.
-  // TODO: This is a nasty way to avoid locking the browser
-  var isFirefox3 = goog.userAgent.GECKO && !bot.userAgent.isProductVersion(4);
-  var blocksOnMousedown = (goog.userAgent.WEBKIT || isFirefox3) &&
-      (bot.dom.isElement(this.getElement(), goog.dom.TagName.OPTION) ||
-       bot.dom.isElement(this.getElement(), goog.dom.TagName.SELECT));
-  if (blocksOnMousedown) {
-    return true;
-  }
-
-  // On some browsers, if the mousedown event handler makes a focus() call to
-  // change the active element, this preempts the focus that would happen by
-  // default on the mousedown, so we should not explicitly focus in this case.
-  var beforeActiveElement;
-  var mousedownCanPreemptFocus = goog.userAgent.GECKO || goog.userAgent.IE;
-  if (mousedownCanPreemptFocus) {
-    beforeActiveElement = bot.dom.getActiveElement(this.getElement());
-  }
-  var performFocus = this.fireMouseEvent_(bot.events.EventType.MOUSEDOWN);
-  if (performFocus && mousedownCanPreemptFocus &&
-      beforeActiveElement != bot.dom.getActiveElement(this.getElement())) {
-    return false;
-  }
-  return performFocus;
-};
-
-
-/**
- * Press a mouse button on an element that the mouse is interacting with.
- *
- * @param {!bot.Mouse.Button} button Button.
-*/
-bot.Mouse.prototype.pressButton = function(button) {
-  if (!goog.isNull(this.buttonPressed_)) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Cannot press more then one button or an already pressed button.');
-  }
-  this.buttonPressed_ = button;
-  this.elementPressed_ = this.getElement();
-
-  var performFocus = this.fireMousedown_();
-  if (performFocus) {
-    if (bot.userAgent.IE_DOC_10 &&
-        this.buttonPressed_ == bot.Mouse.Button.LEFT &&
-        bot.dom.isElement(this.elementPressed_, goog.dom.TagName.OPTION)) {
-      this.fireMSPointerEvent(bot.events.EventType.MSGOTPOINTERCAPTURE,
-          this.clientXY_, 0, bot.Device.MOUSE_MS_POINTER_ID,
-          MSPointerEvent.MSPOINTER_TYPE_MOUSE, true);
-    }
-    this.focusOnElement();
-  }
-};
-
-
-/**
- * Releases the pressed mouse button. Throws exception if no button pressed.
- *
- */
-bot.Mouse.prototype.releaseButton = function() {
-  if (goog.isNull(this.buttonPressed_)) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Cannot release a button when no button is pressed.');
-  }
-
-  this.maybeToggleOption();
-  this.fireMouseEvent_(bot.events.EventType.MOUSEUP);
-
-  // TODO: Middle button can also trigger click.
-  if (this.buttonPressed_ == bot.Mouse.Button.LEFT &&
-      this.getElement() == this.elementPressed_) {
-    if (!(bot.userAgent.WINDOWS_PHONE &&
-        bot.dom.isElement(this.elementPressed_, goog.dom.TagName.OPTION))) {
-      this.clickElement(this.clientXY_,
-          this.getButtonValue_(bot.events.EventType.CLICK));
-    }
-    this.maybeDoubleClickElement_();
-    if (bot.userAgent.IE_DOC_10 &&
-        this.buttonPressed_ == bot.Mouse.Button.LEFT &&
-        bot.dom.isElement(this.elementPressed_, goog.dom.TagName.OPTION)) {
-      this.fireMSPointerEvent(bot.events.EventType.MSLOSTPOINTERCAPTURE,
-          new goog.math.Coordinate(0, 0), 0, bot.Device.MOUSE_MS_POINTER_ID,
-          MSPointerEvent.MSPOINTER_TYPE_MOUSE, false);
-    }
-  // TODO: In Linux, this fires after mousedown event.
-  } else if (this.buttonPressed_ == bot.Mouse.Button.RIGHT) {
-    this.fireMouseEvent_(bot.events.EventType.CONTEXTMENU);
-  }
-  bot.Device.clearPointerMap();
-  this.buttonPressed_ = null;
-  this.elementPressed_ = null;
-};
-
-
-/**
- * A helper function to fire mouse double click events.
- *
- * @private
- */
-bot.Mouse.prototype.maybeDoubleClickElement_ = function() {
-  // Trigger an additional double click event if it is the second click.
-  if (this.nextClickIsDoubleClick_) {
-    this.fireMouseEvent_(bot.events.EventType.DBLCLICK);
-  }
-  this.nextClickIsDoubleClick_ = !this.nextClickIsDoubleClick_;
-};
-
-
-/**
- * Given a coordinates (x,y) related to an element, move mouse to (x,y) of the
- * element. The top-left point of the element is (0,0).
- *
- * @param {!Element} element The destination element.
- * @param {!goog.math.Coordinate} coords Mouse position related to the target.
- */
-bot.Mouse.prototype.move = function(element, coords) {
-  // If the element is interactable at the start of the move, it receives the
-  // full event sequence, even if hidden by an element mid sequence.
-  var toElemWasInteractable = bot.dom.isInteractable(element);
-
-  var rect = bot.dom.getClientRect(element);
-  this.clientXY_.x = coords.x + rect.left;
-  this.clientXY_.y = coords.y + rect.top;
-  var fromElement = this.getElement();
-
-  if (element != fromElement) {
-    // If the window of fromElement is closed, set fromElement to null as a flag
-    // to skip the mouseout event and so relatedTarget of the mouseover is null.
-    try {
-      if (goog.dom.getWindow(goog.dom.getOwnerDocument(fromElement)).closed) {
-        fromElement = null;
-      }
-    } catch (ignore) {
-      // Sometimes accessing a window that no longer exists causes an error.
-      fromElement = null;
-    }
-
-    if (fromElement) {
-      // For the first mouse interaction on a page, if the mouse was over the
-      // browser window, the browser will pass null as the relatedTarget for the
-      // mouseover event. For subsequent interactions, it will pass the
-      // last-focused element. Unfortunately, we don't have anywhere to keep the
-      // state of which elements have been focused across Mouse instances, so we
-      // treat every Mouse initially positioned over the documentElement or body
-      // as if it's on a new page. Accordingly, for complex actions (e.g.
-      // drag-and-drop), a single Mouse instance should be used for the whole
-      // action, to ensure the correct relatedTargets are fired for any events.
-      var isRoot = fromElement === bot.getDocument().documentElement ||
-                   fromElement === bot.getDocument().body;
-      fromElement = (!this.hasEverInteracted_ && isRoot) ? null : fromElement;
-      this.fireMouseEvent_(bot.events.EventType.MOUSEOUT, element);
-    }
-    this.setElement(element);
-
-    // All browsers except IE fire the mouseover before the mousemove.
-    if (!goog.userAgent.IE) {
-      this.fireMouseEvent_(bot.events.EventType.MOUSEOVER, fromElement, null,
-          toElemWasInteractable);
-    }
-  }
-
-  this.fireMouseEvent_(bot.events.EventType.MOUSEMOVE, null, null,
-      toElemWasInteractable);
-
-  // IE fires the mouseover event after the mousemove.
-  if (goog.userAgent.IE && element != fromElement) {
-    this.fireMouseEvent_(bot.events.EventType.MOUSEOVER, fromElement, null,
-        toElemWasInteractable);
-  }
-
-  this.nextClickIsDoubleClick_ = false;
-};
-
-
-/**
- * Scrolls the wheel of the mouse by the given number of ticks, where a positive
- * number indicates a downward scroll and a negative is upward scroll.
- *
- * @param {number} ticks Number of ticks to scroll the mouse wheel.
- */
-bot.Mouse.prototype.scroll = function(ticks) {
-  if (ticks == 0) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Must scroll a non-zero number of ticks.');
-  }
-
-  // The wheelDelta value for a single up-tick of the mouse wheel is 120, and
-  // a single down-tick is -120. The deltas in pixels (which is only relevant
-  // for Firefox) appears to be -57 and 57, respectively.
-  var wheelDelta = ticks > 0 ? -120 : 120;
-  var pixelDelta = ticks > 0 ? 57 : -57;
-
-  // Browsers fire a separate event (or pair of events in Gecko) for each tick.
-  for (var i = 0; i < Math.abs(ticks); i++) {
-    this.fireMouseEvent_(bot.events.EventType.MOUSEWHEEL, null, wheelDelta);
-    if (goog.userAgent.GECKO) {
-      this.fireMouseEvent_(bot.events.EventType.MOUSEPIXELSCROLL, null,
-                           pixelDelta);
-    }
-  }
-};
-
-
-/**
- * A helper function to fire mouse events.
- *
- * @param {bot.events.EventType} type Event type.
- * @param {Element=} opt_related The related element of this event.
- * @param {?number=} opt_wheelDelta The wheel delta value for the event.
- * @param {boolean=} opt_force Whether the event should be fired even if the
- *     element is not interactable.
- * @return {boolean} Whether the event fired successfully or was cancelled.
- * @private
- */
-bot.Mouse.prototype.fireMouseEvent_ = function(type, opt_related,
-                                               opt_wheelDelta, opt_force) {
-  this.hasEverInteracted_ = true;
-  if (bot.userAgent.IE_DOC_10) {
-    var msPointerEvent = bot.Mouse.MOUSE_EVENT_MAP_[type];
-    if (msPointerEvent) {
-      // The pointerId for mouse events is always 1 and the mouse event is never
-      // fired if the MSPointer event fails.
-      if (!this.fireMSPointerEvent(msPointerEvent, this.clientXY_,
-          this.getButtonValue_(msPointerEvent), bot.Device.MOUSE_MS_POINTER_ID,
-          MSPointerEvent.MSPOINTER_TYPE_MOUSE, /* isPrimary */ true,
-          opt_related, opt_force)) {
-        return false;
-      }
-    }
-  }
-  return this.fireMouseEvent(type, this.clientXY_,
-      this.getButtonValue_(type), opt_related, opt_wheelDelta, opt_force);
-};
-
-
-/**
- * Given an event type and a mouse button, sets the mouse button value used
- * for that event on the current browser. The mouse button value is 0 for any
- * event not covered by bot.Mouse.MOUSE_BUTTON_VALUE_MAP_.
- *
- * @param {bot.events.EventType} eventType Type of mouse event.
- * @return {number} The mouse button ID value to the current browser.
- * @private
-*/
-bot.Mouse.prototype.getButtonValue_ = function(eventType) {
-  if (!(eventType in bot.Mouse.MOUSE_BUTTON_VALUE_MAP_)) {
-    return 0;
-  }
-
-  var buttonIndex = goog.isNull(this.buttonPressed_) ?
-      bot.Mouse.NO_BUTTON_VALUE_INDEX_ : this.buttonPressed_;
-  var buttonValue = bot.Mouse.MOUSE_BUTTON_VALUE_MAP_[eventType][buttonIndex];
-  if (goog.isNull(buttonValue)) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Event does not permit the specified mouse button.');
-  }
-  return buttonValue;
-};
-
-
-/**
- * Serialize the current state of the mouse.
- * @return {!bot.Mouse.State} The current mouse state.
- */
-bot.Mouse.prototype.getState = function() {
-  var state = {};
-  state.buttonPressed = this.buttonPressed_;
-  state.elementPressed = this.elementPressed_;
-  state.clientXY = this.clientXY_;
-  state.nextClickIsDoubleClick = this.nextClickIsDoubleClick_;
-  state.hasEverInteracted = this.hasEverInteracted_;
-  state.element = this.getElement();
-  return state;
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview The file contains an abstraction of a touch screen
- * for simulating atomic touchscreen actions.
- */
-
-goog.provide('bot.Touchscreen');
-
-goog.require('bot');
-goog.require('bot.Device');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-goog.require('bot.dom');
-goog.require('bot.events.EventType');
-goog.require('goog.math.Coordinate');
-
-
-
-/**
- * A TouchScreen that provides atomic touch actions.  The metaphor
- * for this abstraction is a finger moving above the touchscreen that
- * can press and then release the touchscreen when specified.
- *
- * The touchscreen supports three actions: press, release, and move.
- *
- * @constructor
- * @extends {bot.Device}
- */
-bot.Touchscreen = function() {
-  goog.base(this);
-
-  /** @private {!goog.math.Coordinate} */
-  this.clientXY_ = new goog.math.Coordinate(0, 0);
-
-  /** @private {!goog.math.Coordinate} */
-  this.clientXY2_ = new goog.math.Coordinate(0, 0);
-};
-goog.inherits(bot.Touchscreen, bot.Device);
-
-
-/** @private {boolean} */
-bot.Touchscreen.prototype.hasMovedAfterPress_ = false;
-
-
-/** @private {boolean} */
-bot.Touchscreen.prototype.cancelled_ = false;
-
-
-/** @private {number} */
-bot.Touchscreen.prototype.touchIdentifier_ = 0;
-
-
-/** @private {number} */
-bot.Touchscreen.prototype.touchIdentifier2_ = 0;
-
-
-/** @private {number} */
-bot.Touchscreen.prototype.touchCounter_ = 2;
-
-
-/**
- * Press the touch screen.  Pressing before moving results in an exception.
- * Pressing while already pressed also results in an exception.
- *
- * @param {boolean=} opt_press2 Whether or not press the second finger during
- *     the press.  If not defined or false, only the primary finger will be
- *     pressed.
- */
-bot.Touchscreen.prototype.press = function(opt_press2) {
-  if (this.isPressed()) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Cannot press touchscreen when already pressed.');
-  }
-
-  this.hasMovedAfterPress_ = false;
-  this.touchIdentifier_ = this.touchCounter_++;
-  if (opt_press2) {
-    this.touchIdentifier2_ = this.touchCounter_++;
-  }
-
-  if (bot.userAgent.IE_DOC_10) {
-    this.firePointerEvents_(bot.Touchscreen.fireSinglePressPointer_);
-  } else {
-    this.fireTouchEvent_(bot.events.EventType.TOUCHSTART);
-  }
-};
-
-
-/**
- * Releases an element on a touchscreen.  Releasing an element that is not
- * pressed results in an exception.
- */
-bot.Touchscreen.prototype.release = function() {
-  if (!this.isPressed()) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Cannot release touchscreen when not already pressed.');
-  }
-
-  if (!bot.userAgent.IE_DOC_10) {
-    this.fireTouchReleaseEvents_();
-  } else if (!this.cancelled_) {
-    this.firePointerEvents_(bot.Touchscreen.fireSingleReleasePointer_);
-  }
-  bot.Device.clearPointerMap();
-  this.touchIdentifier_ = 0;
-  this.touchIdentifier2_ = 0;
-  this.cancelled_ = false;
-};
-
-
-/**
- * Moves finger along the touchscreen.
- *
- * @param {!Element} element Element that is being pressed.
- * @param {!goog.math.Coordinate} coords Coordinates relative to
- *   currentElement.
- * @param {goog.math.Coordinate=} opt_coords2 Coordinates relative to
- *   currentElement.
- */
-bot.Touchscreen.prototype.move = function(element, coords, opt_coords2) {
-  // The target element for touch actions is the original element. Hence, the
-  // element is set only when the touchscreen is not currently being pressed.
-  // The exception is IE10 which fire events on the moved to element.
-  var originalElement = this.getElement();
-  if (!this.isPressed() || bot.userAgent.IE_DOC_10) {
-    this.setElement(element);
-  }
-
-  var rect = bot.dom.getClientRect(element);
-  this.clientXY_.x = coords.x + rect.left;
-  this.clientXY_.y = coords.y + rect.top;
-
-  if (goog.isDef(opt_coords2)) {
-    this.clientXY2_.x = opt_coords2.x + rect.left;
-    this.clientXY2_.y = opt_coords2.y + rect.top;
-  }
-
-  if (this.isPressed()) {
-    if (!bot.userAgent.IE_DOC_10) {
-      this.hasMovedAfterPress_ = true;
-      this.fireTouchEvent_(bot.events.EventType.TOUCHMOVE);
-    } else if (!this.cancelled_) {
-      if (element != originalElement) {
-        this.hasMovedAfterPress_ = true;
-      }
-      if (bot.Touchscreen.hasMsTouchActionsEnabled_(element)) {
-        this.firePointerEvents_(bot.Touchscreen.fireSingleMovePointer_);
-      } else {
-        this.fireMSPointerEvent(bot.events.EventType.MSPOINTEROUT, coords, -1,
-            this.touchIdentifier_, MSPointerEvent.MSPOINTER_TYPE_TOUCH, true);
-        this.fireMouseEvent(bot.events.EventType.MOUSEOUT, coords, 0);
-        this.fireMSPointerEvent(bot.events.EventType.MSPOINTERCANCEL, coords, 0,
-            this.touchIdentifier_, MSPointerEvent.MSPOINTER_TYPE_TOUCH, true);
-        this.cancelled_ = true;
-        bot.Device.clearPointerMap();
-      }
-    }
-  }
-};
-
-
-/**
- * Returns whether the touchscreen is currently pressed.
- *
- * @return {boolean} Whether the touchscreen is pressed.
- */
-bot.Touchscreen.prototype.isPressed = function() {
-  return !!this.touchIdentifier_;
-};
-
-
-/**
- * A helper function to fire touch events.
- *
- * @param {bot.events.EventType} type Event type.
- * @private
- */
-bot.Touchscreen.prototype.fireTouchEvent_ = function(type) {
-  if (!this.isPressed()) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Should never fire event when touchscreen is not pressed.');
-  }
-  var touchIdentifier2;
-  var coords2;
-  if (this.touchIdentifier2_) {
-    touchIdentifier2 = this.touchIdentifier2_;
-    coords2 = this.clientXY2_;
-  }
-  this.fireTouchEvent(type, this.touchIdentifier_, this.clientXY_,
-                      touchIdentifier2, coords2);
-};
-
-
-/**
- * A helper function to fire touch events that occur on a release.
- *
- * @private
- */
-bot.Touchscreen.prototype.fireTouchReleaseEvents_ = function() {
-  this.fireTouchEvent_(bot.events.EventType.TOUCHEND);
-
-  // If no movement occurred since press, TouchScreen.Release will fire the
-  // legacy mouse events: mousemove, mousedown, mouseup, and click
-  // after the touch events have been fired. The click button should be zero
-  // and only one mousemove should fire.
-  if (!this.hasMovedAfterPress_) {
-    this.fireMouseEvent(bot.events.EventType.MOUSEMOVE, this.clientXY_, 0);
-    var performFocus = this.fireMouseEvent(bot.events.EventType.MOUSEDOWN,
-                                           this.clientXY_, 0);
-    // Element gets focus after the mousedown event only if the mousedown was
-    // not cancelled.
-    if (performFocus) {
-      this.focusOnElement();
-    }
-    this.maybeToggleOption();
-    this.fireMouseEvent(bot.events.EventType.MOUSEUP, this.clientXY_, 0);
-
-    // Special click logic to follow links and to perform form actions.
-    if (!(bot.userAgent.WINDOWS_PHONE &&
-        bot.dom.isElement(this.getElement(), goog.dom.TagName.OPTION))) {
-       this.clickElement(this.clientXY_, /* button value */ 0);
-    }
-  }
-};
-
-
-/**
- * A helper function to fire a sequence of Pointer events.
- * @param {function(!bot.Touchscreen, !Element, !goog.math.Coordinate, number,
- *     boolean)} fireSinglePointer A function that fires a set of events for one
- *     finger.
- * @private
- */
-bot.Touchscreen.prototype.firePointerEvents_ = function(fireSinglePointer) {
-  fireSinglePointer(this, this.getElement(), this.clientXY_,
-                    this.touchIdentifier_, true);
-  if (this.touchIdentifier2_ &&
-      bot.Touchscreen.hasMsTouchActionsEnabled_(this.getElement())) {
-    fireSinglePointer(this, this.getElement(),
-                      this.clientXY2_, this.touchIdentifier2_, false);
-  }
-};
-
-
-/**
- * A helper function to fire Pointer events related to a press.
- *
- * @param {!bot.Touchscreen} ts A touchscreen object.
- * @param {!Element} element Element that is being pressed.
- * @param {!goog.math.Coordinate} coords Coordinates relative to
- *   currentElement.
- * @param {number} id The touch identifier.
- * @param {boolean} isPrimary Whether the pointer represents the primary point
- *     of contact.
- * @private
- */
-bot.Touchscreen.fireSinglePressPointer_ = function(ts, element, coords, id,
-    isPrimary) {
-  // Fire a mousemove event.
-  ts.fireMouseEvent(bot.events.EventType.MOUSEMOVE, coords, 0);
-
-  // Fire a MSPointerOver and mouseover events.
-  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTEROVER, coords, 0, id,
-      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
-  ts.fireMouseEvent(bot.events.EventType.MOUSEOVER, coords, 0);
-
-  // Fire a MSPointerDown and mousedown events.
-  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTERDOWN, coords, 0, id,
-      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
-
-  // Element gets focus after the mousedown event.
-  if (ts.fireMouseEvent(bot.events.EventType.MOUSEDOWN, coords, 0)) {
-    // For selectable elements, IE 10 fires a MSGotPointerCapture event.
-    if (bot.dom.isSelectable(element)) {
-      ts.fireMSPointerEvent(bot.events.EventType.MSGOTPOINTERCAPTURE, coords, 0,
-          id, MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
-    }
-    ts.focusOnElement();
-  }
-};
-
-
-/**
- * A helper function to fire Pointer events related to a release.
- *
- * @param {!bot.Touchscreen} ts A touchscreen object.
- * @param {!Element} element Element that is being released.
- * @param {!goog.math.Coordinate} coords Coordinates relative to
- *   currentElement.
- * @param {number} id The touch identifier.
- * @param {boolean} isPrimary Whether the pointer represents the primary point
- *     of contact.
- * @private
- */
-bot.Touchscreen.fireSingleReleasePointer_ = function(ts, element, coords, id,
-    isPrimary) {
-  // Fire a MSPointerUp and mouseup events.
-  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTERUP, coords, 0, id,
-      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
-  ts.fireMouseEvent(bot.events.EventType.MOUSEUP, coords, 0, null, 0, false,
-      id);
-
-  // Fire a click.
-  if (!ts.hasMovedAfterPress_) {
-    ts.maybeToggleOption();
-    if (!(bot.userAgent.WINDOWS_PHONE &&
-        bot.dom.isElement(element, goog.dom.TagName.OPTION))) {
-      ts.clickElement(ts.clientXY_, 0, id);
-    }
-  }
-
-  if (bot.dom.isSelectable(element)) {
-    // For selectable elements, IE 10 fires a MSLostPointerCapture event.
-    ts.fireMSPointerEvent(bot.events.EventType.MSLOSTPOINTERCAPTURE,
-        new goog.math.Coordinate(0, 0), 0, id,
-        MSPointerEvent.MSPOINTER_TYPE_TOUCH, false);
-  }
-
-  // Fire a MSPointerOut and mouseout events.
-  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTEROUT, coords, -1, id,
-      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
-  ts.fireMouseEvent(bot.events.EventType.MOUSEOUT, coords, 0, null, 0, false,
-      id);
-};
-
-
-/**
- * A helper function to fire Pointer events related to a move.
- *
- * @param {!bot.Touchscreen} ts A touchscreen object.
- * @param {!Element} element Element that is being moved.
- * @param {!goog.math.Coordinate} coords Coordinates relative to
- *   currentElement.
- * @param {number} id The touch identifier.
- * @param {boolean} isPrimary Whether the pointer represents the primary point
- *     of contact.
- * @private
- */
-bot.Touchscreen.fireSingleMovePointer_ = function(ts, element, coords, id,
-    isPrimary) {
-  // Fire a MSPointerMove and mousemove events.
-  ts.fireMSPointerEvent(bot.events.EventType.MSPOINTERMOVE, coords, -1, id,
-      MSPointerEvent.MSPOINTER_TYPE_TOUCH, isPrimary);
-  ts.fireMouseEvent(bot.events.EventType.MOUSEMOVE, coords, 0, null, 0, false,
-      id);
-};
-
-
-/**
- * A function that determines whether an element can be manipulated by the user.
- * The msTouchAction style is queried and an element can be manipulated if the
- * style value is none. If an element cannot be manipulated, then move gestures
- * will result in a cancellation and multi-touch events will be prevented. Tap
- * gestures will still be allowed. If not on IE 10, the function returns true.
- *
- * @param {!Element} element The element being manipulated.
- * @return {boolean} Whether the element can be manipulated.
- * @private
- */
-bot.Touchscreen.hasMsTouchActionsEnabled_ = function(element) {
-  if (!bot.userAgent.IE_DOC_10) {
-    throw new Error('hasMsTouchActionsEnable should only be called from IE 10');
-  }
-
-  // Although this particular element may have a style indicating that it cannot
-  // receive javascript events, its parent may indicate otherwise.
-  if (bot.dom.getEffectiveStyle(element, 'ms-touch-action') == 'none') {
-    return true;
-  } else {
-    var parent = bot.dom.getParentElement(element);
-    return !!parent && bot.Touchscreen.hasMsTouchActionsEnabled_(parent);
-  }
-};
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Overall configuration of the browser automation atoms.
- */
-
-
-goog.provide('bot');
-
-
-/**
- * Frameworks using the atoms keep track of which window or frame is currently
- * being used for command execution. Note that "window" may not always be
- * defined (for example in firefox extensions)
- * @private {!Window}
- */
-bot.window_;
-
-try {
-  bot.window_ = window;
-} catch (ignored) {
-  // We only reach this place in a firefox extension.
-  bot.window_ = goog.global;
-}
-
-
-/**
- * Returns the window currently being used for command execution.
- *
- * @return {!Window} The window for command execution.
- */
-bot.getWindow = function() {
-  return bot.window_;
-};
-
-
-/**
- * Sets the window to be used for command execution.
- *
- * @param {!Window} win The window for command execution.
- */
-bot.setWindow = function(win) {
-  bot.window_ = win;
-};
-
-
-/**
- * Returns the document of the window currently being used for
- * command execution.
- *
- * @return {!Document} The current window's document.
- */
-bot.getDocument = function() {
-  return bot.window_.document;
-};
-// Copyright 2012 Software Freedom Conservancy
-// Copyright 2010 WebDriver committers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview DOM manipulation and querying routines.
- */
-
-goog.provide('bot.dom');
-
-goog.require('bot');
-goog.require('bot.color');
-goog.require('bot.locators.xpath');
-goog.require('bot.userAgent');
-goog.require('goog.array');
-goog.require('goog.dom');
-goog.require('goog.dom.DomHelper');
-goog.require('goog.dom.NodeType');
-goog.require('goog.dom.TagName');
-goog.require('goog.math');
-goog.require('goog.math.Coordinate');
-goog.require('goog.math.Rect');
-goog.require('goog.string');
-goog.require('goog.style');
-goog.require('goog.userAgent');
-
-
-/**
- * Retrieves the active element for a node's owner document.
- * @param {!(Node|Window)} nodeOrWindow The node whose owner document to get
- *     the active element for.
- * @return {Element} The active element, if any.
- */
-bot.dom.getActiveElement = function(nodeOrWindow) {
-  var active = goog.dom.getActiveElement(
-      goog.dom.getOwnerDocument(nodeOrWindow));
-  // IE has the habit of returning an empty object from
-  // goog.dom.getActiveElement instead of null.
-  if (goog.userAgent.IE &&
-      active &&
-      typeof active.nodeType === 'undefined') {
-    return null;
-  }
-  return active;
-};
-
-
-/**
- * Returns whether the given node is an element and, optionally, whether it has
- * the given tag name. If the tag name is not provided, returns true if the node
- * is an element, regardless of the tag name.h
- *
- * @param {Node} node The node to test.
- * @param {string=} opt_tagName Tag name to test the node for.
- * @return {boolean} Whether the node is an element with the given tag name.
- */
-bot.dom.isElement = function(node, opt_tagName) {
-  return !!node && node.nodeType == goog.dom.NodeType.ELEMENT &&
-      (!opt_tagName || node.tagName.toUpperCase() == opt_tagName);
-};
-
-
-/**
- * Returns whether an element is in an interactable state: whether it is shown
- * to the user, ignoring its opacity, and whether it is enabled.
- *
- * @param {!Element} element The element to check.
- * @return {boolean} Whether the element is interactable.
- * @see bot.dom.isShown.
- * @see bot.dom.isEnabled
- */
-bot.dom.isInteractable = function(element) {
-  return bot.dom.isShown(element, /*ignoreOpacity=*/true) &&
-      bot.dom.isEnabled(element) &&
-      !bot.dom.hasPointerEventsDisabled_(element);
-};
-
-
-/**
- * @param {!Element} element Element.
- * @return {boolean} Whether element is set by the CSS pointer-events property
- *     not to be interactable.
- * @private
- */
-bot.dom.hasPointerEventsDisabled_ = function(element) {
-  if (goog.userAgent.IE || goog.userAgent.OPERA ||
-      (goog.userAgent.GECKO && !bot.userAgent.isEngineVersion('1.9.2'))) {
-    // Don't support pointer events
-    return false;
-  }
-  return bot.dom.getEffectiveStyle(element, 'pointer-events') == 'none';
-};
-
-
-/**
- * Returns whether the element can be checked or selected.
- *
- * @param {!Element} element The element to check.
- * @return {boolean} Whether the element could be checked or selected.
- */
-bot.dom.isSelectable = function(element) {
-  if (bot.dom.isElement(element, goog.dom.TagName.OPTION)) {
-    return true;
-  }
-
-  if (bot.dom.isElement(element, goog.dom.TagName.INPUT)) {
-    var type = element.type.toLowerCase();
-    return type == 'checkbox' || type == 'radio';
-  }
-
-  return false;
-};
-
-
-/**
- * Returns whether the element is checked or selected.
- *
- * @param {!Element} element The element to check.
- * @return {boolean} Whether the element is checked or selected.
- */
-bot.dom.isSelected = function(element) {
-  if (!bot.dom.isSelectable(element)) {
-    throw new bot.Error(bot.ErrorCode.ELEMENT_NOT_SELECTABLE,
-        'Element is not selectable');
-  }
-
-  var propertyName = 'selected';
-  var type = element.type && element.type.toLowerCase();
-  if ('checkbox' == type || 'radio' == type) {
-    propertyName = 'checked';
-  }
-
-  return !!bot.dom.getProperty(element, propertyName);
-};
-
-
-/**
- * List of the focusable fields, according to
- * http://www.w3.org/TR/html401/interact/scripts.html#adef-onfocus
- * @private {!Array.<!goog.dom.TagName>}
- * @const
- */
-bot.dom.FOCUSABLE_FORM_FIELDS_ = [
-  goog.dom.TagName.A,
-  goog.dom.TagName.AREA,
-  goog.dom.TagName.BUTTON,
-  goog.dom.TagName.INPUT,
-  goog.dom.TagName.LABEL,
-  goog.dom.TagName.SELECT,
-  goog.dom.TagName.TEXTAREA
-];
-
-
-/**
- * Returns whether a node is a focusable element.  An element may receive focus
- * if it is a form field or has a positive tabindex.
- * @param {!Element} element The node to test.
- * @return {boolean} Whether the node is focusable.
- */
-bot.dom.isFocusable = function(element) {
-  return goog.array.some(bot.dom.FOCUSABLE_FORM_FIELDS_, function(tagName) {
-    return element.tagName.toUpperCase() == tagName;
-  }) || (bot.dom.getAttribute(element, 'tabindex') != null &&
-         Number(bot.dom.getProperty(element, 'tabIndex')) >= 0);
-};
-
-
-/**
- * Looks up the given property (not to be confused with an attribute) on the
- * given element.
- *
- * @param {!Element} element The element to use.
- * @param {string} propertyName The name of the property.
- * @return {*} The value of the property.
- */
-bot.dom.getProperty = function(element, propertyName) {
-  // When an <option>'s value attribute is not set, its value property should be
-  // its text content, but IE < 8 does not adhere to that behavior, so fix it.
-  // http://www.w3.org/TR/1999/REC-html401-19991224/interact/forms.html#adef-value-OPTION
-  if (bot.userAgent.IE_DOC_PRE8 && propertyName == 'value' &&
-      bot.dom.isElement(element, goog.dom.TagName.OPTION) &&
-      goog.isNull(bot.dom.getAttribute(element, 'value'))) {
-    return goog.dom.getRawTextContent(element);
-  }
-  return element[propertyName];
-};
-
-
-/**
- * Regex to split on semicolons, but not when enclosed in parens or quotes.
- * Helper for {@link bot.dom.standardizeStyleAttribute_}.
- * If the style attribute ends with a semicolon this will include an empty
- * string at the end of the array
- * @private {!RegExp}
- * @const
- */
-bot.dom.SPLIT_STYLE_ATTRIBUTE_ON_SEMICOLONS_REGEXP_ =
-    new RegExp('[;]+' +
-               '(?=(?:(?:[^"]*"){2})*[^"]*$)' +
-               '(?=(?:(?:[^\']*\'){2})*[^\']*$)' +
-               '(?=(?:[^()]*\\([^()]*\\))*[^()]*$)');
-
-
-/**
- * Standardize a style attribute value, which includes:
- *  (1) converting all property names lowercase
- *  (2) ensuring it ends in a trailing semi-colon
- *  (3) removing empty style values (which only appear on Opera).
- * @param {string} value The style attribute value.
- * @return {string} The identical value, with the formatting rules described
- *     above applied.
- * @private
- */
-bot.dom.standardizeStyleAttribute_ = function(value) {
-  var styleArray = value.split(
-      bot.dom.SPLIT_STYLE_ATTRIBUTE_ON_SEMICOLONS_REGEXP_);
-  var css = [];
-  goog.array.forEach(styleArray, function(pair) {
-    var i = pair.indexOf(':');
-    if (i > 0) {
-      var keyValue = [pair.slice(0, i), pair.slice(i + 1)];
-      if (keyValue.length == 2) {
-        css.push(keyValue[0].toLowerCase(), ':', keyValue[1], ';');
-      }
-    }
-  });
-  css = css.join('');
-  css = css.charAt(css.length - 1) == ';' ? css : css + ';';
-  return goog.userAgent.OPERA ? css.replace(/\w+:;/g, '') : css;
-};
-
-
-/**
- * Get the user-specified value of the given attribute of the element, or null
- * if the attribute is not present.
- *
- * <p>For boolean attributes such as "selected" or "checked", this method
- * returns the value of element.getAttribute(attributeName) cast to a String
- * when attribute is present. For modern browsers, this will be the string the
- * attribute is given in the HTML, but for IE8 it will be the name of the
- * attribute, and for IE7, it will be the string "true". To test whether a
- * boolean attribute is present, test whether the return value is non-null, the
- * same as one would for non-boolean attributes. Specifically, do *not* test
- * whether the boolean evaluation of the return value is true, because the value
- * of a boolean attribute that is present will often be the empty string.
- *
- * <p>For the style attribute, it standardizes the value by lower-casing the
- * property names and always including a trailing semi-colon.
- *
- * @param {!Element} element The element to use.
- * @param {string} attributeName The name of the attribute to return.
- * @return {?string} The value of the attribute or "null" if entirely missing.
- */
-bot.dom.getAttribute = function(element, attributeName) {
-  attributeName = attributeName.toLowerCase();
-
-  // The style attribute should be a css text string that includes only what
-  // the HTML element specifies itself (excluding what is inherited from parent
-  // elements or style sheets). We standardize the format of this string via the
-  // standardizeStyleAttribute method.
-  if (attributeName == 'style') {
-    return bot.dom.standardizeStyleAttribute_(element.style.cssText);
-  }
-
-  // In IE doc mode < 8, the "value" attribute of an <input> is only accessible
-  // as a property.
-  if (bot.userAgent.IE_DOC_PRE8 && attributeName == 'value' &&
-      bot.dom.isElement(element, goog.dom.TagName.INPUT)) {
-    return element['value'];
-  }
-
-  // In IE < 9, element.getAttributeNode will return null for some boolean
-  // attributes that are present, such as the selected attribute on <option>
-  // elements. This if-statement is sufficient if these cases are restricted
-  // to boolean attributes whose reflected property names are all lowercase
-  // (as attributeName is by this point), like "selected". We have not
-  // found a boolean attribute for which this does not work.
-  if (bot.userAgent.IE_DOC_PRE9 && element[attributeName] === true) {
-    return String(element.getAttribute(attributeName));
-  }
-
-  // When the attribute is not present, either attr will be null or
-  // attr.specified will be false.
-  var attr = element.getAttributeNode(attributeName);
-  return (attr && attr.specified) ? attr.value : null;
-};
-
-
-/**
- * List of elements that support the "disabled" attribute, as defined by the
- * HTML 4.01 specification.
- * @private {!Array.<goog.dom.TagName>}
- * @const
- * @see http://www.w3.org/TR/html401/interact/forms.html#h-17.12.1
- */
-bot.dom.DISABLED_ATTRIBUTE_SUPPORTED_ = [
-  goog.dom.TagName.BUTTON,
-  goog.dom.TagName.INPUT,
-  goog.dom.TagName.OPTGROUP,
-  goog.dom.TagName.OPTION,
-  goog.dom.TagName.SELECT,
-  goog.dom.TagName.TEXTAREA
-];
-
-
-/**
- * Determines if an element is enabled. An element is considered enabled if it
- * does not support the "disabled" attribute, or if it is not disabled.
- * @param {!Element} el The element to test.
- * @return {boolean} Whether the element is enabled.
- */
-bot.dom.isEnabled = function(el) {
-  var tagName = el.tagName.toUpperCase();
-  if (!goog.array.contains(bot.dom.DISABLED_ATTRIBUTE_SUPPORTED_, tagName)) {
-    return true;
-  }
-
-  if (bot.dom.getProperty(el, 'disabled')) {
-    return false;
-  }
-
-  // The element is not explicitly disabled, but if it is an OPTION or OPTGROUP,
-  // we must test if it inherits its state from a parent.
-  if (el.parentNode &&
-      el.parentNode.nodeType == goog.dom.NodeType.ELEMENT &&
-      goog.dom.TagName.OPTGROUP == tagName ||
-      goog.dom.TagName.OPTION == tagName) {
-    return bot.dom.isEnabled(/**@type{!Element}*/ (el.parentNode));
-  }
-
-  // Is there an ancestor of the current element that is a disabled fieldset
-  // and whose child is also an ancestor-or-self of the current element but is
-  // not the first legend child of the fieldset. If so then the element is
-  // disabled.
-  return !goog.dom.getAncestor(el, function(e) {
-    var parent = e.parentNode;
-
-    if (parent &&
-        bot.dom.isElement(parent, goog.dom.TagName.FIELDSET) &&
-        bot.dom.getProperty(/** @type {!Element} */ (parent), 'disabled')) {
-      if (!bot.dom.isElement(e, goog.dom.TagName.LEGEND)) {
-        return true;
-      }
-
-      var sibling = e;
-      // Are there any previous legend siblings? If so then we are not the
-      // first and the element is disabled
-      while (sibling = goog.dom.getPreviousElementSibling(sibling)) {
-        if (bot.dom.isElement(sibling, goog.dom.TagName.LEGEND)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }, true);
-};
-
-
-/**
- * List of input types that create text fields.
- * @private {!Array.<string>}
- * @const
- * @see http://www.whatwg.org/specs/web-apps/current-work/multipage/the-input-element.html#attr-input-type
- */
-bot.dom.TEXTUAL_INPUT_TYPES_ = [
-  'text',
-  'search',
-  'tel',
-  'url',
-  'email',
-  'password',
-  'number'
-];
-
-
-/**
- * TODO: Add support for designMode elements.
- *
- * @param {!Element} element The element to check.
- * @return {boolean} Whether the element accepts user-typed text.
- */
-bot.dom.isTextual = function(element) {
-  if (bot.dom.isElement(element, goog.dom.TagName.TEXTAREA)) {
-    return true;
-  }
-
-  if (bot.dom.isElement(element, goog.dom.TagName.INPUT)) {
-    var type = element.type.toLowerCase();
-    return goog.array.contains(bot.dom.TEXTUAL_INPUT_TYPES_, type);
-  }
-
-  if (bot.dom.isContentEditable(element)) {
-    return true;
-  }
-
-  return false;
-};
-
-
-/**
- * @param {!Element} element The element to check.
- * @return {boolean} Whether the element is contentEditable.
- */
-bot.dom.isContentEditable = function(element) {
-  // Check if browser supports contentEditable.
-  if (!goog.isDef(element['contentEditable'])) {
-    return false;
-  }
-
-  // Checking the element's isContentEditable property is preferred except for
-  // IE where that property is not reliable on IE versions 7, 8, and 9.
-  if (!goog.userAgent.IE && goog.isDef(element['isContentEditable'])) {
-    return element.isContentEditable;
-  }
-
-  // For IE and for browsers where contentEditable is supported but
-  // isContentEditable is not, traverse up the ancestors:
-  function legacyIsContentEditable(e) {
-    if (e.contentEditable == 'inherit') {
-      var parent = bot.dom.getParentElement(e);
-      return parent ? legacyIsContentEditable(parent) : false;
-    } else {
-      return e.contentEditable == 'true';
-    }
-  }
-  return legacyIsContentEditable(element);
-};
-
-
-/**
- * TODO: Merge isTextual into this function and move to bot.dom.
- * For Puppet, requires adding support to getVisibleText for grabbing
- * text from all textual elements.
- *
- * Whether the element may contain text the user can edit.
- *
- * @param {!Element} element The element to check.
- * @return {boolean} Whether the element accepts user-typed text.
- */
-bot.dom.isEditable = function(element) {
-  return bot.dom.isTextual(element) &&
-      !bot.dom.getProperty(element, 'readOnly');
-};
-
-
-/**
- * Returns the parent element of the given node, or null. This is required
- * because the parent node may not be another element.
- *
- * @param {!Node} node The node who's parent is desired.
- * @return {Element} The parent element, if available, null otherwise.
- */
-bot.dom.getParentElement = function(node) {
-  var elem = node.parentNode;
-
-  while (elem &&
-         elem.nodeType != goog.dom.NodeType.ELEMENT &&
-         elem.nodeType != goog.dom.NodeType.DOCUMENT &&
-         elem.nodeType != goog.dom.NodeType.DOCUMENT_FRAGMENT) {
-    elem = elem.parentNode;
-  }
-  return /** @type {Element} */ (bot.dom.isElement(elem) ? elem : null);
-};
-
-
-/**
- * Retrieves an explicitly-set, inline style value of an element. This returns
- * '' if there isn't a style attribute on the element or if this style property
- * has not been explicitly set in script.
- *
- * @param {!Element} elem Element to get the style value from.
- * @param {string} styleName Name of the style property in selector-case.
- * @return {string} The value of the style property.
- */
-bot.dom.getInlineStyle = function(elem, styleName) {
-  return goog.style.getStyle(elem, styleName);
-};
-
-
-/**
- * Retrieves the implicitly-set, effective style of an element, or null if it is
- * unknown. It returns the computed style where available; otherwise it looks
- * up the DOM tree for the first style value not equal to 'inherit,' using the
- * IE currentStyle of each node if available, and otherwise the inline style.
- * Since the computed, current, and inline styles can be different, the return
- * value of this function is not always consistent across browsers. See:
- * http://code.google.com/p/doctype/wiki/ArticleComputedStyleVsCascadedStyle
- *
- * @param {!Element} elem Element to get the style value from.
- * @param {string} propertyName Name of the CSS property.
- * @return {?string} The value of the style property, or null.
- */
-bot.dom.getEffectiveStyle = function(elem, propertyName) {
-  var styleName = goog.string.toCamelCase(propertyName);
-  if (styleName == 'float' ||
-      styleName == 'cssFloat' ||
-      styleName == 'styleFloat') {
-    styleName = bot.userAgent.IE_DOC_PRE9 ? 'styleFloat' : 'cssFloat';
-  }
-  var style = goog.style.getComputedStyle(elem, styleName) ||
-      bot.dom.getCascadedStyle_(elem, styleName);
-  if (style === null) {
-    return null;
-  }
-  return bot.color.standardizeColor(styleName, style);
-};
-
-
-/**
- * Looks up the DOM tree for the first style value not equal to 'inherit,' using
- * the currentStyle of each node if available, and otherwise the inline style.
- *
- * @param {!Element} elem Element to get the style value from.
- * @param {string} styleName CSS style property in camelCase.
- * @return {?string} The value of the style property, or null.
- * @private
- */
-bot.dom.getCascadedStyle_ = function(elem, styleName) {
-  var style = elem.currentStyle || elem.style;
-  var value = style[styleName];
-  if (!goog.isDef(value) && goog.isFunction(style['getPropertyValue'])) {
-    value = style['getPropertyValue'](styleName);
-  }
-
-  if (value != 'inherit') {
-    return goog.isDef(value) ? value : null;
-  }
-  var parent = bot.dom.getParentElement(elem);
-  return parent ? bot.dom.getCascadedStyle_(parent, styleName) : null;
-};
-
-
-/**
- * Determines whether an element is what a user would call "shown". This means
- * that the element is shown in the viewport of the browser, and only has
- * height and width greater than 0px, and that its visibility is not "hidden"
- * and its display property is not "none".
- * Options and Optgroup elements are treated as special cases: they are
- * considered shown iff they have a enclosing select element that is shown.
- *
- * @param {!Element} elem The element to consider.
- * @param {boolean=} opt_ignoreOpacity Whether to ignore the element's opacity
- *     when determining whether it is shown; defaults to false.
- * @return {boolean} Whether or not the element is visible.
- */
-bot.dom.isShown = function(elem, opt_ignoreOpacity) {
-  if (!bot.dom.isElement(elem)) {
-    throw new Error('Argument to isShown must be of type Element');
-  }
-
-  // Option or optgroup is shown iff enclosing select is shown (ignoring the
-  // select's opacity).
-  if (bot.dom.isElement(elem, goog.dom.TagName.OPTION) ||
-      bot.dom.isElement(elem, goog.dom.TagName.OPTGROUP)) {
-    var select = /**@type {Element}*/ (goog.dom.getAncestor(elem, function(e) {
-      return bot.dom.isElement(e, goog.dom.TagName.SELECT);
-    }));
-    return !!select && bot.dom.isShown(select, /*ignoreOpacity=*/true);
-  }
-
-  // Image map elements are shown if image that uses it is shown, and
-  // the area of the element is positive.
-  var imageMap = bot.dom.maybeFindImageMap_(elem);
-  if (imageMap) {
-    return !!imageMap.image &&
-           imageMap.rect.width > 0 && imageMap.rect.height > 0 &&
-           bot.dom.isShown(imageMap.image, opt_ignoreOpacity);
-  }
-
-  // Any hidden input is not shown.
-  if (bot.dom.isElement(elem, goog.dom.TagName.INPUT) &&
-      elem.type.toLowerCase() == 'hidden') {
-    return false;
-  }
-
-  // Any NOSCRIPT element is not shown.
-  if (bot.dom.isElement(elem, goog.dom.TagName.NOSCRIPT)) {
-    return false;
-  }
-
-  // Any element with hidden visibility is not shown.
-  if (bot.dom.getEffectiveStyle(elem, 'visibility') == 'hidden') {
-    return false;
-  }
-
-  // Any element with a display style equal to 'none' or that has an ancestor
-  // with display style equal to 'none' is not shown.
-  function displayed(e) {
-    if (bot.dom.getEffectiveStyle(e, 'display') == 'none') {
-      return false;
-    }
-    var parent = bot.dom.getParentElement(e);
-    return !parent || displayed(parent);
-  }
-  if (!displayed(elem)) {
-    return false;
-  }
-
-  // Any transparent element is not shown.
-  if (!opt_ignoreOpacity && bot.dom.getOpacity(elem) == 0) {
-    return false;
-  }
-
-  // Any element without positive size dimensions is not shown.
-  function positiveSize(e) {
-    var rect = bot.dom.getClientRect(e);
-    if (rect.height > 0 && rect.width > 0) {
-      return true;
-    }
-    // A vertical or horizontal SVG Path element will report zero width or
-    // height but is "shown" if it has a positive stroke-width.
-    if (bot.dom.isElement(e, 'PATH') && (rect.height > 0 || rect.width > 0)) {
-      var strokeWidth = bot.dom.getEffectiveStyle(e, 'stroke-width');
-      return !!strokeWidth && (parseInt(strokeWidth, 10) > 0);
-    }
-    // Zero-sized elements should still be considered to have positive size
-    // if they have a child element or text node with positive size, unless
-    // the element has an 'overflow' style of 'hidden'.
-    return bot.dom.getEffectiveStyle(e, 'overflow') != 'hidden' &&
-        goog.array.some(e.childNodes, function(n) {
-          return n.nodeType == goog.dom.NodeType.TEXT ||
-                 (bot.dom.isElement(n) && positiveSize(n));
-        });
-  }
-  if (!positiveSize(elem)) {
-    return false;
-  }
-
-  // Elements that are hidden by overflow are not shown.
-  function hiddenByOverflow(e) {
-    return bot.dom.getOverflowState(e) == bot.dom.OverflowState.HIDDEN &&
-        goog.array.every(e.childNodes, function(n) {
-          return !bot.dom.isElement(n) || hiddenByOverflow(n);
-        });
-  }
-  return !hiddenByOverflow(elem);
-};
-
-
-/**
- * The kind of overflow area in which an element may be located. NONE if it does
- * not overflow any ancestor element; HIDDEN if it overflows and cannot be
- * scrolled into view; SCROLL if it overflows but can be scrolled into view.
- *
- * @enum {string}
- */
-bot.dom.OverflowState = {
-  NONE: 'none',
-  HIDDEN: 'hidden',
-  SCROLL: 'scroll'
-};
-
-
-/**
- * Returns the overflow state of the given element.
- *
- * If an optional coordinate or rectangle region is provided, returns the
- * overflow state of that region relative to the element. A coordinate is
- * treated as a 1x1 rectangle whose top-left corner is the coordinate.
- *
- * @param {!Element} elem Element.
- * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
- *     Coordinate or rectangle relative to the top-left corner of the element.
- * @return {bot.dom.OverflowState} Overflow state of the element.
- */
-bot.dom.getOverflowState = function(elem, opt_region) {
-  var region = bot.dom.getClientRegion(elem, opt_region);
-  var ownerDoc = goog.dom.getOwnerDocument(elem);
-  var htmlElem = ownerDoc.documentElement;
-  var bodyElem = ownerDoc.body;
-  var htmlOverflowStyle = bot.dom.getEffectiveStyle(htmlElem, 'overflow');
-  var treatAsFixedPosition;
-
-  // Return the closest ancestor that the given element may overflow.
-  function getOverflowParent(e) {
-    var position = bot.dom.getEffectiveStyle(e, 'position');
-    if (position == 'fixed') {
-      treatAsFixedPosition = true;
-      // Fixed-position element may only overflow the viewport.
-      return e == htmlElem ? null : htmlElem;
-    } else {
-      var parent = bot.dom.getParentElement(e);
-      while (parent && !canBeOverflowed(parent)) {
-        parent = bot.dom.getParentElement(parent);
-      }
-      return parent;
-    }
-
-    function canBeOverflowed(container) {
-      // The HTML element can always be overflowed.
-      if (container == htmlElem) {
-        return true;
-      }
-      // An element cannot overflow an element with an inline display style.
-      var containerDisplay = /** @type {string} */ (
-          bot.dom.getEffectiveStyle(container, 'display'));
-      if (goog.string.startsWith(containerDisplay, 'inline')) {
-        return false;
-      }
-      // An absolute-positioned element cannot overflow a static-positioned one.
-      if (position == 'absolute' &&
-          bot.dom.getEffectiveStyle(container, 'position') == 'static') {
-        return false;
-      }
-      return true;
-    }
-  }
-
-  // Return the x and y overflow styles for the given element.
-  function getOverflowStyles(e) {
-    // When the <html> element has an overflow style of 'visible', it assumes
-    // the overflow style of the body, and the body is really overflow:visible.
-    var overflowElem = e;
-    if (htmlOverflowStyle == 'visible') {
-      // Note: bodyElem will be null/undefined in SVG documents.
-      if (e == htmlElem && bodyElem) {
-        overflowElem = bodyElem;
-      } else if (e == bodyElem) {
-        return {x: 'visible', y: 'visible'};
-      }
-    }
-    var overflow = {
-      x: bot.dom.getEffectiveStyle(overflowElem, 'overflow-x'),
-      y: bot.dom.getEffectiveStyle(overflowElem, 'overflow-y')
-    };
-    // The <html> element cannot have a genuine 'visible' overflow style,
-    // because the viewport can't expand; 'visible' is really 'auto'.
-    if (e == htmlElem) {
-      overflow.x = overflow.x == 'visible' ? 'auto' : overflow.x;
-      overflow.y = overflow.y == 'visible' ? 'auto' : overflow.y;
-    }
-    return overflow;
-  }
-
-  // Returns the scroll offset of the given element.
-  function getScroll(e) {
-    if (e == htmlElem) {
-      return new goog.dom.DomHelper(ownerDoc).getDocumentScroll();
-    } else {
-      return new goog.math.Coordinate(e.scrollLeft, e.scrollTop);
-    }
-  }
-
-  // Check if the element overflows any ancestor element.
-  for (var container = getOverflowParent(elem);
-       !!container;
-       container = getOverflowParent(container)) {
-    var containerOverflow = getOverflowStyles(container);
-
-    // If the container has overflow:visible, the element cannot overflow it.
-    if (containerOverflow.x == 'visible' && containerOverflow.y == 'visible') {
-      continue;
-    }
-
-    var containerRect = bot.dom.getClientRect(container);
-
-    // Zero-sized containers without overflow:visible hide all descendants.
-    if (containerRect.width == 0 || containerRect.height == 0) {
-      return bot.dom.OverflowState.HIDDEN;
-    }
-
-    // Check "underflow": if an element is to the left or above the container
-    var underflowsX = region.right < containerRect.left;
-    var underflowsY = region.bottom < containerRect.top;
-    if ((underflowsX && containerOverflow.x == 'hidden') ||
-        (underflowsY && containerOverflow.y == 'hidden')) {
-      return bot.dom.OverflowState.HIDDEN;
-    } else if ((underflowsX && containerOverflow.x != 'visible') ||
-               (underflowsY && containerOverflow.y != 'visible')) {
-      // When the element is positioned to the left or above a container, we
-      // have to distinguish between the element being completely outside the
-      // container and merely scrolled out of view within the container.
-      var containerScroll = getScroll(container);
-      var unscrollableX = region.right < containerRect.left - containerScroll.x;
-      var unscrollableY = region.bottom < containerRect.top - containerScroll.y;
-      if ((unscrollableX && containerOverflow.x != 'visible') ||
-          (unscrollableY && containerOverflow.x != 'visible')) {
-        return bot.dom.OverflowState.HIDDEN;
-      }
-      var containerState = bot.dom.getOverflowState(container);
-      return containerState == bot.dom.OverflowState.HIDDEN ?
-          bot.dom.OverflowState.HIDDEN : bot.dom.OverflowState.SCROLL;
-    }
-
-    // Check "overflow": if an element is to the right or below a container
-    var overflowsX = region.left >= containerRect.left + containerRect.width;
-    var overflowsY = region.top >= containerRect.top + containerRect.height;
-    if ((overflowsX && containerOverflow.x == 'hidden') ||
-        (overflowsY && containerOverflow.y == 'hidden')) {
-      return bot.dom.OverflowState.HIDDEN;
-    } else if ((overflowsX && containerOverflow.x != 'visible') ||
-               (overflowsY && containerOverflow.y != 'visible')) {
-      // If the element has fixed position and falls outside the scrollable area
-      // of the document, then it is hidden.
-      if (treatAsFixedPosition) {
-        var docScroll = getScroll(container);
-        if ((region.left >= htmlElem.scrollWidth - docScroll.x) ||
-            (region.right >= htmlElem.scrollHeight - docScroll.y)) {
-          return bot.dom.OverflowState.HIDDEN;
-        }
-      }
-      // If the element can be scrolled into view of the parent, it has a scroll
-      // state; unless the parent itself is entirely hidden by overflow, in
-      // which it is also hidden by overflow.
-      var containerState = bot.dom.getOverflowState(container);
-      return containerState == bot.dom.OverflowState.HIDDEN ?
-          bot.dom.OverflowState.HIDDEN : bot.dom.OverflowState.SCROLL;
-    }
-  }
-
-  // Does not overflow any ancestor.
-  return bot.dom.OverflowState.NONE;
-};
-
-
-/**
- * A regular expression to match the CSS transform matrix syntax.
- * @private {!RegExp}
- * @const
- */
-bot.dom.CSS_TRANSFORM_MATRIX_REGEX_ =
-    new RegExp('matrix\\(([\\d\\.\\-]+), ([\\d\\.\\-]+), ' +
-               '([\\d\\.\\-]+), ([\\d\\.\\-]+), ' +
-               '([\\d\\.\\-]+)(?:px)?, ([\\d\\.\\-]+)(?:px)?\\)');
-
-
-/**
- * Gets the client rectangle of the DOM element. It often returns the same value
- * as Element.getBoundingClientRect, but is "fixed" for various scenarios:
- * 1. Like goog.style.getClientPosition, it adjusts for the inset border in IE.
- * 2. Gets a rect for <map>'s and <area>'s relative to the image using them.
- * 3. Gets a rect for SVG elements representing their true bounding box.
- * 4. Defines the client rect of the <html> element to be the window viewport.
- *
- * @param {!Element} elem The element to use.
- * @return {!goog.math.Rect} The interaction box of the element.
- */
-bot.dom.getClientRect = function(elem) {
-  var imageMap = bot.dom.maybeFindImageMap_(elem);
-  if (imageMap) {
-    return imageMap.rect;
-  } else if (bot.dom.isElement(elem, goog.dom.TagName.HTML)) {
-    // Define the client rect of the <html> element to be the viewport.
-    var doc = goog.dom.getOwnerDocument(elem);
-    var viewportSize = goog.dom.getViewportSize(goog.dom.getWindow(doc));
-    return new goog.math.Rect(0, 0, viewportSize.width, viewportSize.height);
-  } else {
-    var nativeRect;
-    try {
-      // TODO: in IE and Firefox, getBoundingClientRect includes stroke width,
-      // but getBBox does not.
-      nativeRect = elem.getBoundingClientRect();
-    } catch (e) {
-      // On IE < 9, calling getBoundingClientRect on an orphan element raises
-      // an "Unspecified Error". All other browsers return zeros.
-      return new goog.math.Rect(0, 0, 0, 0);
-    }
-
-    var rect = new goog.math.Rect(nativeRect.left, nativeRect.top,
-        nativeRect.right - nativeRect.left, nativeRect.bottom - nativeRect.top);
-
-    // In IE, the element can additionally be offset by a border around the
-    // documentElement or body element that we have to subtract.
-    if (goog.userAgent.IE && elem.ownerDocument.body) {
-      var doc = goog.dom.getOwnerDocument(elem);
-      rect.left -= doc.documentElement.clientLeft + doc.body.clientLeft;
-      rect.top -= doc.documentElement.clientTop + doc.body.clientTop;
-    }
-
-    // Opera sometimes falsely report zero size bounding rects.
-    if (goog.userAgent.OPERA) {
-      if (rect.width == 0 && elem.offsetWidth > 0) {
-        rect.width = elem.offsetWidth;
-      }
-      if (rect.height == 0 && elem.offsetHeight > 0) {
-        rect.height = elem.offsetHeight;
-      }
-    }
-
-    // On Gecko < 12, getBoundingClientRect does not account for CSS transforms.
-    // TODO: Remove this when we drop support for FF3.6 and FF10.
-    if (goog.userAgent.GECKO && !bot.userAgent.isEngineVersion(12)) {
-      transformLegacyFirefoxClientRect(elem);
-    }
-
-    return rect;
-  }
-
-  function transformLegacyFirefoxClientRect(container) {
-    var win = goog.dom.getWindow(goog.dom.getOwnerDocument(container));
-    var transform = win.getComputedStyle(container, null)['MozTransform'];
-    var matches = transform.match(bot.dom.CSS_TRANSFORM_MATRIX_REGEX_);
-
-    if (matches) {
-      var a = parseFloat(matches[1]), b = parseFloat(matches[2]),
-          c = parseFloat(matches[3]), d = parseFloat(matches[4]),
-          x = parseFloat(matches[5]), y = parseFloat(matches[6]);
-      var right = rect.left + rect.width, bottom = rect.top + rect.height;
-      var leftXa = rect.left * a, rightXa = right * a,
-          leftXb = rect.left * b, rightXb = right * b,
-          topXc = rect.top * c, bottomXc = bottom * c,
-          topXd = rect.top * d, bottomXd = bottom * d;
-      var topLeftX = leftXa + topXc + x,
-          topLeftY = leftXb + topXd + y,
-          topRightX = rightXa + topXc + x,
-          topRightY = rightXb + topXd + y,
-          bottomLeftX = leftXa + bottomXc + x,
-          bottomLeftY = leftXb + bottomXd + y,
-          bottomRightX = rightXa + bottomXc + x,
-          bottomRightY = rightXb + bottomXd + y;
-      rect.left = Math.min(topLeftX, topRightX, bottomLeftX, bottomRightX);
-      rect.top = Math.min(topLeftY, topRightY, bottomLeftY, bottomRightY);
-      var newRight = Math.max(topLeftX, topRightX, bottomLeftX, bottomRightX);
-      var newBottom = Math.max(topLeftY, topRightY, bottomLeftY, bottomRightY);
-      rect.width = newRight - rect.left;
-      rect.height = newBottom - rect.top;
-    }
-
-    // The computed transform style not not take into account parent transforms.
-    var parentContainer = bot.dom.getParentElement(container);
-    if (parentContainer) {
-      transformLegacyFirefoxClientRect(parentContainer);
-    }
-  }
-};
-
-
-/**
- * If given a <map> or <area> element, finds the corresponding image and client
- * rectangle of the element; otherwise returns null. The return value is an
- * object with 'image' and 'rect' properties. When no image uses the given
- * element, the returned rectangle is present but has zero size.
- *
- * @param {!Element} elem Element to test.
- * @return {?{image: Element, rect: !goog.math.Rect}} Image and rectangle.
- * @private
- */
-bot.dom.maybeFindImageMap_ = function(elem) {
-  // If not a <map> or <area>, return null indicating so.
-  var isMap = bot.dom.isElement(elem, goog.dom.TagName.MAP);
-  if (!isMap && !bot.dom.isElement(elem, goog.dom.TagName.AREA)) {
-    return null;
-  }
-
-  // Get the <map> associated with this element, or null if none.
-  var map = isMap ? elem :
-      (bot.dom.isElement(elem.parentNode, goog.dom.TagName.MAP) ?
-          elem.parentNode : null);
-
-  var image = null, rect = null;
-  if (map && map.name) {
-    var mapDoc = goog.dom.getOwnerDocument(map);
-
-    // The "//*" XPath syntax can confuse the closure compiler, so we use
-    // the "/descendant::*" syntax instead.
-    // TODO: Try to find a reproducible case for the compiler bug.
-    // TODO: Restrict to applet, img, input:image, and object nodes.
-    var imageXpath = '/descendant::*[@usemap = "#' + map.name + '"]';
-
-    // TODO: Break dependency of bot.locators on bot.dom,
-    // so bot.locators.findElement can be called here instead.
-    image = bot.locators.xpath.single(imageXpath, mapDoc);
-
-    if (image) {
-      rect = bot.dom.getClientRect(image);
-      if (!isMap && elem.shape.toLowerCase() != 'default') {
-        // Shift and crop the relative area rectangle to the map.
-        var relRect = bot.dom.getAreaRelativeRect_(elem);
-        var relX = Math.min(Math.max(relRect.left, 0), rect.width);
-        var relY = Math.min(Math.max(relRect.top, 0), rect.height);
-        var w = Math.min(relRect.width, rect.width - relX);
-        var h = Math.min(relRect.height, rect.height - relY);
-        rect = new goog.math.Rect(relX + rect.left, relY + rect.top, w, h);
-      }
-    }
-  }
-
-  return {image: image, rect: rect || new goog.math.Rect(0, 0, 0, 0)};
-};
-
-
-/**
- * Returns the bounding box around an <area> element relative to its enclosing
- * <map>. Does not apply to <area> elements with shape=='default'.
- *
- * @param {!Element} area Area element.
- * @return {!goog.math.Rect} Bounding box of the area element.
- * @private
- */
-bot.dom.getAreaRelativeRect_ = function(area) {
-  var shape = area.shape.toLowerCase();
-  var coords = area.coords.split(',');
-  if (shape == 'rect' && coords.length == 4) {
-    var x = coords[0], y = coords[1];
-    return new goog.math.Rect(x, y, coords[2] - x, coords[3] - y);
-  } else if (shape == 'circle' && coords.length == 3) {
-    var centerX = coords[0], centerY = coords[1], radius = coords[2];
-    return new goog.math.Rect(centerX - radius, centerY - radius,
-                              2 * radius, 2 * radius);
-  } else if (shape == 'poly' && coords.length > 2) {
-    var minX = coords[0], minY = coords[1], maxX = minX, maxY = minY;
-    for (var i = 2; i + 1 < coords.length; i += 2) {
-      minX = Math.min(minX, coords[i]);
-      maxX = Math.max(maxX, coords[i]);
-      minY = Math.min(minY, coords[i + 1]);
-      maxY = Math.max(maxY, coords[i + 1]);
-    }
-    return new goog.math.Rect(minX, minY, maxX - minX, maxY - minY);
-  }
-  return new goog.math.Rect(0, 0, 0, 0);
-};
-
-
-/**
- * Gets the element's client rectangle as a box, optionally clipped to the
- * given coordinate or rectangle relative to the client's position. A coordinate
- * is treated as a 1x1 rectangle whose top-left corner is the coordinate.
- *
- * @param {!Element} elem The element.
- * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
- *     Coordinate or rectangle relative to the top-left corner of the element.
- * @return {!goog.math.Box} The client region box.
- */
-bot.dom.getClientRegion = function(elem, opt_region) {
-  var region = bot.dom.getClientRect(elem).toBox();
-
-  if (opt_region) {
-    var rect = opt_region instanceof goog.math.Rect ? opt_region :
-        new goog.math.Rect(opt_region.x, opt_region.y, 1, 1);
-    region.left = goog.math.clamp(
-        region.left + rect.left, region.left, region.right);
-    region.top = goog.math.clamp(
-        region.top + rect.top, region.top, region.bottom);
-    region.right = goog.math.clamp(
-        region.left + rect.width, region.left, region.right);
-    region.bottom = goog.math.clamp(
-        region.top + rect.height, region.top, region.bottom);
-  }
-
-  return region;
-};
-
-
-/**
- * Trims leading and trailing whitespace from strings, leaving non-breaking
- * space characters in place.
- *
- * @param {string} str The string to trim.
- * @return {string} str without any leading or trailing whitespace characters
- *     except non-breaking spaces.
- * @private
- */
-bot.dom.trimExcludingNonBreakingSpaceCharacters_ = function(str) {
-  return str.replace(/^[^\S\xa0]+|[^\S\xa0]+$/g, '');
-};
-
-
-/**
- * @param {!Element} elem The element to consider.
- * @return {string} visible text.
- */
-bot.dom.getVisibleText = function(elem) {
-  var lines = [];
-  bot.dom.appendVisibleTextLinesFromElement_(elem, lines);
-  lines = goog.array.map(
-      lines,
-      bot.dom.trimExcludingNonBreakingSpaceCharacters_);
-  var joined = lines.join('\n');
-  var trimmed = bot.dom.trimExcludingNonBreakingSpaceCharacters_(joined);
-
-  // Replace non-breakable spaces with regular ones.
-  return trimmed.replace(/\xa0/g, ' ');
-};
-
-
-/**
- * @param {!Element} elem Element.
- * @param {!Array.<string>} lines Accumulated visible lines of text.
- * @private
- */
-bot.dom.appendVisibleTextLinesFromElement_ = function(elem, lines) {
-  function currLine() {
-    return /** @type {string|undefined} */ (goog.array.peek(lines)) || '';
-  }
-
-  // TODO: Add case here for textual form elements.
-  if (bot.dom.isElement(elem, goog.dom.TagName.BR)) {
-    lines.push('');
-  } else {
-    // TODO: properly handle display:run-in
-    var isTD = bot.dom.isElement(elem, goog.dom.TagName.TD);
-    var display = bot.dom.getEffectiveStyle(elem, 'display');
-    // On some browsers, table cells incorrectly show up with block styles.
-    var isBlock = !isTD &&
-        !goog.array.contains(bot.dom.INLINE_DISPLAY_BOXES_, display);
-
-    // Add a newline before block elems when there is text on the current line,
-    // except when the previous sibling has a display: run-in.
-    // Also, do not run-in the previous sibling if this element is floated.
-
-    var previousElementSibling = goog.dom.getPreviousElementSibling(elem);
-    var prevDisplay = (previousElementSibling) ?
-        bot.dom.getEffectiveStyle(previousElementSibling, 'display') : '';
-    // TODO: getEffectiveStyle should mask this for us
-    var thisFloat = bot.dom.getEffectiveStyle(elem, 'float') ||
-        bot.dom.getEffectiveStyle(elem, 'cssFloat') ||
-        bot.dom.getEffectiveStyle(elem, 'styleFloat');
-    var runIntoThis = prevDisplay == 'run-in' && thisFloat == 'none';
-    if (isBlock && !runIntoThis && !goog.string.isEmpty(currLine())) {
-      lines.push('');
-    }
-
-    // This element may be considered unshown, but have a child that is
-    // explicitly shown (e.g. this element has "visibility:hidden").
-    // Nevertheless, any text nodes that are direct descendants of this
-    // element will not contribute to the visible text.
-    var shown = bot.dom.isShown(elem);
-
-    // All text nodes that are children of this element need to know the
-    // effective "white-space" and "text-transform" styles to properly
-    // compute their contribution to visible text. Compute these values once.
-    var whitespace = null, textTransform = null;
-    if (shown) {
-      whitespace = bot.dom.getEffectiveStyle(elem, 'white-space');
-      textTransform = bot.dom.getEffectiveStyle(elem, 'text-transform');
-    }
-
-    goog.array.forEach(elem.childNodes, function(node) {
-      if (node.nodeType == goog.dom.NodeType.TEXT && shown) {
-        var textNode = /** @type {!Text} */ (node);
-        bot.dom.appendVisibleTextLinesFromTextNode_(textNode, lines,
-            whitespace, textTransform);
-      } else if (bot.dom.isElement(node)) {
-        var castElem = /** @type {!Element} */ (node);
-        bot.dom.appendVisibleTextLinesFromElement_(castElem, lines);
-      }
-    });
-
-    var line = currLine();
-
-    // Here we differ from standard innerText implementations (if there were
-    // such a thing). Usually, table cells are separated by a tab, but we
-    // normalize tabs into single spaces.
-    if ((isTD || display == 'table-cell') && line &&
-        !goog.string.endsWith(line, ' ')) {
-      lines[lines.length - 1] += ' ';
-    }
-
-    // Add a newline after block elems when there is text on the current line,
-    // and the current element isn't marked as run-in.
-    if (isBlock && display != 'run-in' && !goog.string.isEmpty(line)) {
-      lines.push('');
-    }
-  }
-};
-
-
-/**
- * Elements with one of these effective "display" styles are treated as inline
- * display boxes and have their visible text appended to the current line.
- * @private {!Array.<string>}
- * @const
- */
-bot.dom.INLINE_DISPLAY_BOXES_ = [
-  'inline',
-  'inline-block',
-  'inline-table',
-  'none',
-  'table-cell',
-  'table-column',
-  'table-column-group'
-];
-
-
-/**
- * @param {!Text} textNode Text node.
- * @param {!Array.<string>} lines Accumulated visible lines of text.
- * @param {?string} whitespace Parent element's "white-space" style.
- * @param {?string} textTransform Parent element's "text-transform" style.
- * @private
- */
-bot.dom.appendVisibleTextLinesFromTextNode_ = function(textNode, lines,
-    whitespace, textTransform) {
-  // First, remove zero-width characters. Do this before regularizing spaces as
-  // the zero-width space is both zero-width and a space, but we do not want to
-  // make it visible by converting it to a regular space.
-  // The replaced characters are:
-  //   U+200B: Zero-width space
-  //   U+200E: Left-to-right mark
-  //   U+200F: Right-to-left mark
-  var text = textNode.nodeValue.replace(/[\u200b\u200e\u200f]/g, '');
-
-  // Canonicalize the new lines, and then collapse new lines
-  // for the whitespace styles that collapse. See:
-  // https://developer.mozilla.org/en/CSS/white-space
-  text = goog.string.canonicalizeNewlines(text);
-  if (whitespace == 'normal' || whitespace == 'nowrap') {
-    text = text.replace(/\n/g, ' ');
-  }
-
-  // For pre and pre-wrap whitespace styles, convert all breaking spaces to be
-  // non-breaking, otherwise, collapse all breaking spaces. Breaking spaces are
-  // converted to regular spaces by getVisibleText().
-  if (whitespace == 'pre' || whitespace == 'pre-wrap') {
-    text = text.replace(/[ \f\t\v\u2028\u2029]/g, '\xa0');
-  } else {
-    text = text.replace(/[\ \f\t\v\u2028\u2029]+/g, ' ');
-  }
-
-  if (textTransform == 'capitalize') {
-    text = text.replace(/(^|\s)(\S)/g, function() {
-      return arguments[1] + arguments[2].toUpperCase();
-    });
-  } else if (textTransform == 'uppercase') {
-    text = text.toUpperCase();
-  } else if (textTransform == 'lowercase') {
-    text = text.toLowerCase();
-  }
-
-  var currLine = lines.pop() || '';
-  if (goog.string.endsWith(currLine, ' ') &&
-      goog.string.startsWith(text, ' ')) {
-    text = text.substr(1);
-  }
-  lines.push(currLine + text);
-};
-
-
-/**
- * Gets the opacity of a node (x-browser).
- * This gets the inline style opacity of the node and takes into account the
- * cascaded or the computed style for this node.
- *
- * @param {!Element} elem Element whose opacity has to be found.
- * @return {number} Opacity between 0 and 1.
- */
-bot.dom.getOpacity = function(elem) {
-  // TODO: Does this need to deal with rgba colors?
-  if (!bot.userAgent.IE_DOC_PRE10) {
-    return bot.dom.getOpacityNonIE_(elem);
-  } else {
-    if (bot.dom.getEffectiveStyle(elem, 'position') == 'relative') {
-      // Filter does not apply to non positioned elements.
-      return 1;
-    }
-
-    var opacityStyle = bot.dom.getEffectiveStyle(elem, 'filter');
-    var groups = opacityStyle.match(/^alpha\(opacity=(\d*)\)/) ||
-        opacityStyle.match(
-        /^progid:DXImageTransform.Microsoft.Alpha\(Opacity=(\d*)\)/);
-
-    if (groups) {
-      return Number(groups[1]) / 100;
-    } else {
-      return 1; // Opaque.
-    }
-  }
-};
-
-
-/**
- * Implementation of getOpacity for browsers that do support
- * the "opacity" style.
- *
- * @param {!Element} elem Element whose opacity has to be found.
- * @return {number} Opacity between 0 and 1.
- * @private
- */
-bot.dom.getOpacityNonIE_ = function(elem) {
-  // By default the element is opaque.
-  var elemOpacity = 1;
-
-  var opacityStyle = bot.dom.getEffectiveStyle(elem, 'opacity');
-  if (opacityStyle) {
-    elemOpacity = Number(opacityStyle);
-  }
-
-  // Let's apply the parent opacity to the element.
-  var parentElement = bot.dom.getParentElement(elem);
-  if (parentElement) {
-    elemOpacity = elemOpacity * bot.dom.getOpacityNonIE_(parentElement);
-  }
-  return elemOpacity;
-};
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Atoms for simulating user actions against the DOM.
- * The bot.action namespace is required since these atoms would otherwise form a
- * circular dependency between bot.dom and bot.events.
- *
- */
-
-goog.provide('bot.action');
-
-goog.require('bot');
-goog.require('bot.Device');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-goog.require('bot.Keyboard');
-goog.require('bot.Mouse');
-goog.require('bot.Touchscreen');
-goog.require('bot.dom');
-goog.require('bot.events');
-goog.require('bot.events.EventType');
-goog.require('goog.array');
-goog.require('goog.math.Coordinate');
-goog.require('goog.math.Vec2');
-goog.require('goog.style');
-
-
-/**
- * Throws an exception if an element is not shown to the user, ignoring its
- * opacity.
-
- *
- * @param {!Element} element The element to check.
- * @see bot.dom.isShown.
- * @private
- */
-bot.action.checkShown_ = function(element) {
-  if (!bot.dom.isShown(element, /*ignoreOpacity=*/true)) {
-    throw new bot.Error(bot.ErrorCode.ELEMENT_NOT_VISIBLE,
-        'Element is not currently visible and may not be manipulated');
-  }
-};
-
-
-/**
- * Throws an exception if the given element cannot be interacted with.
- *
- * @param {!Element} element The element to check.
- * @throws {bot.Error} If the element cannot be interacted with.
- * @see bot.dom.isInteractable.
- * @private
- */
-bot.action.checkInteractable_ = function(element) {
-  if (!bot.dom.isInteractable(element)) {
-    throw new bot.Error(bot.ErrorCode.INVALID_ELEMENT_STATE,
-        'Element is not currently interactable and may not be manipulated');
-
-  }
-};
-
-
-/**
- * Clears the given {@code element} if it is a editable text field.
- *
- * @param {!Element} element The element to clear.
- * @throws {bot.Error} If the element is not an editable text field.
- */
-bot.action.clear = function(element) {
-  bot.action.checkInteractable_(element);
-  if (!bot.dom.isEditable(element)) {
-    throw new bot.Error(bot.ErrorCode.INVALID_ELEMENT_STATE,
-        'Element must be user-editable in order to clear it.');
-  }
-
-  bot.action.LegacyDevice_.focusOnElement(element);
-  if (element.value) {
-    element.value = '';
-    bot.events.fire(element, bot.events.EventType.CHANGE);
-  }
-
-  if (bot.dom.isContentEditable(element)) {
-    // A single space is required, if you put empty string here you'll not be
-    // able to interact with this element anymore in Firefox.
-    element.innerHTML = ' ';
-    // contentEditable does not generate onchange event.
-  }
-};
-
-
-/**
- * Focuses on the given element if it is not already the active element.
- *
- * @param {!Element} element The element to focus on.
- */
-bot.action.focusOnElement = function(element) {
-  bot.action.checkInteractable_(element);
-  bot.action.LegacyDevice_.focusOnElement(element);
-};
-
-
-/**
- * Types keys on the given {@code element} with a virtual keyboard.
- *
- * <p>Callers can pass in a string, a key in bot.Keyboard.Key, or an array
- * of strings or keys. If a modifier key is provided, it is pressed but not
- * released, until it is either is listed again or the function ends.
- *
- * <p>Example:
- *   bot.keys.type(element, ['ab', bot.Keyboard.Key.LEFT,
- *                           bot.Keyboard.Key.SHIFT, 'cd']);
- *
- * @param {!Element} element The element receiving the event.
- * @param {(string|!bot.Keyboard.Key|!Array.<(string|!bot.Keyboard.Key)>)}
- *    values Value or values to type on the element.
- * @param {bot.Keyboard=} opt_keyboard Keyboard to use; if not provided,
- *    constructs one.
- * @param {boolean=} opt_persistModifiers Whether modifier keys should remain
- *     pressed when this function ends.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.type = function(
-    element, values, opt_keyboard, opt_persistModifiers) {
-  // If the element has already been brought into focus somewhow, typing is
-  // always allowed to proceed. Otherwise, we require the element be in an
-  // "interactable" state. For example, an element that is hidden by overflow
-  // can be typed on, so long as the user first tabs to it or the app calls
-  // focus() on the element first.
-  if (element != bot.dom.getActiveElement(element)) {
-    bot.action.checkInteractable_(element);
-    bot.action.scrollIntoView(element);
-  }
-
-  var keyboard = opt_keyboard || new bot.Keyboard();
-  keyboard.moveCursor(element);
-
-  function typeValue(value) {
-    if (goog.isString(value)) {
-      goog.array.forEach(value.split(''), function(ch) {
-        var keyShiftPair = bot.Keyboard.Key.fromChar(ch);
-        var shiftIsPressed = keyboard.isPressed(bot.Keyboard.Keys.SHIFT);
-        if (keyShiftPair.shift && !shiftIsPressed) {
-          keyboard.pressKey(bot.Keyboard.Keys.SHIFT);
-        }
-        keyboard.pressKey(keyShiftPair.key);
-        keyboard.releaseKey(keyShiftPair.key);
-        if (keyShiftPair.shift && !shiftIsPressed) {
-          keyboard.releaseKey(bot.Keyboard.Keys.SHIFT);
-        }
-      });
-    } else if (goog.array.contains(bot.Keyboard.MODIFIERS, value)) {
-      if (keyboard.isPressed(/** @type {!bot.Keyboard.Key} */ (value))) {
-        keyboard.releaseKey(value);
-      } else {
-        keyboard.pressKey(value);
-      }
-    } else {
-      keyboard.pressKey(value);
-      keyboard.releaseKey(value);
-    }
-  }
-
-  // mobile safari (iPhone / iPad). one cannot 'type' in a date field
-  // chrome implements this, but desktop Safari doesn't, what's webkit again?
-  if ((!(goog.userAgent.product.SAFARI && !goog.userAgent.MOBILE)) &&
-      goog.userAgent.WEBKIT && element.type == 'date') {
-    var val = goog.isArray(values)? values = values.join("") : values;
-    var datePattern = /\d{4}-\d{2}-\d{2}/;
-    if (val.match(datePattern)) {
-      // The following events get fired on iOS first
-      if (goog.userAgent.MOBILE && goog.userAgent.product.SAFARI) {
-        bot.events.fire(element, bot.events.EventType.TOUCHSTART);
-        bot.events.fire(element, bot.events.EventType.TOUCHEND);
-      }
-      bot.events.fire(element, bot.events.EventType.FOCUS);
-      element.value = val.match(datePattern)[0];
-      bot.events.fire(element, bot.events.EventType.CHANGE);
-      bot.events.fire(element, bot.events.EventType.BLUR);
-      return;
-    }
-  }
-
-  if (goog.isArray(values)) {
-    goog.array.forEach(values, typeValue);
-  } else {
-    typeValue(values);
-  }
-
-  if (!opt_persistModifiers) {
-    // Release all the modifier keys.
-    goog.array.forEach(bot.Keyboard.MODIFIERS, function(key) {
-      if (keyboard.isPressed(key)) {
-        keyboard.releaseKey(key);
-      }
-    });
-  }
-};
-
-
-/**
- * Submits the form containing the given {@code element}.
- *
- * <p>Note this function submits the form, but does not simulate user input
- * (a click or key press).
- *
- * @param {!Element} element The element to submit.
- */
-bot.action.submit = function(element) {
-  var form = bot.action.LegacyDevice_.findAncestorForm(element);
-  if (!form) {
-    throw new bot.Error(bot.ErrorCode.NO_SUCH_ELEMENT,
-                        'Element was not in a form, so could not submit.');
-  }
-  bot.action.LegacyDevice_.submitForm(element, form);
-};
-
-
-/**
- * Moves the mouse over the given {@code element} with a virtual mouse.
- *
- * @param {!Element} element The element to click.
- * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
- *   element.
- * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.moveMouse = function(element, opt_coords, opt_mouse) {
-  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
-  var mouse = opt_mouse || new bot.Mouse();
-  mouse.move(element, coords);
-};
-
-
-/**
- * Clicks on the given {@code element} with a virtual mouse.
- *
- * @param {!Element} element The element to click.
- * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
- *   element.
- * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.click = function(element, opt_coords, opt_mouse) {
-  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
-  var mouse = opt_mouse || new bot.Mouse();
-  mouse.move(element, coords);
-  mouse.pressButton(bot.Mouse.Button.LEFT);
-  mouse.releaseButton();
-};
-
-
-/**
- * Right-clicks on the given {@code element} with a virtual mouse.
- *
- * @param {!Element} element The element to click.
- * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
- *   element.
- * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.rightClick = function(element, opt_coords, opt_mouse) {
-  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
-  var mouse = opt_mouse || new bot.Mouse();
-  mouse.move(element, coords);
-  mouse.pressButton(bot.Mouse.Button.RIGHT);
-  mouse.releaseButton();
-};
-
-
-/**
- * Double-clicks on the given {@code element} with a virtual mouse.
- *
- * @param {!Element} element The element to click.
- * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
- *   element.
- * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.doubleClick = function(element, opt_coords, opt_mouse) {
-  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
-  var mouse = opt_mouse || new bot.Mouse();
-  mouse.move(element, coords);
-  mouse.pressButton(bot.Mouse.Button.LEFT);
-  mouse.releaseButton();
-  mouse.pressButton(bot.Mouse.Button.LEFT);
-  mouse.releaseButton();
-};
-
-
-/**
- * Scrolls the mouse wheel on the given {@code element} with a virtual mouse.
- *
- * @param {!Element} element The element to scroll the mouse wheel on.
- * @param {number} ticks Number of ticks to scroll the mouse wheel; a positive
- *   number scrolls down and a negative scrolls up.
- * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
- *   element.
- * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.scrollMouse = function(element, ticks, opt_coords, opt_mouse) {
-  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
-  var mouse = opt_mouse || new bot.Mouse();
-  mouse.move(element, coords);
-  mouse.scroll(ticks);
-};
-
-
-/**
- * Drags the given {@code element} by (dx, dy) with a virtual mouse.
- *
- * @param {!Element} element The element to drag.
- * @param {number} dx Increment in x coordinate.
- * @param {number} dy Increment in y coordinate.
- * @param {number=} opt_steps The number of steps that should occur as part of
- *     the drag, default is 2.
- * @param {goog.math.Coordinate=} opt_coords Drag start position relative to the
- *   element.
- * @param {bot.Mouse=} opt_mouse Mouse to use; if not provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.drag = function(element, dx, dy, opt_steps, opt_coords, opt_mouse) {
-  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
-  var initRect = bot.dom.getClientRect(element);
-  var mouse = opt_mouse || new bot.Mouse();
-  mouse.move(element, coords);
-  mouse.pressButton(bot.Mouse.Button.LEFT);
-  var steps = goog.isDef(opt_steps) ? opt_steps : 2;
-  if (steps < 1) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-                        'There must be at least one step as part of a drag.');
-  }
-  for (var i = 1; i <= steps; i++) {
-    moveTo(Math.floor(i * dx / steps), Math.floor(i * dy / steps));
-  }
-  mouse.releaseButton();
-
-  function moveTo(x, y) {
-    var currRect = bot.dom.getClientRect(element);
-    var newPos = new goog.math.Coordinate(
-        coords.x + initRect.left + x - currRect.left,
-        coords.y + initRect.top + y - currRect.top);
-    mouse.move(element, newPos);
-  }
-};
-
-
-/**
- * Taps on the given {@code element} with a virtual touch screen.
- *
- * @param {!Element} element The element to tap.
- * @param {goog.math.Coordinate=} opt_coords Finger position relative to the
- *   target.
- * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
- *    provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.tap = function(element, opt_coords, opt_touchscreen) {
-  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
-  var touchscreen = opt_touchscreen || new bot.Touchscreen();
-  touchscreen.move(element, coords);
-  touchscreen.press();
-  touchscreen.release();
-};
-
-
-/**
- * Swipes the given {@code element} by (dx, dy) with a virtual touch screen.
- *
- * @param {!Element} element The element to swipe.
- * @param {number} dx Increment in x coordinate.
- * @param {number} dy Increment in y coordinate.
- * @param {number=} opt_steps The number of steps that should occurs as part of
- *     the swipe, default is 2.
- * @param {goog.math.Coordinate=} opt_coords Swipe start position relative to
- *   the element.
- * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
- *    provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.swipe = function(element, dx, dy, opt_steps, opt_coords,
-    opt_touchscreen) {
-  var coords = bot.action.prepareToInteractWith_(element, opt_coords);
-  var touchscreen = opt_touchscreen || new bot.Touchscreen();
-  var initRect = bot.dom.getClientRect(element);
-  touchscreen.move(element, coords);
-  touchscreen.press();
-  var steps = goog.isDef(opt_steps) ? opt_steps : 2;
-  if (steps < 1) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-                        'There must be at least one step as part of a swipe.');
-  }
-  for (var i = 1; i <= steps; i++) {
-    moveTo(Math.floor(i * dx / steps), Math.floor(i * dy / steps));
-  }
-  touchscreen.release();
-
-  function moveTo(x, y) {
-    var currRect = bot.dom.getClientRect(element);
-    var newPos = new goog.math.Coordinate(
-        coords.x + initRect.left + x - currRect.left,
-        coords.y + initRect.top + y - currRect.top);
-    touchscreen.move(element, newPos);
-  }
-};
-
-
-/**
- * Pinches the given {@code element} by the given distance with a virtual touch
- * screen. A positive distance moves two fingers inward toward each and a
- * negative distances spreds them outward. The optional coordinate is the point
- * the fingers move towards (for positive distances) or away from (for negative
- * distances); and if not provided, defaults to the center of the element.
- *
- * @param {!Element} element The element to pinch.
- * @param {number} distance The distance by which to pinch the element.
- * @param {goog.math.Coordinate=} opt_coords Position relative to the element
- *   at the center of the pinch.
- * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
- *    provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.pinch = function(element, distance, opt_coords, opt_touchscreen) {
-  if (distance == 0) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-                        'Cannot pinch by a distance of zero.');
-  }
-  function startSoThatEndsAtMax(offsetVec) {
-    if (distance < 0) {
-      var magnitude = offsetVec.magnitude();
-      offsetVec.scale(magnitude ? (magnitude + distance) / magnitude : 0);
-    }
-  }
-  var halfDistance = distance / 2;
-  function scaleByHalfDistance(offsetVec) {
-    var magnitude = offsetVec.magnitude();
-    offsetVec.scale(magnitude ? (magnitude - halfDistance) / magnitude : 0);
-  }
-  bot.action.multiTouchAction_(element,
-                               startSoThatEndsAtMax,
-                               scaleByHalfDistance,
-                               opt_coords,
-                               opt_touchscreen);
-};
-
-
-/**
- * Rotates the given {@code element} by the given angle with a virtual touch
- * screen. A positive angle moves two fingers clockwise and a negative angle
- * moves them counter-clockwise. The optional coordinate is the point to
- * rotate around; and if not provided, defaults to the center of the element.
- *
- * @param {!Element} element The element to rotate.
- * @param {number} angle The angle by which to rotate the element.
- * @param {goog.math.Coordinate=} opt_coords Position relative to the element
- *   at the center of the rotation.
- * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
- *    provided, constructs one.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-bot.action.rotate = function(element, angle, opt_coords, opt_touchscreen) {
-  if (angle == 0) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-                        'Cannot rotate by an angle of zero.');
-  }
-  function startHalfwayToMax(offsetVec) {
-    offsetVec.scale(0.5);
-  }
-  var halfRadians = Math.PI * (angle / 180) / 2;
-  function rotateByHalfAngle(offsetVec) {
-    offsetVec.rotate(halfRadians);
-  }
-  bot.action.multiTouchAction_(element,
-                               startHalfwayToMax,
-                               rotateByHalfAngle,
-                               opt_coords,
-                               opt_touchscreen);
-};
-
-
-/**
- * Performs a multi-touch action with two fingers on the given element. This
- * helper function works by manipulating an "offsetVector", which is the vector
- * away from the center of the interaction at which the fingers are positioned.
- * It computes the maximum offset vector and passes it to transformStart to
- * find the starting position of the fingers; it then passes it to transformHalf
- * twice to find the midpoint and final position of the fingers.
- *
- * @param {!Element} element Element to interact with.
- * @param {function(goog.math.Vec2)} transformStart Function to transform the
- *   maximum offset vector to the starting offset vector.
- * @param {function(goog.math.Vec2)} transformHalf Function to transform the
- *   offset vector halfway to its destination.
- * @param {goog.math.Coordinate=} opt_coords Position relative to the element
- *   at the center of the pinch.
- * @param {bot.Touchscreen=} opt_touchscreen Touchscreen to use; if not
- *    provided, constructs one.
- * @private
- */
-bot.action.multiTouchAction_ = function(element, transformStart, transformHalf,
-                                        opt_coords, opt_touchscreen) {
-  var center = bot.action.prepareToInteractWith_(element, opt_coords);
-  var size = bot.action.getInteractableSize(element);
-  var offsetVec = new goog.math.Vec2(
-      Math.min(center.x, size.width - center.x),
-      Math.min(center.y, size.height - center.y));
-
-  var touchScreen = opt_touchscreen || new bot.Touchscreen();
-  transformStart(offsetVec);
-  var start1 = goog.math.Vec2.sum(center, offsetVec);
-  var start2 = goog.math.Vec2.difference(center, offsetVec);
-  touchScreen.move(element, start1, start2);
-  touchScreen.press(/*Two Finger Press*/ true);
-
-  var initRect = bot.dom.getClientRect(element);
-  transformHalf(offsetVec);
-  var mid1 = goog.math.Vec2.sum(center, offsetVec);
-  var mid2 = goog.math.Vec2.difference(center, offsetVec);
-  touchScreen.move(element, mid1, mid2);
-
-  var midRect = bot.dom.getClientRect(element);
-  var movedVec = goog.math.Vec2.difference(
-      new goog.math.Vec2(midRect.left, midRect.top),
-      new goog.math.Vec2(initRect.left, initRect.top));
-  transformHalf(offsetVec);
-  var end1 = goog.math.Vec2.sum(center, offsetVec).subtract(movedVec);
-  var end2 = goog.math.Vec2.difference(center, offsetVec).subtract(movedVec);
-  touchScreen.move(element, end1, end2);
-  touchScreen.release();
-};
-
-
-/**
- * Prepares to interact with the given {@code element}. It checks if the the
- * element is shown, scrolls the element into view, and returns the coordinates
- * of the interaction, which if not provided, is the center of the element.
- *
- * @param {!Element} element The element to be interacted with.
- * @param {goog.math.Coordinate=} opt_coords Position relative to the target.
- * @return {!goog.math.Vec2} Coordinates at the center of the interaction.
- * @throws {bot.Error} If the element cannot be interacted with.
- * @private
- */
-bot.action.prepareToInteractWith_ = function(element, opt_coords) {
-  bot.action.checkShown_(element);
-  bot.action.scrollIntoView(element, opt_coords || undefined);
-
-  // NOTE: Ideally, we would check that any provided coordinates fall
-  // within the bounds of the element, but this has proven difficult, because:
-  // (1) Browsers sometimes lie about the true size of elements, e.g. when text
-  // overflows the bounding box of an element, browsers report the size of the
-  // box even though the true area that can be interacted with is larger; and
-  // (2) Elements with children styled as position:absolute will often not have
-  // a bounding box that surrounds all of their children, but it is useful for
-  // the user to be able to interact with this parent element as if it does.
-  if (opt_coords) {
-    return goog.math.Vec2.fromCoordinate(opt_coords);
-  } else {
-    var size = bot.action.getInteractableSize(element);
-    return new goog.math.Vec2(size.width / 2, size.height / 2);
-  }
-};
-
-
-/**
- * Returns the interactable size of an element.
- *
- * @param {!Element} elem Element.
- * @return {!goog.math.Size} size Size of the element.
- */
-bot.action.getInteractableSize = function(elem) {
-  var size = goog.style.getSize(elem);
-  return ((size.width > 0 && size.height > 0) || !elem.offsetParent) ? size :
-      bot.action.getInteractableSize(elem.offsetParent);
-};
-
-
-
-/**
- * A Device that is intended to allows access to protected members of the
- * Device superclass. A singleton.
- *
- * @constructor
- * @extends {bot.Device}
- * @private
- */
-bot.action.LegacyDevice_ = function() {
-  goog.base(this);
-};
-goog.inherits(bot.action.LegacyDevice_, bot.Device);
-goog.addSingletonGetter(bot.action.LegacyDevice_);
-
-
-/**
- * Focuses on the given element.  See {@link bot.device.focusOnElement}.
- * @param {!Element} element The element to focus on.
- * @return {boolean} True if element.focus() was called on the element.
- */
-bot.action.LegacyDevice_.focusOnElement = function(element) {
-  var instance = bot.action.LegacyDevice_.getInstance();
-  instance.setElement(element);
-  return instance.focusOnElement();
-};
-
-
-/**
- * Submit the form for the element.  See {@link bot.device.submit}.
- * @param {!Element} element The element to submit a form on.
- * @param {!Element} form The form to submit.
- */
-bot.action.LegacyDevice_.submitForm = function(element, form) {
-  var instance = bot.action.LegacyDevice_.getInstance();
-  instance.setElement(element);
-  instance.submitForm(form);
-};
-
-
-/**
- * Find FORM element that is an ancestor of the passed in element.  See
- * {@link bot.device.findAncestorForm}.
- * @param {!Element} element The element to find an ancestor form.
- * @return {Element} form The ancestor form, or null if none.
- */
-bot.action.LegacyDevice_.findAncestorForm = function(element) {
-  return bot.Device.findAncestorForm(element);
-};
-
-
-/**
- * Scrolls the given {@code element} in to the current viewport. Aims to do the
- * minimum scrolling necessary, but prefers too much scrolling to too little.
- *
- * If an optional coordinate or rectangle region is provided, scrolls that
- * region relative to the element into view. A coordinate is treated as a 1x1
- * region whose top-left corner is positioned at that coordinate.
- *
- * @param {!Element} element The element to scroll in to view.
- * @param {!(goog.math.Coordinate|goog.math.Rect)=} opt_region
- *     Region relative to the top-left corner of the element.
- * @return {boolean} Whether the element is in view after scrolling.
- */
-bot.action.scrollIntoView = function(element, opt_region) {
-  // If the element is already in view, return true; if hidden, return false.
-  var overflow = bot.dom.getOverflowState(element, opt_region);
-  if (overflow != bot.dom.OverflowState.SCROLL) {
-    return overflow == bot.dom.OverflowState.NONE;
-  }
-
-  // Some elements may not have a scrollIntoView function - for example,
-  // elements under an SVG element. Call those only if they exist.
-  if (element.scrollIntoView) {
-    element.scrollIntoView();
-    if (bot.dom.OverflowState.NONE ==
-        bot.dom.getOverflowState(element, opt_region)) {
-      return true;
-    }
-  }
-
-  // There may have not been a scrollIntoView function, or the specified
-  // coordinate may not be in view, so scroll "manually".
-  var region = bot.dom.getClientRegion(element, opt_region);
-  for (var container = bot.dom.getParentElement(element);
-       container;
-       container = bot.dom.getParentElement(container)) {
-    scrollClientRegionIntoContainerView(container);
-  }
-  return bot.dom.OverflowState.NONE ==
-      bot.dom.getOverflowState(element, opt_region);
-
-  function scrollClientRegionIntoContainerView(container) {
-    // Based largely from goog.style.scrollIntoContainerView.
-    var containerRect = bot.dom.getClientRect(container);
-    var containerBorder = goog.style.getBorderBox(container);
-
-    // Relative position of the region to the container's content box.
-    var relX = region.left - containerRect.left - containerBorder.left;
-    var relY = region.top - containerRect.top - containerBorder.top;
-
-    // How much the region can move in the container. Use the container's
-    // clientWidth/Height, not containerRect, to account for the scrollbar.
-    var spaceX = container.clientWidth + region.left - region.right;
-    var spaceY = container.clientHeight + region.top - region.bottom;
-
-    // Scroll the element into view of the container.
-    container.scrollLeft += Math.min(relX, Math.max(relX - spaceX, 0));
-    container.scrollTop += Math.min(relY, Math.max(relY - spaceY, 0));
-  }
-};
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Browser atom for injecting JavaScript into the page under
- * test. There is no point in using this atom directly from JavaScript.
- * Instead, it is intended to be used in its compiled form when injecting
- * script from another language (e.g. C++).
- *
- * TODO: Add an example
- */
-
-goog.provide('bot.inject');
-goog.provide('bot.inject.cache');
-
-goog.require('bot');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-goog.require('bot.json');
-/**
- * @suppress {extraRequire} Used as a forward declaration which causes
- * compilation errors if missing.
- */
-goog.require('bot.response.ResponseObject');
-goog.require('goog.array');
-goog.require('goog.dom.NodeType');
-goog.require('goog.object');
-
-
-/**
- * Key used to identify DOM elements in the WebDriver wire protocol.
- * @type {string}
- * @const
- * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol
- */
-bot.inject.ELEMENT_KEY = 'ELEMENT';
-
-
-/**
- * Key used to identify Window objects in the WebDriver wire protocol.
- * @type {string}
- * @const
- */
-bot.inject.WINDOW_KEY = 'WINDOW';
-
-
-/**
- * Converts an element to a JSON friendly value so that it can be
- * stringified for transmission to the injector. Values are modified as
- * follows:
- * <ul>
- * <li>booleans, numbers, strings, and null are returned as is</li>
- * <li>undefined values are returned as null</li>
- * <li>functions are returned as a string</li>
- * <li>each element in an array is recursively processed</li>
- * <li>DOM Elements are wrapped in object-literals as dictated by the
- *     WebDriver wire protocol</li>
- * <li>all other objects will be treated as hash-maps, and will be
- *     recursively processed for any string and number key types (all
- *     other key types are discarded as they cannot be converted to JSON).
- * </ul>
- *
- * @param {*} value The value to make JSON friendly.
- * @return {*} The JSON friendly value.
- * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol
- */
-bot.inject.wrapValue = function(value) {
-  switch (goog.typeOf(value)) {
-    case 'string':
-    case 'number':
-    case 'boolean':
-      return value;
-
-    case 'function':
-      return value.toString();
-
-    case 'array':
-      return goog.array.map(/**@type {goog.array.ArrayLike}*/ (value),
-          bot.inject.wrapValue);
-
-    case 'object':
-      // Since {*} expands to {Object|boolean|number|string|undefined}, the
-      // JSCompiler complains that it is too broad a type for the remainder of
-      // this block where {!Object} is expected. Downcast to prevent generating
-      // a ton of compiler warnings.
-      value = /**@type {!Object}*/ (value);
-
-      // Sniff out DOM elements. We're using duck-typing instead of an
-      // instanceof check since the instanceof might not always work
-      // (e.g. if the value originated from another Firefox component)
-      if (goog.object.containsKey(value, 'nodeType') &&
-          (value['nodeType'] == goog.dom.NodeType.ELEMENT ||
-           value['nodeType'] == goog.dom.NodeType.DOCUMENT)) {
-        var ret = {};
-        ret[bot.inject.ELEMENT_KEY] =
-            bot.inject.cache.addElement(/**@type {!Element}*/ (value));
-        return ret;
-      }
-
-      // Check if this is a Window
-      if (goog.object.containsKey(value, 'document')) {
-        var ret = {};
-        ret[bot.inject.WINDOW_KEY] =
-            bot.inject.cache.addElement(/**@type{!Window}*/ (value));
-        return ret;
-      }
-
-      if (goog.isArrayLike(value)) {
-        return goog.array.map(/**@type {goog.array.ArrayLike}*/ (value),
-            bot.inject.wrapValue);
-      }
-
-      var filtered = goog.object.filter(value, function(val, key) {
-        return goog.isNumber(key) || goog.isString(key);
-      });
-      return goog.object.map(filtered, bot.inject.wrapValue);
-
-    default:  // goog.typeOf(value) == 'undefined' || 'null'
-      return null;
-  }
-};
-
-
-/**
- * Unwraps any DOM element's encoded in the given {@code value}.
- * @param {*} value The value to unwrap.
- * @param {Document=} opt_doc The document whose cache to retrieve wrapped
- *     elements from. Defaults to the current document.
- * @return {*} The unwrapped value.
- */
-bot.inject.unwrapValue = function(value, opt_doc) {
-  if (goog.isArray(value)) {
-    return goog.array.map(/**@type {goog.array.ArrayLike}*/ (value),
-        function(v) { return bot.inject.unwrapValue(v, opt_doc); });
-  } else if (goog.isObject(value)) {
-    if (typeof value == 'function') {
-      return value;
-    }
-
-    if (goog.object.containsKey(value, bot.inject.ELEMENT_KEY)) {
-      return bot.inject.cache.getElement(value[bot.inject.ELEMENT_KEY],
-          opt_doc);
-    }
-
-    if (goog.object.containsKey(value, bot.inject.WINDOW_KEY)) {
-      return bot.inject.cache.getElement(value[bot.inject.WINDOW_KEY],
-          opt_doc);
-    }
-
-    return goog.object.map(value, function(val) {
-      return bot.inject.unwrapValue(val, opt_doc);
-    });
-  }
-  return value;
-};
-
-
-/**
- * Recompiles {@code fn} in the context of another window so that the
- * correct symbol table is used when the function is executed. This
- * function assumes the {@code fn} can be decompiled to its source using
- * {@code Function.prototype.toString} and that it only refers to symbols
- * defined in the target window's context.
- *
- * @param {!(Function|string)} fn Either the function that shold be
- *     recompiled, or a string defining the body of an anonymous function
- *     that should be compiled in the target window's context.
- * @param {!Window} theWindow The window to recompile the function in.
- * @return {!Function} The recompiled function.
- * @private
- */
-bot.inject.recompileFunction_ = function(fn, theWindow) {
-  if (goog.isString(fn)) {
-    return new theWindow['Function'](fn);
-  }
-  return theWindow == window ? fn : new theWindow['Function'](
-      'return (' + fn + ').apply(null,arguments);');
-};
-
-
-/**
- * Executes an injected script. This function should never be called from
- * within JavaScript itself. Instead, it is used from an external source that
- * is injecting a script for execution.
- *
- * <p/>For example, in a WebDriver Java test, one might have:
- * <pre><code>
- * Object result = ((JavascriptExecutor) driver).executeScript(
- *     "return arguments[0] + arguments[1];", 1, 2);
- * </code></pre>
- *
- * <p/>Once transmitted to the driver, this command would be injected into the
- * page for evaluation as:
- * <pre><code>
- * bot.inject.executeScript(
- *     function() {return arguments[0] + arguments[1];},
- *     [1, 2]);
- * </code></pre>
- *
- * <p/>The details of how this actually gets injected for evaluation is left
- * as an implementation detail for clients of this library.
- *
- * @param {!(Function|string)} fn Either the function to execute, or a string
- *     defining the body of an anonymous function that should be executed. This
- *     function should only contain references to symbols defined in the context
- *     of the target window ({@code opt_window}). Any references to symbols
- *     defined in this context will likely generate a ReferenceError.
- * @param {Array.<*>} args An array of wrapped script arguments, as defined by
- *     the WebDriver wire protocol.
- * @param {boolean=} opt_stringify Whether the result should be returned as a
- *     serialized JSON string.
- * @param {!Window=} opt_window The window in whose context the function should
- *     be invoked; defaults to the current window.
- * @return {!(string|bot.response.ResponseObject)} The response object. If
- *     opt_stringify is true, the result will be serialized and returned in
- *     string format.
- */
-bot.inject.executeScript = function(fn, args, opt_stringify, opt_window) {
-  var win = opt_window || bot.getWindow();
-  var ret;
-  try {
-    fn = bot.inject.recompileFunction_(fn, win);
-    var unwrappedArgs = /**@type {Object}*/ (bot.inject.unwrapValue(args,
-        win.document));
-    ret = bot.inject.wrapResponse(fn.apply(null, unwrappedArgs));
-  } catch (ex) {
-    ret = bot.inject.wrapError(ex);
-  }
-  return opt_stringify ? bot.json.stringify(ret) : ret;
-};
-
-
-/**
- * Executes an injected script, which is expected to finish asynchronously
- * before the given {@code timeout}. When the script finishes or an error
- * occurs, the given {@code onDone} callback will be invoked. This callback
- * will have a single argument, a {@link bot.response.ResponseObject} object.
- *
- * The script signals its completion by invoking a supplied callback given
- * as its last argument. The callback may be invoked with a single value.
- *
- * The script timeout event will be scheduled with the provided window,
- * ensuring the timeout is synchronized with that window's event queue.
- * Furthermore, asynchronous scripts do not work across new page loads; if an
- * "unload" event is fired on the window while an asynchronous script is
- * pending, the script will be aborted and an error will be returned.
- *
- * Like {@code bot.inject.executeScript}, this function should only be called
- * from an external source. It handles wrapping and unwrapping of input/output
- * values.
- *
- * @param {(!Function|string)} fn Either the function to execute, or a string
- *     defining the body of an anonymous function that should be executed. This
- *     function should only contain references to symbols defined in the context
- *     of the target window ({@code opt_window}). Any references to symbols
- *     defined in this context will likely generate a ReferenceError.
- * @param {Array.<*>} args An array of wrapped script arguments, as defined by
- *     the WebDriver wire protocol.
- * @param {number} timeout The amount of time, in milliseconds, the script
- *     should be permitted to run; must be non-negative.
- * @param {function(string)|function(!bot.response.ResponseObject)} onDone
- *     The function to call when the given {@code fn} invokes its callback,
- *     or when an exception or timeout occurs. This will always be called.
- * @param {boolean=} opt_stringify Whether the result should be returned as a
- *     serialized JSON string.
- * @param {!Window=} opt_window The window to synchronize the script with;
- *     defaults to the current window.
- */
-bot.inject.executeAsyncScript = function(fn, args, timeout, onDone,
-                                         opt_stringify, opt_window) {
-  var win = opt_window || window;
-  var timeoutId;
-  var responseSent = false;
-
-  function sendResponse(status, value) {
-    if (!responseSent) {
-      if (win.removeEventListener) {
-        win.removeEventListener('unload', onunload, true);
-      } else {
-        win.detachEvent('onunload', onunload);
-      }
-
-      win.clearTimeout(timeoutId);
-      if (status != bot.ErrorCode.SUCCESS) {
-        var err = new bot.Error(status, value.message || value + '');
-        err.stack = value.stack;
-        value = bot.inject.wrapError(err);
-      } else {
-        value = bot.inject.wrapResponse(value);
-      }
-      onDone(opt_stringify ? bot.json.stringify(value) : value);
-      responseSent = true;
-    }
-  }
-  var sendError = goog.partial(sendResponse, bot.ErrorCode.UNKNOWN_ERROR);
-
-  if (win.closed) {
-    sendError('Unable to execute script; the target window is closed.');
-    return;
-  }
-
-  fn = bot.inject.recompileFunction_(fn, win);
-
-  args = /** @type {Array.<*>} */ (bot.inject.unwrapValue(args, win.document));
-  args.push(goog.partial(sendResponse, bot.ErrorCode.SUCCESS));
-
-  if (win.addEventListener) {
-    win.addEventListener('unload', onunload, true);
-  } else {
-    win.attachEvent('onunload', onunload);
-  }
-
-  var startTime = goog.now();
-  try {
-    fn.apply(win, args);
-
-    // Register our timeout *after* the function has been invoked. This will
-    // ensure we don't timeout on a function that invokes its callback after
-    // a 0-based timeout.
-    timeoutId = win.setTimeout(function() {
-      sendResponse(bot.ErrorCode.SCRIPT_TIMEOUT,
-                   Error('Timed out waiting for asyncrhonous script result ' +
-                         'after ' + (goog.now() - startTime) + ' ms'));
-    }, Math.max(0, timeout));
-  } catch (ex) {
-    sendResponse(ex.code || bot.ErrorCode.UNKNOWN_ERROR, ex);
-  }
-
-  function onunload() {
-    sendResponse(bot.ErrorCode.UNKNOWN_ERROR,
-        Error('Detected a page unload event; asynchronous script ' +
-              'execution does not work across page loads.'));
-  }
-};
-
-
-/**
- * Wraps the response to an injected script that executed successfully so it
- * can be JSON-ified for transmission to the process that injected this
- * script.
- * @param {*} value The script result.
- * @return {{status:bot.ErrorCode,value:*}} The wrapped value.
- * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol#Responses
- */
-bot.inject.wrapResponse = function(value) {
-  return {
-    'status': bot.ErrorCode.SUCCESS,
-    'value': bot.inject.wrapValue(value)
-  };
-};
-
-
-/**
- * Wraps a JavaScript error in an object-literal so that it can be JSON-ified
- * for transmission to the process that injected this script.
- * @param {Error} err The error to wrap.
- * @return {{status:bot.ErrorCode,value:*}} The wrapped error object.
- * @see http://code.google.com/p/selenium/wiki/JsonWireProtocol#Failed_Commands
- */
-bot.inject.wrapError = function(err) {
-  // TODO: Parse stackTrace
-  return {
-    'status': goog.object.containsKey(err, 'code') ?
-        err['code'] : bot.ErrorCode.UNKNOWN_ERROR,
-    // TODO: Parse stackTrace
-    'value': {
-      'message': err.message
-    }
-  };
-};
-
-
-/**
- * The property key used to store the element cache on the DOCUMENT node
- * when it is injected into the page. Since compiling each browser atom results
- * in a different symbol table, we must use this known key to access the cache.
- * This ensures the same object is used between injections of different atoms.
- * @private {string}
- * @const
- */
-bot.inject.cache.CACHE_KEY_ = '$wdc_';
-
-
-/**
- * The prefix for each key stored in an cache.
- * @type {string}
- * @const
- */
-bot.inject.cache.ELEMENT_KEY_PREFIX = ':wdc:';
-
-
-/**
- * Retrieves the cache object for the given window. Will initialize the cache
- * if it does not yet exist.
- * @param {Document=} opt_doc The document whose cache to retrieve. Defaults to
- *     the current document.
- * @return {Object.<string, (Element|Window)>} The cache object.
- * @private
- */
-bot.inject.cache.getCache_ = function(opt_doc) {
-  var doc = opt_doc || document;
-  var cache = doc[bot.inject.cache.CACHE_KEY_];
-  if (!cache) {
-    cache = doc[bot.inject.cache.CACHE_KEY_] = {};
-    // Store the counter used for generated IDs in the cache so that it gets
-    // reset whenever the cache does.
-    cache.nextId = goog.now();
-  }
-  // Sometimes the nextId does not get initialized and returns NaN
-  // TODO: Generate UID on the fly instead.
-  if (!cache.nextId) {
-    cache.nextId = goog.now();
-  }
-  return cache;
-};
-
-
-/**
- * Adds an element to its ownerDocument's cache.
- * @param {(Element|Window)} el The element or Window object to add.
- * @return {string} The key generated for the cached element.
- */
-bot.inject.cache.addElement = function(el) {
-  // Check if the element already exists in the cache.
-  var cache = bot.inject.cache.getCache_(el.ownerDocument);
-  var id = goog.object.findKey(cache, function(value) {
-    return value == el;
-  });
-  if (!id) {
-    id = bot.inject.cache.ELEMENT_KEY_PREFIX + cache.nextId++;
-    cache[id] = el;
-  }
-  return id;
-};
-
-
-/**
- * Retrieves an element from the cache. Will verify that the element is
- * still attached to the DOM before returning.
- * @param {string} key The element's key in the cache.
- * @param {Document=} opt_doc The document whose cache to retrieve the element
- *     from. Defaults to the current document.
- * @return {Element|Window} The cached element.
- */
-bot.inject.cache.getElement = function(key, opt_doc) {
-  key = decodeURIComponent(key);
-  var doc = opt_doc || document;
-  var cache = bot.inject.cache.getCache_(doc);
-  if (!goog.object.containsKey(cache, key)) {
-    // Throw STALE_ELEMENT_REFERENCE instead of NO_SUCH_ELEMENT since the
-    // key may have been defined by a prior document's cache.
-    throw new bot.Error(bot.ErrorCode.STALE_ELEMENT_REFERENCE,
-        'Element does not exist in cache');
-  }
-
-  var el = cache[key];
-
-  // If this is a Window check if it's closed
-  if (goog.object.containsKey(el, 'setInterval')) {
-    if (el.closed) {
-      delete cache[key];
-      throw new bot.Error(bot.ErrorCode.NO_SUCH_WINDOW,
-          'Window has been closed.');
-    }
-    return el;
-  }
-
-  // Make sure the element is still attached to the DOM before returning.
-  var node = el;
-  while (node) {
-    if (node == doc.documentElement) {
-      return el;
-    }
-    node = node.parentNode;
-  }
-  delete cache[key];
-  throw new bot.Error(bot.ErrorCode.STALE_ELEMENT_REFERENCE,
-      'Element is no longer attached to the DOM');
-};
-
-
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Atoms for simulating user actions against the browser window.
- */
-
-goog.provide('bot.window');
-
-goog.require('bot');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-goog.require('bot.events');
-goog.require('bot.userAgent');
-goog.require('goog.dom');
-goog.require('goog.dom.DomHelper');
-goog.require('goog.math.Coordinate');
-goog.require('goog.math.Size');
-goog.require('goog.style');
-goog.require('goog.userAgent');
-goog.require('goog.userAgent.product');
-
-
-/**
- * Whether the value of history.length includes a newly loaded page. If not,
- * after a new page load history.length is the number of pages that have loaded,
- * minus 1, but becomes the total number of pages on a subsequent back() call.
- * @private {boolean}
- * @const
- */
-bot.window.HISTORY_LENGTH_INCLUDES_NEW_PAGE_ = !goog.userAgent.IE &&
-    !goog.userAgent.OPERA;
-
-
-/**
- * Whether value of history.length includes the pages ahead of the current one
- * in the history. If not, history.length equals the number of prior pages.
- * Here is the WebKit bug for this behavior that was fixed by version 533:
- * https://bugs.webkit.org/show_bug.cgi?id=24472
- * @private {boolean}
- * @const
- */
-bot.window.HISTORY_LENGTH_INCLUDES_FORWARD_PAGES_ = !goog.userAgent.OPERA &&
-    (!goog.userAgent.WEBKIT || bot.userAgent.isEngineVersion('533'));
-
-
-/**
- * Screen orientation values. From the draft W3C spec at:
- * http://www.w3.org/TR/2012/WD-screen-orientation-20120522
- *
- * @enum {string}
- */
-bot.window.Orientation = {
-  PORTRAIT: 'portrait-primary',
-  PORTRAIT_SECONDARY: 'portrait-secondary',
-  LANDSCAPE: 'landscape-primary',
-  LANDSCAPE_SECONDARY: 'landscape-secondary'
-};
-
-
-/**
- * Returns the degrees corresponding to the orientation input.
- *
- * @param {!bot.window.Orientation} orientation The orientation.
- * @return {number} The orientation degrees.
- * @private
- */
-bot.window.getOrientationDegrees_ = (function() {
-  var orientationMap;
-  return function(orientation) {
-    if (!orientationMap) {
-      orientationMap = {};
-      if (goog.userAgent.MOBILE) {
-        // The iPhone and Android phones do not change orientation event when
-        // held upside down. Hence, PORTRAIT_SECONDARY is not set.
-        orientationMap[bot.window.Orientation.PORTRAIT] = 0;
-        orientationMap[bot.window.Orientation.LANDSCAPE] = 90;
-        orientationMap[bot.window.Orientation.LANDSCAPE_SECONDARY] = -90;
-        if (goog.userAgent.product.IPAD) {
-          orientationMap[bot.window.Orientation.PORTRAIT_SECONDARY] = 180;
-        }
-      } else if (goog.userAgent.product.ANDROID) {
-        // Unlike the iPad, Android tablets treat landscape orientation as the
-        // default, i.e., having window.orientation = 0.
-        orientationMap[bot.window.Orientation.PORTRAIT] = -90;
-        orientationMap[bot.window.Orientation.LANDSCAPE] = 0;
-        orientationMap[bot.window.Orientation.PORTRAIT_SECONDARY] = 90;
-        orientationMap[bot.window.Orientation.LANDSCAPE_SECONDARY] = 180;
-      }
-    }
-    return orientationMap[orientation];
-  };
-})();
-
-
-/**
- * Go back in the browser history. The number of pages to go back can
- * optionally be specified and defaults to 1.
- *
- * @param {number=} opt_numPages Number of pages to go back.
- */
-bot.window.back = function(opt_numPages) {
-  // Relax the upper bound by one for browsers that do not count
-  // newly loaded pages towards the value of window.history.length.
-  var maxPages = bot.window.HISTORY_LENGTH_INCLUDES_NEW_PAGE_ ?
-      bot.getWindow().history.length - 1 : bot.getWindow().history.length;
-  var numPages = bot.window.checkNumPages_(maxPages, opt_numPages);
-  bot.getWindow().history.go(-numPages);
-};
-
-
-/**
- * Go forward in the browser history. The number of pages to go forward can
- * optionally be specified and defaults to 1.
- *
- * @param {number=} opt_numPages Number of pages to go forward.
- */
-bot.window.forward = function(opt_numPages) {
-  // Do not check the upper bound (use null for infinity) for browsers that
-  // do not count forward pages towards the value of window.history.length.
-  var maxPages = bot.window.HISTORY_LENGTH_INCLUDES_FORWARD_PAGES_ ?
-      bot.getWindow().history.length - 1 : null;
-  var numPages = bot.window.checkNumPages_(maxPages, opt_numPages);
-  bot.getWindow().history.go(numPages);
-};
-
-
-/**
- * @param {?number} maxPages Upper bound on number of pages; null for infinity.
- * @param {number=} opt_numPages Number of pages to move in history.
- * @return {number} Correct number of pages to move in history.
- * @private
- */
-bot.window.checkNumPages_ = function(maxPages, opt_numPages) {
-  var numPages = goog.isDef(opt_numPages) ? opt_numPages : 1;
-  if (numPages <= 0) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'number of pages must be positive');
-  }
-  if (maxPages !== null && numPages > maxPages) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'number of pages must be less than the length of the browser history');
-  }
-  return numPages;
-};
-
-
-/**
- * Determine the size of the window that a user could interact with. This will
- * be the greatest of document.body.(width|scrollWidth), the same for
- * document.documentElement or the size of the viewport.
- *
- * @param {!Window=} opt_win Window to determine the size of. Defaults to
- *   bot.getWindow().
- * @return {!goog.math.Size} The calculated size.
- */
-bot.window.getInteractableSize = function(opt_win) {
-  var win = opt_win || bot.getWindow();
-  var doc = win.document;
-  var elem = doc.documentElement;
-  var body = doc.body;
-  if (!body) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'No BODY element present');
-  }
-
-  var widths = [
-    elem.clientWidth, elem.scrollWidth, elem.offsetWidth,
-    body.scrollWidth, body.offsetWidth
-  ];
-  var heights = [
-    elem.clientHeight, elem.scrollHeight, elem.offsetHeight,
-    body.scrollHeight, body.offsetHeight
-  ];
-
-  var width = Math.max.apply(null, widths);
-  var height = Math.max.apply(null, heights);
-
-  return new goog.math.Size(width, height);
-};
-
-
-/**
- * Gets the frame element.
- *
- * @param {!Window} win Window of the frame. Defaults to bot.getWindow().
- * @return {Element} The frame element if it exists, null otherwise.
- * @private
- */
-bot.window.getFrame_ = function(win) {
-  try {
-    // On IE, accessing the frameElement of a popup window results in a "No
-    // Such interface" exception.
-    return win.frameElement;
-  } catch (e) {
-    return null;
-  }
-};
-
-
-/**
- * Determine the outer size of the window.
- *
- * @param {!Window=} opt_win Window to determine the size of. Defaults to
- *   bot.getWindow().
- * @return {!goog.math.Size} The calculated size.
- */
-bot.window.getSize = function(opt_win) {
-  var win = opt_win || bot.getWindow();
-  var frame = bot.window.getFrame_(win);
-  if (bot.userAgent.ANDROID_PRE_ICECREAMSANDWICH) {
-    if (frame) {
-      // Early Android browsers do not account for border width.
-      var box = goog.style.getBorderBox(frame);
-      return new goog.math.Size(frame.clientWidth - box.left - box.right,
-                                frame.clientHeight);
-    } else {
-      // A fixed popup size.
-      return new goog.math.Size(320, 240);
-    }
-  } else if (frame) {
-    return new goog.math.Size(frame.clientWidth, frame.clientHeight);
-  } else {
-    var docElem = win.document.documentElement;
-    var body = win.document.body;
-    var width = win.outerWidth || (docElem && docElem.clientWidth) ||
-        (body && body.clientWidth) || 0;
-    var height = win.outerHeight || (docElem && docElem.clientHeight) ||
-        (body && body.clientHeight) || 0;
-    return new goog.math.Size(width, height);
-  }
-};
-
-
-/**
- * Set the outer size of the window.
- *
- * @param {!goog.math.Size} size The new window size.
- * @param {!Window=} opt_win Window to determine the size of. Defaults to
- *   bot.getWindow().
- */
-bot.window.setSize = function(size, opt_win) {
-  var win = opt_win || bot.getWindow();
-  var frame = bot.window.getFrame_(win);
-  if (frame) {
-    // minHeight and minWidth are altered because many browsers will not change
-    // height or width if it is less than a specified minHeight or minWidth.
-    frame.style.minHeight = '0px';
-    frame.style.minWidth = '0px';
-    frame.width = size.width + 'px';
-    frame.style.width = size.width + 'px';
-    frame.height = size.height + 'px';
-    frame.style.height = size.height + 'px';
-  } else {
-    win.resizeTo(size.width, size.height);
-  }
-};
-
-
-/**
- * Determine the scroll position of the window.
- *
- * @param {!Window=} opt_win Window to determine the scroll position of.
- *   Defaults to bot.getWindow().
- * @return {!goog.math.Coordinate} The scroll position.
- */
-bot.window.getScroll = function(opt_win) {
-  var win = opt_win || bot.getWindow();
-  return new goog.dom.DomHelper(win.document).getDocumentScroll();
-};
-
-
-/**
- * Set the scroll position of the window.
- *
- * @param {!goog.math.Coordinate} position The new scroll position.
- * @param {!Window=} opt_win Window to apply position to. Defaults to
- *   bot.getWindow().
- */
-bot.window.setScroll = function(position, opt_win) {
-  var win = opt_win || bot.getWindow();
-  win.scrollTo(position.x, position.y);
-};
-
-
-/**
- * Get the position of the window.
- *
- * @param {!Window=} opt_win Window to determine the position of. Defaults to
- *   bot.getWindow().
- * @return {!goog.math.Coordinate} The position of the window.
- */
-bot.window.getPosition = function(opt_win) {
-  var win = opt_win || bot.getWindow();
-  var x, y;
-
-  if (goog.userAgent.IE) {
-    x = win.screenLeft;
-    y = win.screenTop;
-  } else {
-    x = win.screenX;
-    y = win.screenY;
-  }
-
-  return new goog.math.Coordinate(x, y);
-};
-
-
-/**
- * Set the position of the window.
- *
- * @param {!goog.math.Coordinate} position The target position.
- * @param {!Window=} opt_win Window to set the position of. Defaults to
- *   bot.getWindow().
- */
-bot.window.setPosition = function(position, opt_win) {
-  var win = opt_win || bot.getWindow();
-  win.moveTo(position.x, position.y);
-};
-
-
-/**
- * Scrolls the given position into the viewport, using the minimal amount of
- * scrolling necessary to being the coordinate into view.
- *
- * @param {!goog.math.Coordinate} position The position to scroll into view.
- * @param {!Window=} opt_win Window to apply position to. Defaults to
- *   bot.getWindow().
- */
-bot.window.scrollIntoView = function(position, opt_win) {
-  var win = opt_win || bot.getWindow();
-  var viewport = goog.dom.getViewportSize(win);
-  var scroll = bot.window.getScroll(win);
-
-  // Scroll the minimal amount to bring the position into view.
-  var targetScroll = new goog.math.Coordinate(
-      newScrollDim(position.x, scroll.x, viewport.width),
-      newScrollDim(position.y, scroll.y, viewport.height));
-  if (!goog.math.Coordinate.equals(targetScroll, scroll)) {
-    bot.window.setScroll(targetScroll, win);
-  }
-
-  // It is difficult to determine the size of the web page in some browsers.
-  // We check if the scrolling we intended to do really happened. If not we
-  // assume that the target location is not on the web page.
-  if (!goog.math.Coordinate.equals(targetScroll, bot.window.getScroll(win))) {
-    throw new bot.Error(bot.ErrorCode.MOVE_TARGET_OUT_OF_BOUNDS,
-        'The target scroll location ' + targetScroll + ' is not on the page.');
-  }
-
-  function newScrollDim(positionDim, scrollDim, viewportDim) {
-    if (positionDim < scrollDim) {
-      return positionDim;
-    } else if (positionDim >= scrollDim + viewportDim) {
-      return positionDim - viewportDim + 1;
-    } else {
-      return scrollDim;
-    }
-  }
-};
-
-
-/**
- * @return {number} The current window orientation degrees.
- *     window.
- * @private
- */
-bot.window.getCurrentOrientationDegrees_ = function() {
-  var win = bot.getWindow();
-  if (!goog.isDef(win.orientation)) {
-    // If window.orientation is not defined, assume a default orientation of 0.
-    // A value of 0 indicates a portrait orientation except for android tablets
-    // where 0 indicates a landscape orientation.
-    win.orientation = 0;
-  }
-  return win.orientation;
-};
-
-
-/**
- * Changes window orientation.
- *
- * @param {!bot.window.Orientation} orientation The new orientation of the
- *     window.
- */
-bot.window.changeOrientation = function(orientation) {
-  var win = bot.getWindow();
-  var currentOrientationDegrees = bot.window.getCurrentOrientationDegrees_();
-  var newOrientationDegrees = bot.window.getOrientationDegrees_(orientation);
-  if (currentOrientationDegrees == newOrientationDegrees ||
-      !goog.isDef(newOrientationDegrees)) {
-    return;
-  }
-
-  // If possible, try to override the window's orientation value.
-  // On some older version of Android, it's not possible to change
-  // the window's orientation value.
-  if (Object.getOwnPropertyDescriptor && Object.defineProperty) {
-    var descriptor = Object.getOwnPropertyDescriptor(win, 'orientation');
-    if (descriptor && descriptor.configurable) {
-      Object.defineProperty(win, 'orientation', {
-        configurable: true,
-        get: function() {
-          return newOrientationDegrees;
-        }
-      });
-    }
-  }
-  bot.events.fire(win, bot.events.EventType.ORIENTATIONCHANGE);
-
-  // Change the window size to reflect the new orientation.
-  if (Math.abs(currentOrientationDegrees - newOrientationDegrees) % 180 != 0) {
-    var size = bot.window.getSize();
-    var shorter = size.getShortest();
-    var longer = size.getLongest();
-    if (orientation == bot.window.Orientation.PORTRAIT ||
-        orientation == bot.window.Orientation.PORTRAIT_SECONDARY) {
-      bot.window.setSize(new goog.math.Size(shorter, longer));
-    } else {
-      bot.window.setSize(new goog.math.Size(longer, shorter));
-    }
-  }
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Atoms for frame handling.
- *
- */
-
-
-goog.provide('bot.frame');
-
-goog.require('bot.locators');
-goog.require('goog.dom');
-goog.require('goog.dom.TagName');
-
-
-/**
- * @return {!Window} The top window.
- */
-bot.frame.defaultContent = function() {
-  return bot.getWindow().top;
-};
-
-
-/**
- * @return {!Element} The currently active element.
- */
-bot.frame.activeElement = function() {
-  return document.activeElement || document.body;
-};
-
-
-/**
- * Returns a reference to the window object corresponding to the given element.
- * Note that the element must be a frame or an iframe.
- *
- * @param {!(HTMLIFrameElement|HTMLFrameElement)} element The iframe or frame
- *     element.
- * @return {Window} The window reference for the given iframe or frame element.
- */
-bot.frame.getFrameWindow = function(element) {
-  if (bot.frame.isFrame_(element)) {
-    var frame = /** @type {HTMLFrameElement|HTMLIFrameElement} */ (element);
-    return goog.dom.getFrameContentWindow(frame);
-  }
-  throw new bot.Error(bot.ErrorCode.NO_SUCH_FRAME,
-      "The given element isn't a frame or an iframe.");
-};
-
-
-/**
- * Returns whether an element is a frame (or iframe).
- *
- * @param {!Element} element The element to check.
- * @return {boolean} Whether the element is a frame (or iframe).
- * @private
- */
-bot.frame.isFrame_ = function(element) {
-  return bot.dom.isElement(element, goog.dom.TagName.FRAME) ||
-         bot.dom.isElement(element, goog.dom.TagName.IFRAME);
-};
-
-
-/**
- * Looks for a frame by its name or id (preferring name over id)
- * under the given root. If no frame was found, we look for an
- * iframe by name or id.
- *
- * @param {(string|number)} nameOrId The frame's name, the frame's id, or the
- *     index of the frame in the containing window.
- * @param {!Window=} opt_root The window to perform the search under.
- *     Defaults to {@code bot.getWindow()}.
- * @return {Window} The window if found, null otherwise.
- */
-bot.frame.findFrameByNameOrId = function(nameOrId, opt_root) {
-  var domWindow = opt_root || bot.getWindow();
-
-  // Lookup frame by name
-  var numFrames = domWindow.frames.length;
-  for (var i = 0; i < numFrames; i++) {
-    var frame = domWindow.frames[i];
-    var frameElement = frame.frameElement || frame;
-    if (frameElement.name == nameOrId) {
-      // This is needed because Safari 4 returns
-      // an HTMLFrameElement instead of a Window object.
-      if (frame.document) {
-        return frame;
-      } else {
-        return goog.dom.getFrameContentWindow(frame);
-      }
-    }
-  }
-
-  // Lookup frame by id
-  var elements = bot.locators.findElements({id: nameOrId}, domWindow.document);
-  for (var i = 0; i < elements.length; i++) {
-    if (bot.frame.isFrame_(elements[i])) {
-      return goog.dom.getFrameContentWindow(elements[i]);
-    }
-  }
-  return null;
-};
-
-
-/**
- * Looks for a frame by its index under the given root.
- *
- * @param {number} index The frame's index.
- * @param {!Window=} opt_root The window to perform
- *     the search under. Defaults to {@code bot.getWindow()}.
- * @return {Window} The frame if found, null otherwise.
- */
-bot.frame.findFrameByIndex = function(index, opt_root) {
-  var domWindow = opt_root || bot.getWindow();
-  return domWindow.frames[index] || null;
-};
-
-
-/**
- * Gets the index of a frame in the given window. Note that the element must
- * be a frame or an iframe.
- *
- * @param {!(HTMLIFrameElement|HTMLFrameElement)} element The iframe or frame
- *     element.
- * @param {!Window=} opt_root The window to perform the search under. Defaults
- *     to {@code bot.getWindow()}.
- * @return {?number} The index of the frame if found, null otherwise.
- */
-bot.frame.getFrameIndex = function(element, opt_root) {
-  try {
-    var elementWindow = element.contentWindow;
-  } catch (e) {
-    // Happens in IE{7,8} if a frame doesn't have an enclosing frameset.
-    return null;
-  }
-
-  if (!bot.frame.isFrame_(element)) {
-    return null;
-  }
-
-  var domWindow = opt_root || bot.getWindow();
-  for (var i = 0; i < domWindow.frames.length; i++) {
-    if (elementWindow == domWindow.frames[i]) {
-      return i;
-    }
-  }
-  return null;
 };
 // Copyright 2011 Software Freedom Conservancy. All Rights Reserved.
 //
@@ -12592,751 +14088,429 @@ bot.response.checkResponse = function(responseObj) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+goog.provide('bot.locators.tagName');
+
+goog.require('goog.array');
+
+
 /**
- * @fileoverview Functions to do with firing and simulating events.
+ * Find an element by its tag name.
+ * @param {string} target The tag name to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @return {Element} The first matching element found in the DOM, or null if no
+ *     such element could be found.
  */
+bot.locators.tagName.single = function(target, root) {
+  return root.getElementsByTagName(target)[0] || null;
+};
 
 
-goog.provide('bot.events');
-goog.provide('bot.events.EventArgs');
-goog.provide('bot.events.EventType');
-goog.provide('bot.events.KeyboardArgs');
-goog.provide('bot.events.MSGestureArgs');
-goog.provide('bot.events.MSPointerArgs');
-goog.provide('bot.events.MouseArgs');
-goog.provide('bot.events.Touch');
-goog.provide('bot.events.TouchArgs');
+/**
+ * Find all elements with a given tag name.
+ * @param {string} target The tag name to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @return {goog.array.ArrayLike} All matching elements, or an empty list.
+ */
+bot.locators.tagName.many = function(target, root) {
+  return root.getElementsByTagName(target);
+};
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+goog.provide('bot.locators.linkText');
+goog.provide('bot.locators.partialLinkText');
 
 goog.require('bot');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-goog.require('bot.userAgent');
+goog.require('bot.dom');
+goog.require('bot.locators.css');
 goog.require('goog.array');
 goog.require('goog.dom');
-goog.require('goog.style');
-goog.require('goog.userAgent');
-goog.require('goog.userAgent.product');
+goog.require('goog.dom.DomHelper');
 
 
 /**
- * Whether the browser supports the construction of touch events.
+ * Find an element by using the text value of a link
+ * @param {string} target The link text to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @param {boolean} opt_isPartial Whether the link text needs to be matched
+ *     only partially.
+ * @return {Element} The first matching element found in the DOM, or null if no
+ *     such element could be found.
+ * @private
+ */
+bot.locators.linkText.single_ = function(target, root, opt_isPartial) {
+  var elements;
+  try {
+    elements = bot.locators.css.many('a', root);
+  } catch (e) {
+    // Old versions of browsers don't support CSS. They won't have XHTML
+    // support. Sorry.
+    elements = goog.dom.getDomHelper(root).getElementsByTagNameAndClass(
+        goog.dom.TagName.A, /*className=*/null, root);
+  }
+
+  var element = goog.array.find(elements, function(element) {
+    var text = bot.dom.getVisibleText(element);
+    return (opt_isPartial && text.indexOf(target) != -1) || text == target;
+  });
+  return /**@type{Element}*/ (element);
+};
+
+
+/**
+ * Find many elements by using the value of the link text
+ * @param {string} target The link text to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @param {boolean} opt_isPartial Whether the link text needs to be matched
+ *     only partially.
+ * @return {goog.array.ArrayLike} All matching elements, or an empty list.
+ * @private
+ */
+bot.locators.linkText.many_ = function(target, root, opt_isPartial) {
+  var elements;
+  try {
+    elements = bot.locators.css.many('a', root);
+  } catch (e) {
+    // Old versions of browsers don't support CSS. They won't have XHTML
+    // support. Sorry.
+    elements = goog.dom.getDomHelper(root).getElementsByTagNameAndClass(
+        goog.dom.TagName.A, /*className=*/null, root);
+  }
+
+  return goog.array.filter(elements, function(element) {
+    var text = bot.dom.getVisibleText(element);
+    return (opt_isPartial && text.indexOf(target) != -1) || text == target;
+  });
+};
+
+
+/**
+ * Find an element by using the text value of a link
+ * @param {string} target The link text to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @return {Element} The first matching element found in the DOM, or null if no
+ *     such element could be found.
+ */
+bot.locators.linkText.single = function(target, root) {
+  return bot.locators.linkText.single_(target, root, false);
+};
+
+
+/**
+ * Find many elements by using the value of the link text
+ * @param {string} target The link text to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @return {goog.array.ArrayLike} All matching elements, or an empty list.
+ */
+bot.locators.linkText.many = function(target, root) {
+  return bot.locators.linkText.many_(target, root, false);
+};
+
+
+/**
+ * Find an element by using part of the text value of a link.
+ * @param {string} target The link text to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @return {Element} The first matching element found in the DOM, or null if no
+ *     such element could be found.
+ */
+bot.locators.partialLinkText.single = function(target, root) {
+  return bot.locators.linkText.single_(target, root, true);
+};
+
+
+/**
+ * Find many elements by using part of the value of the link text.
+ * @param {string} target The link text to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @return {goog.array.ArrayLike} All matching elements, or an empty list.
+ */
+bot.locators.partialLinkText.many = function(target, root) {
+  return bot.locators.linkText.many_(target, root, true);
+};
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+goog.provide('bot.locators.className');
+
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+goog.require('goog.array');
+goog.require('goog.dom');
+goog.require('goog.dom.DomHelper');
+goog.require('goog.string');
+
+
+/**
+ * Tests whether the standardized W3C Selectors API are available on an
+ * element.
+ * @param {!(Document|Element)} root The document or element to test for CSS
+ *     selector support.
+ * @return {boolean} Whether or not the root supports query selector APIs.
+ * @see http://www.w3.org/TR/selectors-api/
+ * @private
+ */
+bot.locators.className.canUseQuerySelector_ = function(root) {
+  return !!(root.querySelectorAll && root.querySelector);
+};
+
+
+/**
+ * Find an element by its class name.
+ * @param {string} target The class name to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @return {Element} The first matching element found in the DOM, or null if no
+ *     such element could be found.
+ */
+bot.locators.className.single = function(target, root) {
+  if (!target) {
+    throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                        'No class name specified');
+  }
+
+  target = goog.string.trim(target);
+  if (target.indexOf(' ') !== -1) {
+    throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                        'Compound class names not permitted');
+  }
+
+  // Closure will not properly escape class names that contain a '.' when using
+  // the native selectors API, so we have to handle this ourselves.
+  if (bot.locators.className.canUseQuerySelector_(root)) {
+    try {
+      return root.querySelector('.' + target.replace(/\./g, '\\.')) || null;
+    } catch (e) {
+      throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                          'An invalid or illegal class name was specified');
+    }
+  }
+  var elements = goog.dom.getDomHelper(root).getElementsByTagNameAndClass(
+      /*tagName=*/'*', /*className=*/target, root);
+  return elements.length ? elements[0] : null;
+};
+
+
+/**
+ * Find an element by its class name.
+ * @param {string} target The class name to search for.
+ * @param {!(Document|Element)} root The document or element to perform the
+ *     search under.
+ * @return {!goog.array.ArrayLike} All matching elements, or an empty list.
+ */
+bot.locators.className.many = function(target, root) {
+  if (!target) {
+    throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                        'No class name specified');
+  }
+
+  target = goog.string.trim(target);
+  if (target.indexOf(' ') !== -1) {
+    throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                        'Compound class names not permitted');
+  }
+
+  // Closure will not properly escape class names that contain a '.' when using
+  // the native selectors API, so we have to handle this ourselves.
+  if (bot.locators.className.canUseQuerySelector_(root)) {
+    try {
+      return root.querySelectorAll('.' + target.replace(/\./g, '\\.'));
+    } catch (e) {
+      throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                          'An invalid or illegal class name was specified');
+    }
+  }
+  return goog.dom.getDomHelper(root).getElementsByTagNameAndClass(
+      /*tagName=*/'*', /*className=*/target, root);
+};
+// Copyright 2010 WebDriver committers
+// Copyright 2010 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Element locator functions.
+ */
+
+
+goog.provide('bot.locators');
+
+goog.require('bot');
+goog.require('bot.locators.className');
+goog.require('bot.locators.css');
+goog.require('bot.locators.id');
+goog.require('bot.locators.linkText');
+goog.require('bot.locators.name');
+goog.require('bot.locators.partialLinkText');
+goog.require('bot.locators.tagName');
+goog.require('bot.locators.xpath');
+goog.require('goog.array');  // for the goog.array.ArrayLike typedef
+goog.require('goog.object');
+
+
+/**
+ * @typedef {{single:function(string,!(Document|Element)):Element,
+ *     many:function(string,!(Document|Element)):!goog.array.ArrayLike}}
+ */
+bot.locators.strategy;
+
+
+/**
+ * Known element location strategies. The returned objects have two
+ * methods on them, "single" and "many", for locating a single element
+ * or multiple elements, respectively.
  *
+ * Note that the versions with spaces are synonyms for those without spaces,
+ * and are specified at:
+ * https://code.google.com/p/selenium/wiki/JsonWireProtocol
+ * @private {Object.<string,bot.locators.strategy>}
  * @const
- * @type {boolean}
  */
-bot.events.SUPPORTS_TOUCH_EVENTS = !(goog.userAgent.IE &&
-                                     !bot.userAgent.isEngineVersion(10)) &&
-                                   !goog.userAgent.OPERA;
+bot.locators.STRATEGIES_ = {
+  'className': bot.locators.className,
+  'class name': bot.locators.className,
 
+  'css': bot.locators.css,
+  'css selector': bot.locators.css,
 
-/**
- * Whether the browser supports a native touch api.
- * @private {boolean}
- * @const
- */
-bot.events.BROKEN_TOUCH_API_ = (function() {
-  if (goog.userAgent.product.ANDROID) {
-    // Native touch api supported starting in version 4.0 (Ice Cream Sandwich).
-    return !bot.userAgent.isProductVersion(4);
-  }
-  return !bot.userAgent.IOS;
-})();
+  'id': bot.locators.id,
 
+  'linkText': bot.locators.linkText,
+  'link text': bot.locators.linkText,
 
-/**
- * Whether the browser supports the construction of MSPointer events.
- *
- * @const
- * @type {boolean}
- */
-bot.events.SUPPORTS_MSPOINTER_EVENTS =
-    goog.userAgent.IE && bot.getWindow().navigator.msPointerEnabled;
+  'name': bot.locators.name,
 
+  'partialLinkText': bot.locators.partialLinkText,
+  'partial link text': bot.locators.partialLinkText,
 
-/**
- * Arguments to initialize an event.
- *
- * @typedef {bot.events.MouseArgs|bot.events.KeyboardArgs|bot.events.TouchArgs|
-             bot.events.MSGestureArgs|bot.events.MSPointerArgs}
- */
-bot.events.EventArgs;
+  'tagName': bot.locators.tagName,
+  'tag name': bot.locators.tagName,
 
-
-/**
- * Arguments to initialize a mouse event.
- *
- * @typedef {{clientX: number,
- *            clientY: number,
- *            button: number,
- *            altKey: boolean,
- *            ctrlKey: boolean,
- *            shiftKey: boolean,
- *            metaKey: boolean,
- *            relatedTarget: Element,
- *            wheelDelta: number}}
- */
-bot.events.MouseArgs;
-
-
-/**
- * Arguments to initialize a keyboard event.
- *
- * @typedef {{keyCode: number,
- *            charCode: number,
- *            altKey: boolean,
- *            ctrlKey: boolean,
- *            shiftKey: boolean,
- *            metaKey: boolean,
- *            preventDefault: boolean}}
- */
-bot.events.KeyboardArgs;
-
-
-/**
- * Argument to initialize a touch event.
- *
- * @typedef {{touches: !Array.<bot.events.Touch>,
- *            targetTouches: !Array.<bot.events.Touch>,
- *            changedTouches: !Array.<bot.events.Touch>,
- *            altKey: boolean,
- *            ctrlKey: boolean,
- *            shiftKey: boolean,
- *            metaKey: boolean,
- *            relatedTarget: Element,
- *            scale: number,
- *            rotation: number}}
- */
-bot.events.TouchArgs;
-
-
-/**
- * @typedef {{identifier: number,
- *            screenX: number,
- *            screenY: number,
- *            clientX: number,
- *            clientY: number,
- *            pageX: number,
- *            pageY: number}}
- */
-bot.events.Touch;
-
-
-/**
- * Arguments to initialize an MSGesture event.
- *
- * @typedef {{clientX: number,
- *            clientY: number,
- *            translationX: number,
- *            translationY: number,
- *            scale: number,
- *            expansion: number,
- *            rotation: number,
- *            velocityX: number,
- *            velocityY: number,
- *            velocityExpansion: number,
- *            velocityAngular: number,
- *            relatedTarget: Element}}
- */
-bot.events.MSGestureArgs;
-
-
-/**
- * Arguments to initialize an MSPointer event.
- *
- * @typedef {{clientX: number,
- *            clientY: number,
- *            button: number,
- *            altKey: boolean,
- *            ctrlKey: boolean,
- *            shiftKey: boolean,
- *            metaKey: boolean,
- *            relatedTarget: Element,
- *            width: number,
- *            height: number,
- *            pressure: number,
- *            rotation: number,
- *            pointerId: number,
- *            tiltX: number,
- *            tiltY: number,
- *            pointerType: number,
- *            isPrimary: boolean}}
- */
-bot.events.MSPointerArgs;
-
-
-
-/**
- * Factory for event objects of a specific type.
- *
- * @constructor
- * @param {string} type Type of the created events.
- * @param {boolean} bubbles Whether the created events bubble.
- * @param {boolean} cancelable Whether the created events are cancelable.
- * @private
- */
-bot.events.EventFactory_ = function(type, bubbles, cancelable) {
-  /** @private {string} */
-  this.type_ = type;
-
-  /** @private {boolean} */
-  this.bubbles_ = bubbles;
-
-  /** @private {boolean} */
-  this.cancelable_ = cancelable;
+  'xpath': bot.locators.xpath
 };
 
 
 /**
- * Creates an event.
+ * Add or override an existing strategy for locating elements.
  *
- * @param {!Element|!Window} target Target element of the event.
- * @param {bot.events.EventArgs=} opt_args Event arguments.
- * @return {!Event} Newly created event.
+ * @param {string} name The name of the strategy.
+ * @param {!bot.locators.strategy} strategy The strategy to use.
  */
-bot.events.EventFactory_.prototype.create = function(target, opt_args) {
-  var doc = goog.dom.getOwnerDocument(target);
-  var event;
-
-  if (bot.userAgent.IE_DOC_PRE9) {
-    event = doc.createEventObject();
-  } else {
-    event = doc.createEvent('HTMLEvents');
-    event.initEvent(this.type_, this.bubbles_, this.cancelable_);
-  }
-
-  return event;
+bot.locators.add = function(name, strategy) {
+  bot.locators.STRATEGIES_[name] = strategy;
 };
 
 
 /**
- * Overriding toString to return the unique type string improves debugging,
- * and it allows event types to be mapped in JS objects without collisions.
+ * Returns one key from the object map that is not present in the
+ * Object.prototype, if any exists.
  *
- * @return {string} String representation of the event type.
+ * @param {Object} target The object to pick a key from.
+ * @return {string?} The key or null if the object is empty.
  */
-bot.events.EventFactory_.prototype.toString = function() {
-  return this.type_;
-};
-
-
-
-/**
- * Factory for mouse event objects of a specific type.
- *
- * @constructor
- * @param {string} type Type of the created events.
- * @param {boolean} bubbles Whether the created events bubble.
- * @param {boolean} cancelable Whether the created events are cancelable.
- * @extends {bot.events.EventFactory_}
- * @private
- */
-bot.events.MouseEventFactory_ = function(type, bubbles, cancelable) {
-  goog.base(this, type, bubbles, cancelable);
-};
-goog.inherits(bot.events.MouseEventFactory_, bot.events.EventFactory_);
-
-
-/**
- * @override
- */
-bot.events.MouseEventFactory_.prototype.create = function(target, opt_args) {
-  // Only Gecko supports the mouse pixel scroll event.
-  if (!goog.userAgent.GECKO && this == bot.events.EventType.MOUSEPIXELSCROLL) {
-    throw new bot.Error(bot.ErrorCode.UNSUPPORTED_OPERATION,
-        'Browser does not support a mouse pixel scroll event.');
-  }
-
-  var args = /** @type {!bot.events.MouseArgs} */ (opt_args);
-  var doc = goog.dom.getOwnerDocument(target);
-  var event;
-
-  if (bot.userAgent.IE_DOC_PRE9) {
-    event = doc.createEventObject();
-    event.altKey = args.altKey;
-    event.ctrlKey = args.ctrlKey;
-    event.metaKey = args.metaKey;
-    event.shiftKey = args.shiftKey;
-    event.button = args.button;
-
-    // NOTE: ie8 does a strange thing with the coordinates passed in the event:
-    // - if offset{X,Y} coordinates are specified, they are also used for
-    //   client{X,Y}, event if client{X,Y} are also specified.
-    // - if only client{X,Y} are specified, they are also used for offset{x,y}
-    // Thus, for ie8, it is impossible to set both offset and client
-    // and have them be correct when they come out on the other side.
-    event.clientX = args.clientX;
-    event.clientY = args.clientY;
-
-    // Sets a property of the event object using Object.defineProperty.
-    // Some readonly properties of the IE event object can only be set this way.
-    var setEventProperty = function(prop, value) {
-      Object.defineProperty(event, prop, {
-        get: function() {
-          return value;
-        }
-      });
-    };
-
-    // IE has fromElement and toElement properties, no relatedTarget property.
-    // IE does not allow fromElement and toElement to be set directly, but
-    // Object.defineProperty can redefine them, when it is available. Do not
-    // use Object.defineProperties (plural) because it is even less supported.
-    // If defineProperty is unavailable, fall back to setting the relatedTarget,
-    // which many event frameworks, including jQuery and Closure, forgivingly
-    // pass on as the relatedTarget on their event object abstraction.
-    if (this == bot.events.EventType.MOUSEOUT ||
-        this == bot.events.EventType.MOUSEOVER) {
-      if (Object.defineProperty) {
-        var out = (this == bot.events.EventType.MOUSEOUT);
-        setEventProperty('fromElement', out ? target : args.relatedTarget);
-        setEventProperty('toElement', out ? args.relatedTarget : target);
-      } else {
-        event.relatedTarget = args.relatedTarget;
-      }
-    }
-
-    // IE does not allow the wheelDelta property to be set directly, so we can
-    // only do it where defineProperty is supported; otherwise store the wheel
-    // delta in the event "detail" as a last resort in case the app looks there.
-    if (this == bot.events.EventType.MOUSEWHEEL) {
-      if (Object.defineProperty) {
-        setEventProperty('wheelDelta', args.wheelDelta);
-      } else {
-        event.detail = args.wheelDelta;
-      }
-    }
-  } else {
-    var view = goog.dom.getWindow(doc);
-    event = doc.createEvent('MouseEvents');
-    var detail = 1;
-
-    // All browser but Firefox provide the wheelDelta value in the event.
-    // Firefox provides the scroll amount in the detail field, where it has the
-    // opposite polarity of the wheelDelta (upward scroll is negative) and is a
-    // factor of 40 less than the wheelDelta value. Opera provides both values.
-    // The wheelDelta value is normally some multiple of 40.
-    if (this == bot.events.EventType.MOUSEWHEEL) {
-      if (!goog.userAgent.GECKO) {
-        event.wheelDelta = args.wheelDelta;
-      }
-      if (goog.userAgent.GECKO || goog.userAgent.OPERA) {
-        detail = args.wheelDelta / -40;
-      }
-    }
-
-    // Only Gecko supports a mouse pixel scroll event, so we use it as the
-    // "standard" and pass it along as is as the "detail" of the event.
-    if (goog.userAgent.GECKO && this == bot.events.EventType.MOUSEPIXELSCROLL) {
-      detail = args.wheelDelta;
-    }
-
-    event.initMouseEvent(this.type_, this.bubbles_, this.cancelable_, view,
-        detail, /*screenX*/ 0, /*screenY*/ 0, args.clientX, args.clientY,
-        args.ctrlKey, args.altKey, args.shiftKey, args.metaKey, args.button,
-        args.relatedTarget);
-
-    // Trying to modify the properties throws an error,
-    // so we define getters to return the correct values.
-    if (goog.userAgent.IE &&
-        event.pageX === 0 && event.pageY === 0 && Object.defineProperty) {
-      var scrollElem = goog.dom.getDomHelper(target).getDocumentScrollElement();
-      var clientElem = goog.style.getClientViewportElement(doc);
-      var pageX = args.clientX + scrollElem.scrollLeft - clientElem.clientLeft;
-      var pageY = args.clientY + scrollElem.scrollTop - clientElem.clientTop;
-
-      Object.defineProperty(event, 'pageX', {
-        get: function() {
-          return pageX;
-        }
-      });
-      Object.defineProperty(event, 'pageY', {
-        get: function() {
-          return pageY;
-        }
-      });
+bot.locators.getOnlyKey = function(target) {
+  for (var k in target) {
+    if (target.hasOwnProperty(k)) {
+      return k;
     }
   }
-
-  return event;
+  return null;
 };
 
 
-
 /**
- * Factory for keyboard event objects of a specific type.
+ * Find the first element in the DOM matching the target. The target
+ * object should have a single key, the name of which determines the
+ * locator strategy and the value of which gives the value to be
+ * searched for. For example {id: 'foo'} indicates that the first
+ * element on the DOM with the ID 'foo' should be returned.
  *
- * @constructor
- * @param {string} type Type of the created events.
- * @param {boolean} bubbles Whether the created events bubble.
- * @param {boolean} cancelable Whether the created events are cancelable.
- * @extends {bot.events.EventFactory_}
- * @private
+ * @param {!Object} target The selector to search for.
+ * @param {(Document|Element)=} opt_root The node from which to start the
+ *     search. If not specified, will use {@code document} as the root.
+ * @return {Element} The first matching element found in the DOM, or null if no
+ *     such element could be found.
  */
-bot.events.KeyboardEventFactory_ = function(type, bubbles, cancelable) {
-  goog.base(this, type, bubbles, cancelable);
-};
-goog.inherits(bot.events.KeyboardEventFactory_, bot.events.EventFactory_);
+bot.locators.findElement = function(target, opt_root) {
+  var key = bot.locators.getOnlyKey(target);
 
-
-/**
- * @override
- */
-bot.events.KeyboardEventFactory_.prototype.create = function(target, opt_args) {
-  var args = /** @type {!bot.events.KeyboardArgs} */ (opt_args);
-  var doc = goog.dom.getOwnerDocument(target);
-  var event;
-
-  if (goog.userAgent.GECKO) {
-    var view = goog.dom.getWindow(doc);
-    var keyCode = args.charCode ? 0 : args.keyCode;
-    event = doc.createEvent('KeyboardEvent');
-    event.initKeyEvent(this.type_, this.bubbles_, this.cancelable_, view,
-        args.ctrlKey, args.altKey, args.shiftKey, args.metaKey, keyCode,
-        args.charCode);
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=501496
-    if (this.type_ == bot.events.EventType.KEYPRESS && args.preventDefault) {
-      event.preventDefault();
-    }
-  } else {
-    if (bot.userAgent.IE_DOC_PRE9) {
-      event = doc.createEventObject();
-    } else {  // WebKit, Opera, and IE 9+ in Standards mode.
-      event = doc.createEvent('Events');
-      event.initEvent(this.type_, this.bubbles_, this.cancelable_);
-    }
-    event.altKey = args.altKey;
-    event.ctrlKey = args.ctrlKey;
-    event.metaKey = args.metaKey;
-    event.shiftKey = args.shiftKey;
-    event.keyCode = args.charCode || args.keyCode;
-    if (goog.userAgent.WEBKIT) {
-      event.charCode = (this == bot.events.EventType.KEYPRESS) ?
-          event.keyCode : 0;
+  if (key) {
+    var strategy = bot.locators.STRATEGIES_[key];
+    if (strategy && goog.isFunction(strategy.single)) {
+      var root = opt_root || bot.getDocument();
+      return strategy.single(target[key], root);
     }
   }
-
-  return event;
+  throw Error('Unsupported locator strategy: ' + key);
 };
 
 
-
 /**
- * Factory for touch event objects of a specific type.
+ * Find all elements in the DOM matching the target. The target object
+ * should have a single key, the name of which determines the locator
+ * strategy and the value of which gives the value to be searched
+ * for. For example {name: 'foo'} indicates that all elements with the
+ * 'name' attribute equal to 'foo' should be returned.
  *
- * @constructor
- * @param {string} type Type of the created events.
- * @param {boolean} bubbles Whether the created events bubble.
- * @param {boolean} cancelable Whether the created events are cancelable.
- * @extends {bot.events.EventFactory_}
- * @private
+ * @param {!Object} target The selector to search for.
+ * @param {(Document|Element)=} opt_root The node from which to start the
+ *     search. If not specified, will use {@code document} as the root.
+ * @return {!goog.array.ArrayLike.<Element>} All matching elements found in the
+ *     DOM.
  */
-bot.events.TouchEventFactory_ = function(type, bubbles, cancelable) {
-  goog.base(this, type, bubbles, cancelable);
-};
-goog.inherits(bot.events.TouchEventFactory_, bot.events.EventFactory_);
+bot.locators.findElements = function(target, opt_root) {
+  var key = bot.locators.getOnlyKey(target);
 
-
-/**
- * @override
- */
-bot.events.TouchEventFactory_.prototype.create = function(target, opt_args) {
-  if (!bot.events.SUPPORTS_TOUCH_EVENTS) {
-    throw new bot.Error(bot.ErrorCode.UNSUPPORTED_OPERATION,
-        'Browser does not support firing touch events.');
-  }
-
-  var args = /** @type {!bot.events.TouchArgs} */ (opt_args);
-  var doc = goog.dom.getOwnerDocument(target);
-  var view = goog.dom.getWindow(doc);
-
-  // Creates a TouchList, using native touch Api, for touch events.
-  function createNativeTouchList(touchListArgs) {
-    var touches = goog.array.map(touchListArgs, function(touchArg) {
-      return doc.createTouch(view, target, touchArg.identifier,
-          touchArg.pageX, touchArg.pageY, touchArg.screenX, touchArg.screenY);
-    });
-
-    return doc.createTouchList.apply(doc, touches);
-  }
-
-  // Creates a TouchList, using simulated touch Api, for touch events.
-  function createGenericTouchList(touchListArgs) {
-    var touches = goog.array.map(touchListArgs, function(touchArg) {
-      // The target field is not part of the W3C spec, but both android and iOS
-      // add the target field to each touch.
-      return {
-        identifier: touchArg.identifier,
-        screenX: touchArg.screenX,
-        screenY: touchArg.screenY,
-        clientX: touchArg.clientX,
-        clientY: touchArg.clientY,
-        pageX: touchArg.pageX,
-        pageY: touchArg.pageY,
-        target: target
-      };
-    });
-    touches.item = function(i) {
-      return touches[i];
-    };
-    return touches;
-  }
-
-  function createTouchList(touches) {
-    return bot.events.BROKEN_TOUCH_API_ ?
-        createGenericTouchList(touches) :
-        createNativeTouchList(touches);
-  }
-
-  // As a performance optimization, reuse the created touchlist when the lists
-  // are the same, which is often the case in practice.
-  var changedTouches = createTouchList(args.changedTouches);
-  var touches = (args.touches == args.changedTouches) ?
-      changedTouches : createTouchList(args.touches);
-  var targetTouches = (args.targetTouches == args.changedTouches) ?
-      changedTouches : createTouchList(args.targetTouches);
-
-  var event;
-  if (bot.events.BROKEN_TOUCH_API_) {
-    event = doc.createEvent('MouseEvents');
-    event.initMouseEvent(this.type_, this.bubbles_, this.cancelable_, view,
-        /*detail*/ 1, /*screenX*/ 0, /*screenY*/ 0, args.clientX, args.clientY,
-        args.ctrlKey, args.altKey, args.shiftKey, args.metaKey, /*button*/ 0,
-        args.relatedTarget);
-    event.touches = touches;
-    event.targetTouches = targetTouches;
-    event.changedTouches = changedTouches;
-    event.scale = args.scale;
-    event.rotation = args.rotation;
-  } else {
-    event = doc.createEvent('TouchEvent');
-    if (goog.userAgent.product.ANDROID) {
-      // Android's initTouchEvent method is not compliant with the W3C spec.
-      event.initTouchEvent(touches, targetTouches, changedTouches,
-          this.type_, view, /*screenX*/ 0, /*screenY*/ 0, args.clientX,
-          args.clientY, args.ctrlKey, args.altKey, args.shiftKey, args.metaKey);
-    } else {
-      event.initTouchEvent(this.type_, this.bubbles_, this.cancelable_, view,
-          /*detail*/ 1, /*screenX*/ 0, /*screenY*/ 0, args.clientX,
-          args.clientY, args.ctrlKey, args.altKey, args.shiftKey, args.metaKey,
-          touches, targetTouches, changedTouches, args.scale, args.rotation);
+  if (key) {
+    var strategy = bot.locators.STRATEGIES_[key];
+    if (strategy && goog.isFunction(strategy.many)) {
+      var root = opt_root || bot.getDocument();
+      return strategy.many(target[key], root);
     }
-    event.relatedTarget = args.relatedTarget;
   }
-
-  return event;
-};
-
-
-
-/**
- * Factory for MSGesture event objects of a specific type.
- *
- * @constructor
- * @param {string} type Type of the created events.
- * @param {boolean} bubbles Whether the created events bubble.
- * @param {boolean} cancelable Whether the created events are cancelable.
- * @extends {bot.events.EventFactory_}
- * @private
- */
-bot.events.MSGestureEventFactory_ = function(type, bubbles, cancelable) {
-  goog.base(this, type, bubbles, cancelable);
-};
-goog.inherits(bot.events.MSGestureEventFactory_, bot.events.EventFactory_);
-
-
-/**
- * @override
- */
-bot.events.MSGestureEventFactory_.prototype.create = function(target,
-                                                              opt_args) {
-  if (!bot.events.SUPPORTS_MSPOINTER_EVENTS) {
-    throw new bot.Error(bot.ErrorCode.UNSUPPORTED_OPERATION,
-        'Browser does not support MSGesture events.');
-  }
-
-  var args = /** @type {!bot.events.MSGestureArgs} */ (opt_args);
-  var doc = goog.dom.getOwnerDocument(target);
-  var view = goog.dom.getWindow(doc);
-  var event = doc.createEvent('MSGestureEvent');
-  var timestamp = (new Date).getTime();
-
-  // See http://msdn.microsoft.com/en-us/library/windows/apps/hh441187.aspx
-  event.initGestureEvent(this.type_, this.bubbles_, this.cancelable_, view,
-                         /*detail*/ 1, /*screenX*/ 0, /*screenY*/ 0,
-                         args.clientX, args.clientY, /*offsetX*/ 0,
-                         /*offsetY*/ 0, args.translationX, args.translationY,
-                         args.scale, args.expansion, args.rotation,
-                         args.velocityX, args.velocityY, args.velocityExpansion,
-                         args.velocityAngular, timestamp, args.relatedTarget);
-  return event;
-};
-
-
-
-/**
- * Factory for MSPointer event objects of a specific type.
- *
- * @constructor
- * @param {string} type Type of the created events.
- * @param {boolean} bubbles Whether the created events bubble.
- * @param {boolean} cancelable Whether the created events are cancelable.
- * @extends {bot.events.EventFactory_}
- * @private
- */
-bot.events.MSPointerEventFactory_ = function(type, bubbles, cancelable) {
-  goog.base(this, type, bubbles, cancelable);
-};
-goog.inherits(bot.events.MSPointerEventFactory_, bot.events.EventFactory_);
-
-
-/**
- * @override
- * @suppress {checkTypes} Closure compiler externs don't know about pointer
- *     events
- */
-bot.events.MSPointerEventFactory_.prototype.create = function(target,
-                                                              opt_args) {
-  if (!bot.events.SUPPORTS_MSPOINTER_EVENTS) {
-    throw new bot.Error(bot.ErrorCode.UNSUPPORTED_OPERATION,
-        'Browser does not support MSPointer events.');
-  }
-
-  var args = /** @type {!bot.events.MSPointerArgs} */ (opt_args);
-  var doc = goog.dom.getOwnerDocument(target);
-  var view = goog.dom.getWindow(doc);
-  var event = doc.createEvent('MSPointerEvent');
-
-  // See http://msdn.microsoft.com/en-us/library/ie/hh772109(v=vs.85).aspx
-  event.initPointerEvent(this.type_, this.bubbles_, this.cancelable_, view,
-                         /*detail*/ 0, /*screenX*/ 0, /*screenY*/ 0,
-                         args.clientX, args.clientY, args.ctrlKey, args.altKey,
-                         args.shiftKey, args.metaKey, args.button,
-                         args.relatedTarget, /*offsetX*/ 0, /*offsetY*/ 0,
-                         args.width, args.height, args.pressure, args.rotation,
-                         args.tiltX, args.tiltY, args.pointerId,
-                         args.pointerType, /*hwTimeStamp*/ 0, args.isPrimary);
-
-  return event;
-};
-
-
-/**
- * The types of events this modules supports firing.
- *
- * <p>To see which events bubble and are cancelable, see:
- * http://en.wikipedia.org/wiki/DOM_events and
- * http://www.w3.org/Submission/pointer-events/#pointer-event-types
- *
- * @enum {!Object}
- */
-bot.events.EventType = {
-  BLUR: new bot.events.EventFactory_('blur', false, false),
-  CHANGE: new bot.events.EventFactory_('change', true, false),
-  FOCUS: new bot.events.EventFactory_('focus', false, false),
-  FOCUSIN: new bot.events.EventFactory_('focusin', true, false),
-  FOCUSOUT: new bot.events.EventFactory_('focusout', true, false),
-  INPUT: new bot.events.EventFactory_('input', true, false),
-  ORIENTATIONCHANGE: new bot.events.EventFactory_(
-      'orientationchange', false, false),
-  PROPERTYCHANGE: new bot.events.EventFactory_('propertychange', false, false),
-  SELECT: new bot.events.EventFactory_('select', true, false),
-  SUBMIT: new bot.events.EventFactory_('submit', true, true),
-  TEXTINPUT: new bot.events.EventFactory_('textInput', true, true),
-
-  // Mouse events.
-  CLICK: new bot.events.MouseEventFactory_('click', true, true),
-  CONTEXTMENU: new bot.events.MouseEventFactory_('contextmenu', true, true),
-  DBLCLICK: new bot.events.MouseEventFactory_('dblclick', true, true),
-  MOUSEDOWN: new bot.events.MouseEventFactory_('mousedown', true, true),
-  MOUSEMOVE: new bot.events.MouseEventFactory_('mousemove', true, false),
-  MOUSEOUT: new bot.events.MouseEventFactory_('mouseout', true, true),
-  MOUSEOVER: new bot.events.MouseEventFactory_('mouseover', true, true),
-  MOUSEUP: new bot.events.MouseEventFactory_('mouseup', true, true),
-  MOUSEWHEEL: new bot.events.MouseEventFactory_(
-      goog.userAgent.GECKO ? 'DOMMouseScroll' : 'mousewheel', true, true),
-  MOUSEPIXELSCROLL: new bot.events.MouseEventFactory_(
-      'MozMousePixelScroll', true, true),
-
-  // Keyboard events.
-  KEYDOWN: new bot.events.KeyboardEventFactory_('keydown', true, true),
-  KEYPRESS: new bot.events.KeyboardEventFactory_('keypress', true, true),
-  KEYUP: new bot.events.KeyboardEventFactory_('keyup', true, true),
-
-  // Touch events.
-  TOUCHEND: new bot.events.TouchEventFactory_('touchend', true, true),
-  TOUCHMOVE: new bot.events.TouchEventFactory_('touchmove', true, true),
-  TOUCHSTART: new bot.events.TouchEventFactory_('touchstart', true, true),
-
-  // MSGesture events
-  MSGESTURECHANGE: new bot.events.MSGestureEventFactory_(
-      'MSGestureChange', true, true),
-  MSGESTUREEND: new bot.events.MSGestureEventFactory_(
-      'MSGestureEnd', true, true),
-  MSGESTUREHOLD: new bot.events.MSGestureEventFactory_(
-      'MSGestureHold', true, true),
-  MSGESTURESTART: new bot.events.MSGestureEventFactory_(
-      'MSGestureStart', true, true),
-  MSGESTURETAP: new bot.events.MSGestureEventFactory_(
-      'MSGestureTap', true, true),
-  MSINERTIASTART: new bot.events.MSGestureEventFactory_(
-      'MSInertiaStart', true, true),
-
-  // MSPointer events
-  MSGOTPOINTERCAPTURE: new bot.events.MSPointerEventFactory_(
-      'MSGotPointerCapture', true, false),
-  MSLOSTPOINTERCAPTURE: new bot.events.MSPointerEventFactory_(
-      'MSLostPointerCapture', true, false),
-  MSPOINTERCANCEL: new bot.events.MSPointerEventFactory_(
-      'MSPointerCancel', true, true),
-  MSPOINTERDOWN: new bot.events.MSPointerEventFactory_(
-      'MSPointerDown', true, true),
-  MSPOINTERMOVE: new bot.events.MSPointerEventFactory_(
-      'MSPointerMove', true, true),
-  MSPOINTEROVER: new bot.events.MSPointerEventFactory_(
-      'MSPointerOver', true, true),
-  MSPOINTEROUT: new bot.events.MSPointerEventFactory_(
-      'MSPointerOut', true, true),
-  MSPOINTERUP: new bot.events.MSPointerEventFactory_(
-      'MSPointerUp', true, true)
-};
-
-
-/**
- * Fire a named event on a particular element.
- *
- * @param {!Element|!Window} target The element on which to fire the event.
- * @param {!bot.events.EventType} type Event type.
- * @param {bot.events.EventArgs=} opt_args Arguments to initialize the event.
- * @return {boolean} Whether the event fired successfully or was cancelled.
- */
-bot.events.fire = function(target, type, opt_args) {
-  var factory = /** @type {!bot.events.EventFactory_} */ (type);
-  var event = factory.create(target, opt_args);
-
-  // Ensure the event's isTrusted property is set to false, so that
-  // bot.events.isSynthetic() can identify synthetic events from native ones.
-  if (!('isTrusted' in event)) {
-    event['isTrusted'] = false;
-  }
-
-  if (bot.userAgent.IE_DOC_PRE9) {
-    return target.fireEvent('on' + factory.type_, event);
-  } else {
-    return target.dispatchEvent(event);
-  }
-};
-
-
-/**
- * Returns whether the event was synthetically created by the atoms;
- * if false, was created by the browser in response to a live user action.
- *
- * @param {!(Event|goog.events.BrowserEvent)} event An event.
- * @return {boolean} Whether the event was synthetically created.
- */
-bot.events.isSynthetic = function(event) {
-  var e = event.getBrowserEvent ? event.getBrowserEvent() : event;
-  return 'isTrusted' in e ? !e['isTrusted'] : false;
+  throw Error('Unsupported locator strategy: ' + key);
 };
 // Copyright 2010 WebDriver committers
 // Copyright 2010 Google Inc.
@@ -13357,6 +14531,8 @@ bot.events.isSynthetic = function(event) {
 
 goog.provide('bot.locators.css');
 
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
 goog.require('bot.userAgent');
 goog.require('goog.dom.NodeType');
 goog.require('goog.string');
@@ -13381,12 +14557,19 @@ bot.locators.css.single = function(target, root) {
   }
 
   if (!target) {
-    throw Error('No selector specified');
+    throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                        'No selector specified');
   }
 
   target = goog.string.trim(target);
 
-  var element = root.querySelector(target);
+  var element;
+  try {
+    element = root.querySelector(target);
+  } catch (e) {
+    throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                        'An invalid or illegal selector was specified');
+  }
 
   return element && element.nodeType == goog.dom.NodeType.ELEMENT ?
       /**@type {Element}*/ (element) : null;
@@ -13410,78 +14593,18 @@ bot.locators.css.many = function(target, root) {
   }
 
   if (!target) {
-    throw Error('No selector specified');
+    throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                        'No selector specified');
   }
 
   target = goog.string.trim(target);
 
-  return root.querySelectorAll(target);
-};
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-goog.provide('bot.locators.id');
-
-goog.require('bot.dom');
-goog.require('goog.array');
-goog.require('goog.dom');
-
-
-/**
- * Find an element by using the value of the ID attribute.
- * @param {string} target The id to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {Element} The first matching element found in the DOM, or null if no
- *     such element could be found.
- */
-bot.locators.id.single = function(target, root) {
-  var dom = goog.dom.getDomHelper(root);
-
-  var e = dom.getElement(target);
-  if (!e) {
-    return null;
+  try {
+    return root.querySelectorAll(target);
+  } catch (e) {
+    throw new bot.Error(bot.ErrorCode.INVALID_SELECTOR_ERROR,
+                        'An invalid or illegal selector was specified');
   }
-
-  // On IE getting by ID returns the first match by id _or_ name.
-  if (bot.dom.getAttribute(e, 'id') == target && goog.dom.contains(root, e)) {
-    return e;
-  }
-
-  var elements = dom.getElementsByTagNameAndClass('*');
-  var element = goog.array.find(elements, function(element) {
-    return bot.dom.getAttribute(element, 'id') == target &&
-        goog.dom.contains(root, element);
-  });
-  return /**@type{Element}*/ (element);
-};
-
-
-/**
- * Find many elements by using the value of the ID attribute.
- * @param {string} target The id to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {!goog.array.ArrayLike} All matching elements, or an empty list.
- */
-bot.locators.id.many = function(target, root) {
-  var dom = goog.dom.getDomHelper(root);
-  var elements = dom.getElementsByTagNameAndClass('*', null, root);
-  return goog.array.filter(elements, function(e) {
-    return bot.dom.getAttribute(e, 'id') == target;
-  });
 };
 // Copyright 2010 WebDriver committers
 // Copyright 2010 Google Inc.
@@ -13710,413 +14833,104 @@ bot.locators.xpath.many = function(target, root) {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('bot.locators.className');
+goog.provide('bot.locators.id');
 
+goog.require('bot.dom');
 goog.require('goog.array');
 goog.require('goog.dom');
-goog.require('goog.dom.DomHelper');
-goog.require('goog.string');
 
 
 /**
  * Tests whether the standardized W3C Selectors API are available on an
- * element.
+ * element and the target locator meets CSS requirements.
  * @param {!(Document|Element)} root The document or element to test for CSS
  *     selector support.
  * @return {boolean} Whether or not the root supports query selector APIs.
  * @see http://www.w3.org/TR/selectors-api/
  * @private
  */
-bot.locators.className.canUseQuerySelector_ = function(root) {
-  return !!(root.querySelectorAll && root.querySelector);
+bot.locators.id.canUseQuerySelector_ = function(root, target) {
+  return !!(root.querySelectorAll && root.querySelector) && !/^\d.*/.test(target);
 };
 
 
 /**
- * Find an element by its class name.
- * @param {string} target The class name to search for.
+ * Find an element by using the value of the ID attribute.
+ * @param {string} target The id to search for.
  * @param {!(Document|Element)} root The document or element to perform the
  *     search under.
  * @return {Element} The first matching element found in the DOM, or null if no
  *     such element could be found.
  */
-bot.locators.className.single = function(target, root) {
-  if (!target) {
-    throw Error('No class name specified');
+bot.locators.id.single = function(target, root) {
+  var dom = goog.dom.getDomHelper(root);
+
+  var e = dom.getElement(target);
+  if (!e) {
+    return null;
   }
 
-  target = goog.string.trim(target);
-  if (target.split(/\s+/).length > 1) {
-    throw Error('Compound class names not permitted');
+  // On IE getting by ID returns the first match by id _or_ name.
+  if (bot.dom.getAttribute(e, 'id') == target && goog.dom.contains(root, e)) {
+    return e;
   }
 
-  // Closure will not properly escape class names that contain a '.' when using
-  // the native selectors API, so we have to handle this ourselves.
-  if (bot.locators.className.canUseQuerySelector_(root)) {
-    return root.querySelector('.' + target.replace(/\./g, '\\.')) || null;
-  }
-  var elements = goog.dom.getDomHelper(root).getElementsByTagNameAndClass(
-      /*tagName=*/'*', /*className=*/target, root);
-  return elements.length ? elements[0] : null;
-};
-
-
-/**
- * Find an element by its class name.
- * @param {string} target The class name to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {!goog.array.ArrayLike} All matching elements, or an empty list.
- */
-bot.locators.className.many = function(target, root) {
-  if (!target) {
-    throw Error('No class name specified');
-  }
-
-  target = goog.string.trim(target);
-  if (target.split(/\s+/).length > 1) {
-    throw Error('Compound class names not permitted');
-  }
-
-  // Closure will not properly escape class names that contain a '.' when using
-  // the native selectors API, so we have to handle this ourselves.
-  if (bot.locators.className.canUseQuerySelector_(root)) {
-    return root.querySelectorAll('.' + target.replace(/\./g, '\\.'));
-  }
-  return goog.dom.getDomHelper(root).getElementsByTagNameAndClass(
-      /*tagName=*/'*', /*className=*/target, root);
-};
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-goog.provide('bot.locators.tagName');
-
-goog.require('goog.array');
-
-
-/**
- * Find an element by its tag name.
- * @param {string} target The tag name to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {Element} The first matching element found in the DOM, or null if no
- *     such element could be found.
- */
-bot.locators.tagName.single = function(target, root) {
-  return root.getElementsByTagName(target)[0] || null;
-};
-
-
-/**
- * Find all elements with a given tag name.
- * @param {string} target The tag name to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {goog.array.ArrayLike} All matching elements, or an empty list.
- */
-bot.locators.tagName.many = function(target, root) {
-  return root.getElementsByTagName(target);
-};
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Element locator functions.
- */
-
-
-goog.provide('bot.locators');
-
-goog.require('bot');
-goog.require('bot.locators.className');
-goog.require('bot.locators.css');
-goog.require('bot.locators.id');
-goog.require('bot.locators.linkText');
-goog.require('bot.locators.name');
-goog.require('bot.locators.partialLinkText');
-goog.require('bot.locators.tagName');
-goog.require('bot.locators.xpath');
-goog.require('goog.array');  // for the goog.array.ArrayLike typedef
-goog.require('goog.object');
-
-
-/**
- * @typedef {{single:function(string,!(Document|Element)):Element,
- *     many:function(string,!(Document|Element)):!goog.array.ArrayLike}}
- */
-bot.locators.strategy;
-
-
-/**
- * Known element location strategies. The returned objects have two
- * methods on them, "single" and "many", for locating a single element
- * or multiple elements, respectively.
- *
- * Note that the versions with spaces are synonyms for those without spaces,
- * and are specified at:
- * https://code.google.com/p/selenium/wiki/JsonWireProtocol
- * @private {Object.<string,bot.locators.strategy>}
- * @const
- */
-bot.locators.STRATEGIES_ = {
-  'className': bot.locators.className,
-  'class name': bot.locators.className,
-
-  'css': bot.locators.css,
-  'css selector': bot.locators.css,
-
-  'id': bot.locators.id,
-
-  'linkText': bot.locators.linkText,
-  'link text': bot.locators.linkText,
-
-  'name': bot.locators.name,
-
-  'partialLinkText': bot.locators.partialLinkText,
-  'partial link text': bot.locators.partialLinkText,
-
-  'tagName': bot.locators.tagName,
-  'tag name': bot.locators.tagName,
-
-  'xpath': bot.locators.xpath
-};
-
-
-/**
- * Add or override an existing strategy for locating elements.
- *
- * @param {string} name The name of the strategy.
- * @param {!bot.locators.strategy} strategy The strategy to use.
- */
-bot.locators.add = function(name, strategy) {
-  bot.locators.STRATEGIES_[name] = strategy;
-};
-
-
-/**
- * Returns one key from the object map that is not present in the
- * Object.prototype, if any exists.
- *
- * @param {Object} target The object to pick a key from.
- * @return {string?} The key or null if the object is empty.
- */
-bot.locators.getOnlyKey = function(target) {
-  for (var k in target) {
-    if (target.hasOwnProperty(k)) {
-      return k;
-    }
-  }
-  return null;
-};
-
-
-/**
- * Find the first element in the DOM matching the target. The target
- * object should have a single key, the name of which determines the
- * locator strategy and the value of which gives the value to be
- * searched for. For example {id: 'foo'} indicates that the first
- * element on the DOM with the ID 'foo' should be returned.
- *
- * @param {!Object} target The selector to search for.
- * @param {(Document|Element)=} opt_root The node from which to start the
- *     search. If not specified, will use {@code document} as the root.
- * @return {Element} The first matching element found in the DOM, or null if no
- *     such element could be found.
- */
-bot.locators.findElement = function(target, opt_root) {
-  var key = bot.locators.getOnlyKey(target);
-
-  if (key) {
-    var strategy = bot.locators.STRATEGIES_[key];
-    if (strategy && goog.isFunction(strategy.single)) {
-      var root = opt_root || bot.getDocument();
-      return strategy.single(target[key], root);
-    }
-  }
-  throw Error('Unsupported locator strategy: ' + key);
-};
-
-
-/**
- * Find all elements in the DOM matching the target. The target object
- * should have a single key, the name of which determines the locator
- * strategy and the value of which gives the value to be searched
- * for. For example {name: 'foo'} indicates that all elements with the
- * 'name' attribute equal to 'foo' should be returned.
- *
- * @param {!Object} target The selector to search for.
- * @param {(Document|Element)=} opt_root The node from which to start the
- *     search. If not specified, will use {@code document} as the root.
- * @return {!goog.array.ArrayLike.<Element>} All matching elements found in the
- *     DOM.
- */
-bot.locators.findElements = function(target, opt_root) {
-  var key = bot.locators.getOnlyKey(target);
-
-  if (key) {
-    var strategy = bot.locators.STRATEGIES_[key];
-    if (strategy && goog.isFunction(strategy.many)) {
-      var root = opt_root || bot.getDocument();
-      return strategy.many(target[key], root);
-    }
-  }
-  throw Error('Unsupported locator strategy: ' + key);
-};
-// Copyright 2010 WebDriver committers
-// Copyright 2010 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-goog.provide('bot.locators.linkText');
-goog.provide('bot.locators.partialLinkText');
-
-goog.require('bot');
-goog.require('bot.dom');
-goog.require('bot.locators.css');
-goog.require('goog.array');
-goog.require('goog.dom');
-goog.require('goog.dom.DomHelper');
-
-
-/**
- * Find an element by using the text value of a link
- * @param {string} target The link text to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @param {boolean} opt_isPartial Whether the link text needs to be matched
- *     only partially.
- * @return {Element} The first matching element found in the DOM, or null if no
- *     such element could be found.
- * @private
- */
-bot.locators.linkText.single_ = function(target, root, opt_isPartial) {
-  var elements;
-  try {
-    elements = bot.locators.css.many('a', root);
-  } catch (e) {
-    // Old versions of browsers don't support CSS. They won't have XHTML
-    // support. Sorry.
-    elements = goog.dom.getDomHelper(root).getElementsByTagNameAndClass(
-        goog.dom.TagName.A, /*className=*/null, root);
-  }
-
+  var elements = dom.getElementsByTagNameAndClass('*');
   var element = goog.array.find(elements, function(element) {
-    var text = bot.dom.getVisibleText(element);
-    return (opt_isPartial && text.indexOf(target) != -1) || text == target;
+    return bot.dom.getAttribute(element, 'id') == target &&
+        goog.dom.contains(root, element);
   });
   return /**@type{Element}*/ (element);
 };
 
 
 /**
- * Find many elements by using the value of the link text
- * @param {string} target The link text to search for.
+ * Find many elements by using the value of the ID attribute.
+ * @param {string} target The id to search for.
  * @param {!(Document|Element)} root The document or element to perform the
  *     search under.
- * @param {boolean} opt_isPartial Whether the link text needs to be matched
- *     only partially.
- * @return {goog.array.ArrayLike} All matching elements, or an empty list.
- * @private
+ * @return {!goog.array.ArrayLike} All matching elements, or an empty list.
  */
-bot.locators.linkText.many_ = function(target, root, opt_isPartial) {
-  var elements;
-  try {
-    elements = bot.locators.css.many('a', root);
-  } catch (e) {
-    // Old versions of browsers don't support CSS. They won't have XHTML
-    // support. Sorry.
-    elements = goog.dom.getDomHelper(root).getElementsByTagNameAndClass(
-        goog.dom.TagName.A, /*className=*/null, root);
+bot.locators.id.many = function(target, root) {
+  if (!target) {
+    return [];
   }
-
-  return goog.array.filter(elements, function(element) {
-    var text = bot.dom.getVisibleText(element);
-    return (opt_isPartial && text.indexOf(target) != -1) || text == target;
+  if (bot.locators.id.canUseQuerySelector_(root, target)) {
+    try {
+      return root.querySelectorAll('#' + bot.locators.id.cssEscape_(target));
+    } catch (e) {
+      return [];
+    }
+  }
+  var dom = goog.dom.getDomHelper(root);
+  var elements = dom.getElementsByTagNameAndClass('*', null, root);
+  return goog.array.filter(elements, function(e) {
+    return bot.dom.getAttribute(e, 'id') == target;
   });
 };
 
-
 /**
- * Find an element by using the text value of a link
- * @param {string} target The link text to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {Element} The first matching element found in the DOM, or null if no
- *     such element could be found.
+ * Element ID can consist of one or more characters except space characters:
+ * http://www.w3.org/TR/html5/dom.html#the-id-attribute
+ *
+ * Some of the characters that are valid in an ID are special characters in
+ * CSS selector, they then need to be escaped if a CSS selector is used to
+ * look up element(s) by literal ID.
+ *
+ * This method escapes only characters commonly used in CSS selectors.
+ *
+ * It can be further improved, perhaps by using
+ * http://dev.w3.org/csswg/cssom/#the-css.escape()-method , where implemented,
+ * or a polyfill for that such as https://github.com/mathiasbynens/CSS.escape.
+ *
+ * @param {!string} s String to escape.
+ * @return {!string} Escaped string.
+ * @private
  */
-bot.locators.linkText.single = function(target, root) {
-  return bot.locators.linkText.single_(target, root, false);
-};
+bot.locators.id.cssEscape_ = function(s) {
+  // One backslash escapes things in a regex statement; we need two in a string.
+  return s.replace(/([#.:,+>=~*^$|\-\/\[\]\(\)])/g, '\\$1');
 
-
-/**
- * Find many elements by using the value of the link text
- * @param {string} target The link text to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {goog.array.ArrayLike} All matching elements, or an empty list.
- */
-bot.locators.linkText.many = function(target, root) {
-  return bot.locators.linkText.many_(target, root, false);
-};
-
-
-/**
- * Find an element by using part of the text value of a link.
- * @param {string} target The link text to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {Element} The first matching element found in the DOM, or null if no
- *     such element could be found.
- */
-bot.locators.partialLinkText.single = function(target, root) {
-  return bot.locators.linkText.single_(target, root, true);
-};
-
-
-/**
- * Find many elements by using part of the value of the link text.
- * @param {string} target The link text to search for.
- * @param {!(Document|Element)} root The document or element to perform the
- *     search under.
- * @return {goog.array.ArrayLike} All matching elements, or an empty list.
- */
-bot.locators.partialLinkText.many = function(target, root) {
-  return bot.locators.linkText.many_(target, root, true);
 };
 // Copyright 2010 WebDriver committers
 // Copyright 2010 Google Inc.
@@ -14240,191 +15054,6 @@ bot.geolocation.getCurrentPosition = function(successCallback,
         opt_errorCallback, posOptions);
   } else {
     throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR, 'Geolocation undefined');
-  }
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Atom to access application cache status.
- *
- */
-
-goog.provide('bot.appcache');
-
-goog.require('bot');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-goog.require('bot.html5');
-
-
-/**
- * Returns the current state of the application cache.
- *
- * @param {Window=} opt_window The window object whose cache is checked;
- *     defaults to the main window.
- * @return {number} The state.
- */
-bot.appcache.getStatus = function(opt_window) {
-  var win = opt_window || bot.getWindow();
-
-  if (bot.html5.isSupported(bot.html5.API.APPCACHE, win)) {
-    return win.applicationCache.status;
-  } else {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Undefined application cache');
-  }
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Atoms for executing SQL queries on web client database.
- *
- */
-
-goog.provide('bot.storage.database');
-goog.provide('bot.storage.database.ResultSet');
-
-goog.require('bot');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-
-
-/**
- * Opens the database to access its contents. This function will create the
- * database if it does not exist. For details,
- * @see http://www.w3.org/TR/webdatabase/#databases
- *
- * @param {string} databaseName The name of the database.
- * @param {string=} opt_version The expected database version to be opened;
- *     defaults to the empty string.
- * @param {string=} opt_displayName The name to be displayed to the user;
- *     defaults to the databaseName.
- * @param {number=} opt_size The estimated initial quota size of the database;
- *     default value is 5MB.
- * @param {Window=} opt_window The window associated with the database;
- *     defaults to the main window.
- * @return {Database} The object to access the web database.
- *
- */
-bot.storage.database.openOrCreate = function(databaseName, opt_version,
-    opt_displayName, opt_size, opt_window) {
-  var version = opt_version || '';
-  var displayName = opt_displayName || (databaseName + 'name');
-  var size = opt_size || 5 * 1024 * 1024;
-  var win = opt_window || bot.getWindow();
-  var db;
-
-  return win.openDatabase(databaseName, version, displayName, size);
-};
-
-
-/**
- * It executes a single SQL query on a given web database storage.
- *
- * @param {string} databaseName The name of the database.
- * @param {string} query The SQL statement.
- * @param {Array.<*>} args Arguments needed for the SQL statement.
- * @param {!function(!SQLTransaction, !bot.storage.database.ResultSet)}
- *     queryResultCallback Callback function to be invoked on successful query
- *     statement execution.
- * @param {!function(SQLError)} txErrorCallback
- *     Callback function to be invoked on transaction (commit) failure.
- * @param {!function()=} opt_txSuccessCallback
- *     Callback function to be invoked on successful transaction execution.
- * @param {function(!SQLTransaction, !SQLError)=} opt_queryErrorCallback
- *     Callback function to be invoked on successful query statement execution.
- * @see http://www.w3.org/TR/webdatabase/#executing-sql-statements
- */
-bot.storage.database.executeSql = function(databaseName, query, args,
-    queryResultCallback, txErrorCallback, opt_txSuccessCallback,
-    opt_queryErrorCallback) {
-
-  var db;
-
-  try {
-    db = bot.storage.database.openOrCreate(databaseName);
-  } catch (e) {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR, e.message);
-  }
-
-  var queryCallback = function(tx, result) {
-    var wrappedResult = new bot.storage.database.ResultSet(result);
-    queryResultCallback(tx, wrappedResult);
-  };
-
-  var transactionCallback = function(tx) {
-    tx.executeSql(query, args, queryCallback, opt_queryErrorCallback);
-  };
-
-  db.transaction(transactionCallback, txErrorCallback,
-      opt_txSuccessCallback);
-};
-
-
-
-/**
- * A wrapper of the SQLResultSet object returned by the SQL statement.
- *
- * @param {!SQLResultSet} sqlResultSet The original SQLResultSet object.
- * @constructor
- */
-bot.storage.database.ResultSet = function(sqlResultSet) {
-
-  /**
-   * The database rows retuned from the SQL query.
-   * @type {!Array.<*>}
-   */
-  this.rows = [];
-  for (var i = 0; i < sqlResultSet.rows.length; i++) {
-    this.rows[i] = sqlResultSet.rows.item(i);
-  }
-
-  /**
-   * The number of rows that were changed by the SQL statement
-   * @type {number}
-   */
-  this.rowsAffected = sqlResultSet.rowsAffected;
-
-  /**
-   * The row ID of the row that the SQLResultSet object's SQL statement
-   * inserted into the database, if the statement inserted a row; else
-   * it is assigned to -1. Originally, accessing insertId attribute of
-   * a SQLResultSet object returns the exception INVALID_ACCESS_ERR
-   * if no rows are inserted.
-   * @type {number}
-   */
-  this.insertId = -1;
-  try {
-    this.insertId = sqlResultSet.insertId;
-  } catch (error) {
-    // If accessing sqlResultSet.insertId results in INVALID_ACCESS_ERR
-    // exception, this.insertId will be assigned to -1.
   }
 };
 // Copyright 2011 WebDriver committers
@@ -14637,48 +15266,6 @@ bot.storage.Storage.prototype.getStorageMap = function() {
 // limitations under the License.
 
 /**
- * @fileoverview Atoms to check to connection state of a browser.
- *
- */
-
-goog.provide('bot.connection');
-
-goog.require('bot');
-goog.require('bot.Error');
-goog.require('bot.ErrorCode');
-goog.require('bot.html5');
-
-
-/**
- * @return {boolean} Whether the browser currently has an internet
- *     connection.
- */
-bot.connection.isOnline = function() {
-
-  if (bot.html5.isSupported(bot.html5.API.BROWSER_CONNECTION)) {
-    var win = bot.getWindow();
-    return win.navigator.onLine;
-  } else {
-    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
-        'Undefined browser connection state');
-  }
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
  * @fileoverview Helper function to determine which HTML5 features are
  * supported by browsers..
  */
@@ -14712,30 +15299,30 @@ bot.html5.API = {
 
 
 /**
- * True if the current browser is IE8.
+ * True if the current browser is IE version 8 or earlier.
  * @private {boolean}
  * @const
  */
-bot.html5.IS_IE8_ = goog.userAgent.IE &&
-    bot.userAgent.isEngineVersion(8) && !bot.userAgent.isEngineVersion(9);
+bot.html5.IS_IE8_OR_EARLIER_ = goog.userAgent.IE &&
+    !bot.userAgent.isEngineVersion(9);
 
 
 /**
- * True if the current browser is Safari 4.
+ * True if the current browser is Safari version 4 or earlier.
  * @private {boolean}
  * @const
  */
-bot.html5.IS_SAFARI4_ = goog.userAgent.product.SAFARI &&
-    bot.userAgent.isProductVersion(4) && !bot.userAgent.isProductVersion(5);
+bot.html5.IS_SAFARI4_OR_EARLIER_ = goog.userAgent.product.SAFARI &&
+    !bot.userAgent.isProductVersion(5);
 
 
 /**
- * True if the browser is Android 2.2 (Froyo).
+ * True if the browser is Android version 2.2 (Froyo) or earlier.
  * @private {boolean}
  * @const
  */
-bot.html5.IS_ANDROID_FROYO_ = goog.userAgent.product.ANDROID &&
-    bot.userAgent.isProductVersion(2.2) && !bot.userAgent.isProductVersion(2.3);
+bot.html5.IS_ANDROID_FROYO_OR_EARLIER_ = goog.userAgent.product.ANDROID &&
+    !bot.userAgent.isProductVersion(2.3);
 
 
 /**
@@ -14763,7 +15350,7 @@ bot.html5.isSupported = function(api, opt_window) {
   switch (api) {
     case bot.html5.API.APPCACHE:
       // IE8 does not support application cache, though the APIs exist.
-      if (bot.html5.IS_IE8_) {
+      if (bot.html5.IS_IE8_OR_EARLIER_) {
         return false;
       }
       return goog.isDefAndNotNull(win.applicationCache);
@@ -14774,11 +15361,11 @@ bot.html5.isSupported = function(api, opt_window) {
 
     case bot.html5.API.DATABASE:
       // Safari4 database API does not allow writes.
-      if (bot.html5.IS_SAFARI4_) {
+      if (bot.html5.IS_SAFARI4_OR_EARLIER_) {
         return false;
       }
       // Android Froyo does not support database, though the APIs exist.
-      if (bot.html5.IS_ANDROID_FROYO_) {
+      if (bot.html5.IS_ANDROID_FROYO_OR_EARLIER_) {
         return false;
       }
       return goog.isDefAndNotNull(win.openDatabase);
@@ -14794,14 +15381,14 @@ bot.html5.isSupported = function(api, opt_window) {
 
     case bot.html5.API.LOCAL_STORAGE:
       // IE8 does not support local storage, though the APIs exist.
-      if (bot.html5.IS_IE8_) {
+      if (bot.html5.IS_IE8_OR_EARLIER_) {
         return false;
       }
       return goog.isDefAndNotNull(win.localStorage);
 
     case bot.html5.API.SESSION_STORAGE:
       // IE8 does not support session storage, though the APIs exist.
-      if (bot.html5.IS_IE8_) {
+      if (bot.html5.IS_IE8_OR_EARLIER_) {
         return false;
       }
       return goog.isDefAndNotNull(win.sessionStorage) &&
@@ -14812,6 +15399,191 @@ bot.html5.isSupported = function(api, opt_window) {
     default:
       throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
           'Unsupported API identifier provided as parameter');
+  }
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Atom to access application cache status.
+ *
+ */
+
+goog.provide('bot.appcache');
+
+goog.require('bot');
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+goog.require('bot.html5');
+
+
+/**
+ * Returns the current state of the application cache.
+ *
+ * @param {Window=} opt_window The window object whose cache is checked;
+ *     defaults to the main window.
+ * @return {number} The state.
+ */
+bot.appcache.getStatus = function(opt_window) {
+  var win = opt_window || bot.getWindow();
+
+  if (bot.html5.isSupported(bot.html5.API.APPCACHE, win)) {
+    return win.applicationCache.status;
+  } else {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR,
+        'Undefined application cache');
+  }
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Atoms for executing SQL queries on web client database.
+ *
+ */
+
+goog.provide('bot.storage.database');
+goog.provide('bot.storage.database.ResultSet');
+
+goog.require('bot');
+goog.require('bot.Error');
+goog.require('bot.ErrorCode');
+
+
+/**
+ * Opens the database to access its contents. This function will create the
+ * database if it does not exist. For details,
+ * @see http://www.w3.org/TR/webdatabase/#databases
+ *
+ * @param {string} databaseName The name of the database.
+ * @param {string=} opt_version The expected database version to be opened;
+ *     defaults to the empty string.
+ * @param {string=} opt_displayName The name to be displayed to the user;
+ *     defaults to the databaseName.
+ * @param {number=} opt_size The estimated initial quota size of the database;
+ *     default value is 5MB.
+ * @param {Window=} opt_window The window associated with the database;
+ *     defaults to the main window.
+ * @return {Database} The object to access the web database.
+ *
+ */
+bot.storage.database.openOrCreate = function(databaseName, opt_version,
+    opt_displayName, opt_size, opt_window) {
+  var version = opt_version || '';
+  var displayName = opt_displayName || (databaseName + 'name');
+  var size = opt_size || 5 * 1024 * 1024;
+  var win = opt_window || bot.getWindow();
+  var db;
+
+  return win.openDatabase(databaseName, version, displayName, size);
+};
+
+
+/**
+ * It executes a single SQL query on a given web database storage.
+ *
+ * @param {string} databaseName The name of the database.
+ * @param {string} query The SQL statement.
+ * @param {Array.<*>} args Arguments needed for the SQL statement.
+ * @param {!function(!SQLTransaction, !bot.storage.database.ResultSet)}
+ *     queryResultCallback Callback function to be invoked on successful query
+ *     statement execution.
+ * @param {!function(SQLError)} txErrorCallback
+ *     Callback function to be invoked on transaction (commit) failure.
+ * @param {!function()=} opt_txSuccessCallback
+ *     Callback function to be invoked on successful transaction execution.
+ * @param {function(!SQLTransaction, !SQLError)=} opt_queryErrorCallback
+ *     Callback function to be invoked on successful query statement execution.
+ * @see http://www.w3.org/TR/webdatabase/#executing-sql-statements
+ */
+bot.storage.database.executeSql = function(databaseName, query, args,
+    queryResultCallback, txErrorCallback, opt_txSuccessCallback,
+    opt_queryErrorCallback) {
+
+  var db;
+
+  try {
+    db = bot.storage.database.openOrCreate(databaseName);
+  } catch (e) {
+    throw new bot.Error(bot.ErrorCode.UNKNOWN_ERROR, e.message);
+  }
+
+  var queryCallback = function(tx, result) {
+    var wrappedResult = new bot.storage.database.ResultSet(result);
+    queryResultCallback(tx, wrappedResult);
+  };
+
+  var transactionCallback = function(tx) {
+    tx.executeSql(query, args, queryCallback, opt_queryErrorCallback);
+  };
+
+  db.transaction(transactionCallback, txErrorCallback,
+      opt_txSuccessCallback);
+};
+
+
+
+/**
+ * A wrapper of the SQLResultSet object returned by the SQL statement.
+ *
+ * @param {!SQLResultSet} sqlResultSet The original SQLResultSet object.
+ * @constructor
+ */
+bot.storage.database.ResultSet = function(sqlResultSet) {
+
+  /**
+   * The database rows retuned from the SQL query.
+   * @type {!Array.<*>}
+   */
+  this.rows = [];
+  for (var i = 0; i < sqlResultSet.rows.length; i++) {
+    this.rows[i] = sqlResultSet.rows.item(i);
+  }
+
+  /**
+   * The number of rows that were changed by the SQL statement
+   * @type {number}
+   */
+  this.rowsAffected = sqlResultSet.rowsAffected;
+
+  /**
+   * The row ID of the row that the SQLResultSet object's SQL statement
+   * inserted into the database, if the statement inserted a row; else
+   * it is assigned to -1. Originally, accessing insertId attribute of
+   * a SQLResultSet object returns the exception INVALID_ACCESS_ERR
+   * if no rows are inserted.
+   * @type {number}
+   */
+  this.insertId = -1;
+  try {
+    this.insertId = sqlResultSet.insertId;
+  } catch (error) {
+    // If accessing sqlResultSet.insertId results in INVALID_ACCESS_ERR
+    // exception, this.insertId will be assigned to -1.
   }
 };
 // Copyright 2012 Software Freedom Conservancy. All Rights Reserved.
@@ -15355,12 +16127,10 @@ goog.require('webdriver.atoms.element');
  * @param {Element} element The element to send the keyboard input to, or
  *     {@code null} to use the document's active element.
  * @param {!Array.<string>} keys The keys to type on the element.
- * @param {{currentPos: number, pressed: !Array.<!bot.Keyboard.Key>}=} opt_state
- *     The predefined keyboard state to use.
+ * @param {bot.Keyboard.State=} opt_state The predefined keyboard state to use.
  * @param {boolean=} opt_persistModifiers Whether modifier keys should remain
  *     pressed when this function ends.
- * @return {{currentPos: number, pressed: !Array.<!bot.Keyboard.Key>}} The
- *     keyboard state.
+ * @return {bot.Keyboard.State} The keyboard state.
  */
 webdriver.atoms.inputs.sendKeys = function(
     element, keys, opt_state, opt_persistModifiers) {
@@ -15375,8 +16145,6 @@ webdriver.atoms.inputs.sendKeys = function(
 
   return keyboard.getState();
 };
-goog.exportSymbol('webdriver.atoms.inputs.sendKeys',
-                  webdriver.atoms.inputs.sendKeys);
 
 
 /**
@@ -15397,57 +16165,52 @@ webdriver.atoms.inputs.click = function(element, opt_state) {
   bot.action.click(element, null, mouse);
   return mouse.getState();
 };
-goog.exportSymbol('webdriver.atoms.inputs.click',
-                  webdriver.atoms.inputs.click);
 
 
 /**
  * Move the mouse to a specific element and/or coordinate location.
  *
- * @param {!Element} element The element to move the mouse to.
- * @param {number} x_offset The x coordinate to use as an offset.
- * @param {number} y_offset The y coordinate to use as an offset.
+ * @param {Element} element The element to move the mouse to.
+ * @param {?number} xOffset The x coordinate to use as an offset.
+ * @param {?number} yOffset The y coordinate to use as an offset.
  * @param {bot.Mouse.State=} opt_state The serialized state of the mouse.
  * @return {!bot.Mouse.State} The mouse state.
  */
-webdriver.atoms.inputs.mouseMove = function(element, x_offset, y_offset,
+webdriver.atoms.inputs.mouseMove = function(element, xOffset, yOffset,
     opt_state) {
   var mouse = new bot.Mouse(opt_state);
-  var target = element || mouse.getState().element;
+  var target = element || mouse.getState()['element'];
 
-  var offset_specified = (x_offset != null) && (y_offset != null);
-  x_offset = x_offset || 0;
-  y_offset = y_offset || 0;
+  var offsetSpecified = (xOffset != null) && (yOffset != null);
+  xOffset = xOffset || 0;
+  yOffset = yOffset || 0;
 
   // If we have specified an element and no offset, we should
   // move the mouse to the center of the specified element.
   if (element) {
-    if (!offset_specified) {
-      var source_element_size = bot.action.getInteractableSize(element);
-      x_offset = Math.floor(source_element_size.width / 2);
-      y_offset = Math.floor(source_element_size.height / 2);
+    if (!offsetSpecified) {
+      var size = bot.action.getInteractableSize(element);
+      xOffset = Math.floor(size.width / 2);
+      yOffset = Math.floor(size.height / 2);
     }
   } else {
     // Moving to an absolute offset from the current target element,
     // so we have to account for the existing offset of the current
     // mouse position to the element origin (upper-left corner).
     var pos = goog.style.getClientPosition(target);
-    x_offset += (mouse.getState().clientXY.x - pos.x);
-    y_offset += (mouse.getState().clientXY.y - pos.y);
+    xOffset += (mouse.getState()['clientXY']['x'] - pos.x);
+    yOffset += (mouse.getState()['clientXY']['y'] - pos.y);
   }
 
   var doc = goog.dom.getOwnerDocument(target);
-  var win = goog.dom.getWindow(doc);
-  var inViewAfterScroll = bot.action.scrollIntoView(
-      target,
-      new goog.math.Coordinate(x_offset, y_offset));
+  goog.dom.getWindow(doc);
+  bot.action.scrollIntoView(
+      target, new goog.math.Coordinate(xOffset, yOffset));
 
-  var coords = new goog.math.Coordinate(x_offset, y_offset);
+  var coords = new goog.math.Coordinate(xOffset, yOffset);
   mouse.move(target, coords);
   return mouse.getState();
 };
-goog.exportSymbol('webdriver.atoms.inputs.mouseMove',
-                  webdriver.atoms.inputs.mouseMove);
 
 
 /**
@@ -15461,8 +16224,6 @@ webdriver.atoms.inputs.mouseButtonDown = function(opt_state) {
   mouse.pressButton(bot.Mouse.Button.LEFT);
   return mouse.getState();
 };
-goog.exportSymbol('webdriver.atoms.inputs.mouseButtonDown',
-                  webdriver.atoms.inputs.mouseButtonDown);
 
 
 /**
@@ -15476,14 +16237,12 @@ webdriver.atoms.inputs.mouseButtonUp = function(opt_state) {
   mouse.releaseButton();
   return mouse.getState();
 };
-goog.exportSymbol('webdriver.atoms.inputs.mouseButtonUp',
-                  webdriver.atoms.inputs.mouseButtonUp);
 
 
 /**
  * Double-clicks primary mouse button at the current location.
  *
- * @param {bot.Mouse.State=} opt_state The serialized state of the mouse.
+ * @param {bot.Mouse.State=} opt_state The state of the mouse.
  * @return {!bot.Mouse.State} The mouse state.
  */
 webdriver.atoms.inputs.doubleClick = function(opt_state) {
@@ -15494,8 +16253,6 @@ webdriver.atoms.inputs.doubleClick = function(opt_state) {
   mouse.releaseButton();
   return mouse.getState();
 };
-goog.exportSymbol('webdriver.atoms.inputs.doubleClick',
-                  webdriver.atoms.inputs.doubleClick);
 
 
 /**
@@ -15503,6 +16260,7 @@ goog.exportSymbol('webdriver.atoms.inputs.doubleClick',
  *
  * @param {bot.Mouse.State=} opt_state The serialized state of the mouse.
  * @return {!bot.Mouse.State} The mouse state.
+ * @deprecated Use {@link webdriver.atoms.inputs.mouseClick}.
  */
 webdriver.atoms.inputs.rightClick = function(opt_state) {
   var mouse = new bot.Mouse(opt_state);
@@ -15510,8 +16268,160 @@ webdriver.atoms.inputs.rightClick = function(opt_state) {
   mouse.releaseButton();
   return mouse.getState();
 };
+
+
+/**
+ * Executes a mousedown/up with the given button at the current mouse
+ * location.
+ *
+ * @param {bot.Mouse.Button} button The button to press.
+ * @param {bot.Mouse.State=} opt_state The state of the mouse.
+ * @return {!bot.Mouse.State} The mouse state.
+ */
+webdriver.atoms.inputs.mouseClick = function(button, opt_state) {
+  // If no target element is specified, try to find it from the
+  // client (x, y) location. No, this is not exact.
+  if (opt_state && opt_state['clientXY'] && !opt_state['element'] &&
+      document.elementFromPoint) {
+    opt_state['element'] = document.elementFromPoint(
+        opt_state['clientXY']['x'], opt_state['clientXY']['y']);
+  }
+  var mouse = new bot.Mouse(opt_state);
+  mouse.pressButton(button);
+  mouse.releaseButton();
+  return mouse.getState();
+};
+// Copyright 2013 WebDriver committers
+// Copyright 2013 Software Freedom Conservancy
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Exports various symbols from the webdriver.atoms.inputs
+ * namespace.
+ */
+
+goog.require('webdriver.atoms.inputs');
+
+
+goog.exportSymbol('webdriver.atoms.inputs.click',
+                  webdriver.atoms.inputs.click);
+goog.exportSymbol('webdriver.atoms.inputs.doubleClick',
+                  webdriver.atoms.inputs.doubleClick);
 goog.exportSymbol('webdriver.atoms.inputs.rightClick',
                   webdriver.atoms.inputs.rightClick);
+goog.exportSymbol('webdriver.atoms.inputs.mouseButtonDown',
+                  webdriver.atoms.inputs.mouseButtonDown);
+goog.exportSymbol('webdriver.atoms.inputs.mouseButtonUp',
+                  webdriver.atoms.inputs.mouseButtonUp);
+goog.exportSymbol('webdriver.atoms.inputs.mouseMove',
+                  webdriver.atoms.inputs.mouseMove);
+goog.exportSymbol('webdriver.atoms.inputs.sendKeys',
+                  webdriver.atoms.inputs.sendKeys);
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Utility functions for accessing HTML5 localStorage object.
+ * These functions are wrapper of the functions of individual method of
+ * bot.storage.Storage class. An extra redirection is used to define
+ * individual functional unit (atom) for injecting in Webdriver.
+ */
+
+goog.provide('webdriver.atoms.storage.local');
+
+goog.require('bot.storage');
+
+
+/**
+ * Utility function to set the value of a key/value pair in localStorage.
+ * @param {string} key The key of the item.
+ * @param {*} value The value of the item.
+ */
+webdriver.atoms.storage.local.setItem = function(key, value) {
+  bot.storage.getLocalStorage().setItem(key, value);
+};
+
+
+/**
+ * Returns the value item of a key in the localStorage object.
+ * @param {string} key The key of the returned value.
+ * @return {?string} The mapped value if present in the localStorage object,
+ *     otherwise null.
+ */
+webdriver.atoms.storage.local.getItem = function(key) {
+  return bot.storage.getLocalStorage().getItem(key);
+};
+
+
+/**
+ * Returns an array of keys of all keys of the localStorage object.
+ * @return {Array.<string>} The array of stored keys.
+ */
+webdriver.atoms.storage.local.keySet = function() {
+  return bot.storage.getLocalStorage().keySet();
+};
+
+
+/**
+ * Removes an item with a given key.
+ * @param {string} key The key of the key/value pair.
+ * @return {?string} The removed value if present, otherwise null.
+ */
+webdriver.atoms.storage.local.removeItem = function(key) {
+  return bot.storage.getLocalStorage().removeItem(key);
+};
+
+
+/**
+ * Removes all items from the localStorage object.
+ */
+webdriver.atoms.storage.local.clear = function() {
+  bot.storage.getLocalStorage().clear();
+};
+
+
+/**
+ * Returns the number of items in the localStorage object.
+ * @return {number} The number of the key/value pairs.
+ */
+webdriver.atoms.storage.local.size = function() {
+  return bot.storage.getLocalStorage().size();
+};
+
+
+/**
+ * Returns the key item of the key/value pairs in the localStorage object
+ * of a given index.
+ * @param {number} index The index of the key/value pair list.
+ * @return {?string} The key item of a given index.
+ */
+webdriver.atoms.storage.local.key = function(index) {
+  return bot.storage.getLocalStorage().key(index);
+};
+
 // Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
 //
@@ -15655,199 +16565,6 @@ webdriver.atoms.storage.appcache.getStatus = function() {
 // limitations under the License.
 
 /**
- * @fileoverview Utility functions for accessing HTML5 localStorage object.
- * These functions are wrapper of the functions of individual method of
- * bot.storage.Storage class. An extra redirection is used to define
- * individual functional unit (atom) for injecting in Webdriver.
- */
-
-goog.provide('webdriver.atoms.storage.local');
-
-goog.require('bot.storage');
-
-
-/**
- * Utility function to set the value of a key/value pair in localStorage.
- * @param {string} key The key of the item.
- * @param {*} value The value of the item.
- */
-webdriver.atoms.storage.local.setItem = function(key, value) {
-  bot.storage.getLocalStorage().setItem(key, value);
-};
-
-
-/**
- * Returns the value item of a key in the localStorage object.
- * @param {string} key The key of the returned value.
- * @return {?string} The mapped value if present in the localStorage object,
- *     otherwise null.
- */
-webdriver.atoms.storage.local.getItem = function(key) {
-  return bot.storage.getLocalStorage().getItem(key);
-};
-
-
-/**
- * Returns an array of keys of all keys of the localStorage object.
- * @return {Array.<string>} The array of stored keys.
- */
-webdriver.atoms.storage.local.keySet = function() {
-  return bot.storage.getLocalStorage().keySet();
-};
-
-
-/**
- * Removes an item with a given key.
- * @param {string} key The key of the key/value pair.
- * @return {?string} The removed value if present, otherwise null.
- */
-webdriver.atoms.storage.local.removeItem = function(key) {
-  return bot.storage.getLocalStorage().removeItem(key);
-};
-
-
-/**
- * Removes all items from the localStorage object.
- */
-webdriver.atoms.storage.local.clear = function() {
-  bot.storage.getLocalStorage().clear();
-};
-
-
-/**
- * Returns the number of items in the localStorage object.
- * @return {number} The number of the key/value pairs.
- */
-webdriver.atoms.storage.local.size = function() {
-  return bot.storage.getLocalStorage().size();
-};
-
-
-/**
- * Returns the key item of the key/value pairs in the localStorage object
- * of a given index.
- * @param {number} index The index of the key/value pair list.
- * @return {?string} The key item of a given index.
- */
-webdriver.atoms.storage.local.key = function(index) {
-  return bot.storage.getLocalStorage().key(index);
-};
-
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Ready to inject atoms for handling session storage.
- */
-
-goog.provide('webdriver.atoms.inject.storage.session');
-
-goog.require('webdriver.atoms.inject');
-goog.require('webdriver.atoms.storage.session');
-
-
-/**
- * Sets an item in the session storage.
- *
- * @param {string} key The key of the item.
- * @param {*} value The value of the item.
- * @return {string} The stringified result wrapped according to the wire
- *     protocol.
- */
-webdriver.atoms.inject.storage.session.setItem = function(key, value) {
-  return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.session.setItem, [key, value]);
-};
-
-
-/**
- * Gets an item from the session storage.
- *
- * @param {string} key The key of the item.
- * @return {string} The stringified result wrapped according to the wire
- *     protocol.
- */
-webdriver.atoms.inject.storage.session.getItem = function(key) {
-  return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.session.getItem, [key]);
-};
-
-
-/**
- * Gets the key set of the entries.
- *
- * @return {string} The stringified result wrapped according to the wire
- *     protocol.
- */
-webdriver.atoms.inject.storage.session.keySet = function() {
-  return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.session.keySet, []);
-};
-
-
-/**
- * Removes an item in the session storage.
- *
- * @param {string} key The key of the item.
- * @return {string} The stringified result wrapped according to the wire
- *     protocol.
- */
-webdriver.atoms.inject.storage.session.removeItem = function(key) {
-  return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.session.removeItem, [key]);
-};
-
-
-/**
- * Clears the session storage.
- *
- * @return {string} The stringified result wrapped according to the wire
- *     protocol.
- */
-webdriver.atoms.inject.storage.session.clear = function() {
-  return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.session.clear, []);
-};
-
-
-/**
- * Gets the size of the session storage.
- *
- * @return {string} The stringified result wrapped according to the wire
- *     protocol.
- */
-webdriver.atoms.inject.storage.session.size = function() {
-  return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.session.size, []);
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
  * @fileoverview Ready to inject atoms for handling web SQL database.
  */
 
@@ -15886,6 +16603,429 @@ webdriver.atoms.inject.storage.database.executeSql =
 
   bot.storage.database.executeSql(
       databaseName, query, args, onSuccessCallback, onErrorCallback);
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Ready to inject atoms for handling local storage.
+ */
+
+goog.provide('webdriver.atoms.inject.storage.local');
+
+goog.require('webdriver.atoms.inject');
+goog.require('webdriver.atoms.storage.local');
+
+
+/**
+ * Sets an item in the local storage.
+ *
+ * @param {string} key The key of the item.
+ * @param {*} value The value of the item.
+ * @return {string} The stringified result wrapped according to the wire
+ *     protocol.
+ */
+webdriver.atoms.inject.storage.local.setItem = function(key, value) {
+  return webdriver.atoms.inject.executeScript(
+      webdriver.atoms.storage.local.setItem, [key, value]);
+};
+
+
+/**
+ * Gets an item from the local storage.
+ *
+ * @param {string} key The key of the item.
+ * @return {string} The stringified result wrapped according to the wire
+ *     protocol.
+ */
+webdriver.atoms.inject.storage.local.getItem = function(key) {
+  return webdriver.atoms.inject.executeScript(
+      webdriver.atoms.storage.local.getItem, [key]);
+};
+
+
+/**
+ * Gets the key set of the entries.
+ *
+ * @return {string} The stringified result wrapped according to the wire
+ *     protocol.
+ */
+webdriver.atoms.inject.storage.local.keySet = function() {
+  return webdriver.atoms.inject.executeScript(
+      webdriver.atoms.storage.local.keySet, []);
+};
+
+
+/**
+ * Removes an item in the local storage.
+ *
+ * @param {string} key The key of the item.
+ * @return {string} The stringified result wrapped according to the wire
+ *     protocol.
+ */
+webdriver.atoms.inject.storage.local.removeItem = function(key) {
+  return webdriver.atoms.inject.executeScript(
+      webdriver.atoms.storage.local.removeItem, [key]);
+};
+
+
+/**
+ * Clears the local storage.
+ *
+ * @return {string} The stringified result wrapped according to the wire
+ *     protocol.
+ */
+webdriver.atoms.inject.storage.local.clear = function() {
+  return webdriver.atoms.inject.executeScript(
+      webdriver.atoms.storage.local.clear, []);
+};
+
+
+/**
+ * Gets the size of the local storage.
+ *
+ * @return {string} The stringified result wrapped according to the wire
+ *     protocol.
+ */
+webdriver.atoms.inject.storage.local.size = function() {
+  return webdriver.atoms.inject.executeScript(
+      webdriver.atoms.storage.local.size, []);
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Ready to inject atoms for manipulating the DOM.
+ */
+
+goog.provide('webdriver.atoms.inject.action');
+
+goog.require('bot.action');
+goog.require('webdriver.atoms.element');
+goog.require('webdriver.atoms.inject');
+goog.require('webdriver.atoms.inputs');
+
+
+/**
+ * Sends key events to simulating typing on an element.
+ *
+ * @param {bot.inject.JsonElement} element The element to submit.
+ * @param {!Array.<string>} keys The keys to type.
+ * @param {bot.inject.JsonWindow=} opt_window The optional window
+ *     containing the element.
+ * @return {string} A stringified {@link bot.response.ResponseObject}.
+ */
+webdriver.atoms.inject.action.type = function(element, keys, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(
+      webdriver.atoms.element.type, [element, keys], opt_window);
+};
+
+
+/**
+ * Submits the form containing the given element.
+ *
+ * @param {bot.inject.JsonElement} element The element to submit.
+ * @param {bot.inject.JsonWindow=} opt_window The optional window
+ *     containing the element.
+ * @return {string} A stringified {@link bot.response.ResponseObject}.
+ */
+webdriver.atoms.inject.action.submit = function(element, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.submit,
+      [element], opt_window);
+};
+
+
+/**
+ * Clear an element.
+ *
+ * @param {bot.inject.JsonElement} element The element to clear.
+ * @param {bot.inject.JsonWindow=} opt_window The optional window
+ *     containing the element.
+ * @return {string} A stringified {@link bot.response.ResponseObject}.
+ * @see bot.action.clear
+ */
+webdriver.atoms.inject.action.clear = function(element, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.clear,
+      [element], opt_window);
+};
+
+
+/**
+ * Click an element.
+ *
+ * @param {bot.inject.JsonElement} element The element to click.
+ * @param {bot.inject.JsonWindow=} opt_window The optional window
+ *     containing the element.
+ * @return {string} A stringified {@link bot.response.ResponseObject}.
+ * @see bot.action.click
+ */
+webdriver.atoms.inject.action.click = function (element, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.click,
+      [element], opt_window);
+};
+
+
+/**
+ * JSON representation of a {@link bot.Mouse.State} object.
+ * @typedef {{buttonPressed: ?bot.Mouse.Button,
+ *            elementPressed: ?bot.inject.JsonElement,
+ *            clientXY: {x: number, y: number},
+ *            nextClickIsDoubleClick: boolean,
+ *            hasEverInteracted: boolean,
+ *            element: ?bot.inject.JsonElement}}
+ */
+webdriver.atoms.inject.action.JsonMouseState;
+
+
+/**
+ * Clicks a mouse button.
+ *
+ * @param {bot.Mouse.Button} button The button to press.
+ * @param {webdriver.atoms.inject.action.JsonMouseState=} opt_mouseState The
+ *     current state of the mouse.
+ * @param {bot.inject.JsonWindow=} opt_window The window context for
+ *     the execution of the function.
+ * @return {string} A stringified {@link bot.response.ResponseObject}. The
+ *     mouse's new state, as a
+ *     {@link webdriver.atoms.inject.action.JsonMouseState} will be included
+ *     as the response value.
+ */
+webdriver.atoms.inject.action.mouseClick = function(
+    button, opt_mouseState, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(
+      webdriver.atoms.inputs.mouseClick,
+      [button, opt_mouseState], opt_window);
+};
+
+
+/**
+ * Types a sequence of key strokes on the active element.
+ * @param {!Array.<string>} keys The keys to type.
+ * @param {bot.Keyboard.State=} opt_keyboardState The keyboard's state.
+ * @param {bot.inject.JsonWindow=} opt_window The window context for
+ *     the execution of the function.
+ * @return {string} A stringified {@link bot.response.ResponseObject}. The
+ *     keyboard's new state, as a {@link bot.Keyboard.State} will be included
+ *     as the response value.
+ */
+webdriver.atoms.inject.action.sendKeysToActiveElement = function(
+    keys, opt_keyboardState, opt_window) {
+  var persistModifiers = true;
+  return webdriver.atoms.inject.action.executeActionFunction_(
+      webdriver.atoms.inputs.sendKeys,
+      [null, keys, opt_keyboardState, persistModifiers], opt_window);
+};
+
+/**
+  * Moves the mouse to a specific element and/or coordinate location.
+  *
+  * @param {?bot.inject.JsonElement} element The element to move the mouse
+  *     relative to, or {@code null} to use the mouse's current position.
+  * @param {?number} xOffset A horizontal offset, relative to the left edge of
+  *     the given element, or the mouse's current position if no element is
+  *     specified.
+  * @param {?number} yOffset A vertical offset, relative to the top edge of
+  *     the given element, or the mouse's current position if no element
+  *     is specified.
+  * @param {webdriver.atoms.inject.action.JsonMouseState=} opt_mouseState The
+  *     current state of the mouse.
+  * @param {bot.inject.JsonWindow=} opt_window The window context for
+  *     the execution of the function.
+  * @return {string} A stringified {@link bot.response.ResponseObject}. The
+  *     mouse's new state, as a
+  *     {@link webdriver.atoms.inject.action.JsonMouseState} will be included
+  *     as the response value.
+  */
+webdriver.atoms.inject.action.mouseMove = function(
+    element, xOffset, yOffset, opt_mouseState, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(
+      webdriver.atoms.inputs.mouseMove,
+      [element, xOffset, yOffset, opt_mouseState], opt_window);
+};
+
+
+/**
+ * Presses the primary mouse button at the current location.
+ *
+ * @param {webdriver.atoms.inject.action.JsonMouseState=} opt_mouseState The
+ *     current state of the mouse.
+ * @param {bot.inject.JsonWindow=} opt_window The window context for
+ *     the execution of the function.
+ * @return {string} A stringified {@link bot.response.ResponseObject}. The
+ *     mouse's new state, as a
+ *     {@link webdriver.atoms.inject.action.JsonMouseState} will be included
+ *     as the response value.
+ */
+webdriver.atoms.inject.action.mouseButtonDown = function(opt_mouseState, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(
+      webdriver.atoms.inputs.mouseButtonDown,
+      [opt_mouseState], opt_window);
+};
+
+
+/**
+ * Releases the primary mouse button at the current location.
+ *
+ * @param {webdriver.atoms.inject.action.JsonMouseState=} opt_mouseState The
+ *     current state of the mouse.
+ * @param {bot.inject.JsonWindow=} opt_window The window context for
+ *     the execution of the function.
+ * @return {string} A stringified {@link bot.response.ResponseObject}. The
+ *     mouse's new state, as a
+ *     {@link webdriver.atoms.inject.action.JsonMouseState} will be included
+ *     as the response value.
+ */
+webdriver.atoms.inject.action.mouseButtonUp = function(opt_mouseState, opt_window) {
+  return webdriver.atoms.inject.action.executeActionFunction_(
+      webdriver.atoms.inputs.mouseButtonUp,
+      [opt_mouseState], opt_window);
+};
+
+/**
+* Double-clicks the primary mouse button.
+*
+* @param {webdriver.atoms.inject.action.JsonMouseState=} opt_mouseState The
+*     current state of the mouse.
+* @param {bot.inject.JsonWindow=} opt_window The window context for
+*     the execution of the function.
+* @return {string} A stringified {@link bot.response.ResponseObject}. The
+*     mouse's new state, as a
+*     {@link webdriver.atoms.inject.action.JsonMouseState} will be included
+*     as the response value.
+*/
+webdriver.atoms.inject.action.doubleClick = function (
+    opt_mouseState, opt_window) {
+    return webdriver.atoms.inject.action.executeActionFunction_(
+      webdriver.atoms.inputs.doubleClick,
+      [opt_mouseState], opt_window);
+};
+
+
+/**
+ * @param {!Function} fn The function to call.
+ * @param {!Array.<*>} args An array of function arguments for the function.
+ * @param {bot.inject.JsonWindow=} opt_window The window context for
+ *     the execution of the function.
+ * @return {string} The serialized JSON wire protocol result of the function.
+ */
+webdriver.atoms.inject.action.executeActionFunction_ = function (
+    fn, args, opt_window) {
+  var response;
+  try {
+    var targetWindow = webdriver.atoms.inject.getWindow(opt_window);
+    var unwrappedArgs = /** @type {Array} */(bot.inject.unwrapValue(
+        args, targetWindow.document));
+    var functionResult = fn.apply(null, unwrappedArgs);
+    response = bot.inject.wrapResponse(functionResult);
+  } catch (ex) {
+    response = bot.inject.wrapError(ex);
+  }
+  return goog.json.serialize(response);
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Wrapping execute script to use a serialized window object.
+ *
+ */
+
+goog.provide('webdriver.atoms.inject');
+
+goog.require('bot.inject');
+goog.require('bot.inject.cache');
+
+
+/**
+ * Wrapper to allow passing a seliazed window object to executeScript.
+ *
+ * @param {!(string|Function)} fn The function to execute.
+ * @param {Array.<*>} args Array of arguments to pass to fn.
+ * @param {{WINDOW: string}=} opt_window The serialized window object to be
+ *     read from the cache.
+ * @return {string} The response object, serialized and returned in string
+ *     format.
+ */
+webdriver.atoms.inject.executeScript = function(fn, args, opt_window) {
+  return /**@type {string}*/(bot.inject.executeScript(fn, args, true,
+      webdriver.atoms.inject.getWindow(opt_window)));
+};
+
+
+/**
+ *
+ * @param {!(string|Function)} fn The function to execute.
+ * @param {Array.<*>} args Array of arguments to pass to fn.
+ * @param {number} timeout The timeout to wait up to in millis.
+ * @param {function(string)|function(!bot.response.ResponseObject)} onDone
+ *     The function to call when the given {@code fn} invokes its callback,
+ *     or when an exception or timeout occurs. This will always be called.
+ * @param {{WINDOW: string}=} opt_window The serialized window
+ *     object to be read from the cache.
+ */
+webdriver.atoms.inject.executeAsyncScript =
+    function(fn, args, timeout, onDone, opt_window) {
+  bot.inject.executeAsyncScript(
+      fn, args, timeout, onDone, true,
+      webdriver.atoms.inject.getWindow(opt_window));
+};
+
+
+/**
+ * Decodes a serialized {WINDOW: string} object using the current document's
+ * cache.
+ *
+ * @param {{WINDOW: string}=} opt_window The serialized window object to be
+ *     read from the cache. If undefined, this function will trivially return
+ *     the current window.
+ * @return {!Window} A reference to a window.
+ * @throws {bot.Error} If the serialized window cannot be found in the current
+ *     document's cache.
+ */
+webdriver.atoms.inject.getWindow = function(opt_window) {
+  var win;
+  if (opt_window) {
+    win = bot.inject.cache.getElement(opt_window[bot.inject.WINDOW_KEY]);
+  } else {
+    win = window;
+  }
+  return /**@type {!Window}*/(win);
 };
 // Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
@@ -16184,260 +17324,39 @@ webdriver.atoms.inject.locators.performSearch_ = function(
 // limitations under the License.
 
 /**
- * @fileoverview Wrapping execute script to use a serialized window object.
- *
+ * @fileoverview Ready to inject atoms for handling session storage.
  */
 
-goog.provide('webdriver.atoms.inject');
-
-goog.require('bot.inject');
-goog.require('bot.inject.cache');
-
-
-/**
- * Wrapper to allow passing a seliazed window object to executeScript.
- *
- * @param {!(string|Function)} fn The function to execute.
- * @param {Array.<*>} args Array of arguments to pass to fn.
- * @param {{WINDOW: string}=} opt_window The serialized window object to be
- *     read from the cache.
- * @return {string} The response object, serialized and returned in string
- *     format.
- */
-webdriver.atoms.inject.executeScript = function(fn, args, opt_window) {
-  return /**@type {string}*/(bot.inject.executeScript(fn, args, true,
-      webdriver.atoms.inject.getWindow(opt_window)));
-};
-
-
-/**
- *
- * @param {!(string|Function)} fn The function to execute.
- * @param {Array.<*>} args Array of arguments to pass to fn.
- * @param {number} timeout The timeout to wait up to in millis.
- * @param {function(string)|function(!bot.response.ResponseObject)} onDone
- *     The function to call when the given {@code fn} invokes its callback,
- *     or when an exception or timeout occurs. This will always be called.
- * @param {{WINDOW: string}=} opt_window The serialized window
- *     object to be read from the cache.
- */
-webdriver.atoms.inject.executeAsyncScript =
-    function(fn, args, timeout, onDone, opt_window) {
-  bot.inject.executeAsyncScript(
-      fn, args, timeout, onDone, true,
-      webdriver.atoms.inject.getWindow(opt_window));
-};
-
-
-/**
- * Decodes a serialized {WINDOW: string} object using the current document's
- * cache.
- *
- * @param {{WINDOW: string}=} opt_window The serialized window object to be
- *     read from the cache. If undefined, this function will trivially return
- *     the current window.
- * @return {!Window} A reference to a window.
- * @throws {bot.Error} If the serialized window cannot be found in the current
- *     document's cache.
- */
-webdriver.atoms.inject.getWindow = function(opt_window) {
-  var win;
-  if (opt_window) {
-    win = bot.inject.cache.getElement(opt_window[bot.inject.WINDOW_KEY]);
-  } else {
-    win = window;
-  }
-  return /**@type {!Window}*/(win);
-};
-// Copyright 2012 WebDriver committers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Ready to inject atoms for handling application cache.
- */
-
-goog.provide('webdriver.atoms.inject.storage.appcache');
-
-goog.require('bot.inject');
-goog.require('webdriver.atoms.storage.appcache');
-
-
-/**
- * Gets the status of the application cache.
- *
- * @return {string} The status of the application cache.
- */
-webdriver.atoms.inject.storage.appcache.getStatus = function() {
-  return /**@type {string}*/(bot.inject.executeScript(
-      webdriver.atoms.storage.appcache.getStatus, [], true));
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Ready to inject atoms for manipulating the DOM.
- */
-
-goog.provide('webdriver.atoms.inject.action');
-
-goog.require('bot.action');
-goog.require('webdriver.atoms.element');
-goog.require('webdriver.atoms.inject');
-
-
-/**
- * Sends key events to simulating typing on an element.
- *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
- * @param {!Array.<string>} keys The keys to type.
- * @param {{WINDOW: string}=} opt_window The optional window
- *     containing the element.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
- */
-webdriver.atoms.inject.action.type = function(element, keys, opt_window) {
-  return webdriver.atoms.inject.action.executeActionFunction_(
-      webdriver.atoms.element.type, [element, keys], opt_window);
-};
-
-
-/**
- * Submits the form containing the given element.
- *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
- * @param {{WINDOW: string}=} opt_window The optional window
- *     containing the element.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
- * @deprecated Click on a submit button or type ENTER in a text box instead.
- */
-webdriver.atoms.inject.action.submit = function(element, opt_window) {
-  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.submit,
-      [element], opt_window);
-};
-
-
-/**
- * Clear an element.
- *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to clear.
- * @param {{WINDOW: string}=} opt_window The optional window
- *     containing the element.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
- * @see bot.action.clear
- */
-webdriver.atoms.inject.action.clear = function(element, opt_window) {
-  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.clear,
-      [element], opt_window);
-};
-
-
-/**
- * Click an element.
- *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to click.
- * @param {{WINDOW: string}=} opt_window The optional window
- *     containing the element.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
- * @see bot.action.click
- */
-webdriver.atoms.inject.action.click = function (element, opt_window) {
-  return webdriver.atoms.inject.action.executeActionFunction_(bot.action.click,
-      [element], opt_window);
-};
-
-
-/**
- * @param {Function} fn The function to call.
- * @param {Array.<*>} args An array of function arguments for the function.
- * @param {{WINDOW: string}=} opt_window The window context for
- *     the execution of the function.
- * @return {string} The serialized JSON wire protocol result of the function.
- */
-webdriver.atoms.inject.action.executeActionFunction_ =
-    function (fn, args, opt_window) {
-  var response;
-  try {
-    var targetWindow = webdriver.atoms.inject.getWindow(opt_window);
-    var unwrappedArgs = /**@type {Object}*/(bot.inject.unwrapValue(args,
-        targetWindow.document));
-    var functionResult = fn.apply(null, unwrappedArgs);
-    response = bot.inject.wrapResponse(functionResult);
-  } catch (ex) {
-    response = bot.inject.wrapError(ex);
-  }
-  return goog.json.serialize(response);
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Ready to inject atoms for handling local storage.
- */
-
-goog.provide('webdriver.atoms.inject.storage.local');
+goog.provide('webdriver.atoms.inject.storage.session');
 
 goog.require('webdriver.atoms.inject');
-goog.require('webdriver.atoms.storage.local');
+goog.require('webdriver.atoms.storage.session');
 
 
 /**
- * Sets an item in the local storage.
+ * Sets an item in the session storage.
  *
  * @param {string} key The key of the item.
  * @param {*} value The value of the item.
  * @return {string} The stringified result wrapped according to the wire
  *     protocol.
  */
-webdriver.atoms.inject.storage.local.setItem = function(key, value) {
+webdriver.atoms.inject.storage.session.setItem = function(key, value) {
   return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.local.setItem, [key, value]);
+      webdriver.atoms.storage.session.setItem, [key, value]);
 };
 
 
 /**
- * Gets an item from the local storage.
+ * Gets an item from the session storage.
  *
  * @param {string} key The key of the item.
  * @return {string} The stringified result wrapped according to the wire
  *     protocol.
  */
-webdriver.atoms.inject.storage.local.getItem = function(key) {
+webdriver.atoms.inject.storage.session.getItem = function(key) {
   return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.local.getItem, [key]);
+      webdriver.atoms.storage.session.getItem, [key]);
 };
 
 
@@ -16447,46 +17366,46 @@ webdriver.atoms.inject.storage.local.getItem = function(key) {
  * @return {string} The stringified result wrapped according to the wire
  *     protocol.
  */
-webdriver.atoms.inject.storage.local.keySet = function() {
+webdriver.atoms.inject.storage.session.keySet = function() {
   return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.local.keySet, []);
+      webdriver.atoms.storage.session.keySet, []);
 };
 
 
 /**
- * Removes an item in the local storage.
+ * Removes an item in the session storage.
  *
  * @param {string} key The key of the item.
  * @return {string} The stringified result wrapped according to the wire
  *     protocol.
  */
-webdriver.atoms.inject.storage.local.removeItem = function(key) {
+webdriver.atoms.inject.storage.session.removeItem = function(key) {
   return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.local.removeItem, [key]);
+      webdriver.atoms.storage.session.removeItem, [key]);
 };
 
 
 /**
- * Clears the local storage.
+ * Clears the session storage.
  *
  * @return {string} The stringified result wrapped according to the wire
  *     protocol.
  */
-webdriver.atoms.inject.storage.local.clear = function() {
+webdriver.atoms.inject.storage.session.clear = function() {
   return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.local.clear, []);
+      webdriver.atoms.storage.session.clear, []);
 };
 
 
 /**
- * Gets the size of the local storage.
+ * Gets the size of the session storage.
  *
  * @return {string} The stringified result wrapped according to the wire
  *     protocol.
  */
-webdriver.atoms.inject.storage.local.size = function() {
+webdriver.atoms.inject.storage.session.size = function() {
   return webdriver.atoms.inject.executeScript(
-      webdriver.atoms.storage.local.size, []);
+      webdriver.atoms.storage.session.size, []);
 };
 // Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
@@ -16539,6 +17458,20 @@ webdriver.atoms.inject.frame.activeElement = function() {
 
 
 /**
+ * Finds the parent frame of the specified frame.
+ *
+ * @param {!Window=} opt_root The window to perform the search under.
+ * If not specified window is used as the default.
+ * @return {string} A frame element wrapped in a JSON string as defined by
+ *     the wire protocol.
+ */
+webdriver.atoms.inject.frame.parentFrame = function (opt_root) {
+  return webdriver.atoms.inject.executeScript(bot.frame.parentFrame,
+      [opt_root]);
+};
+
+
+/**
  * Finds a frame by index.
  *
  * @param {number} index The index of the frame to search for.
@@ -16571,7 +17504,374 @@ webdriver.atoms.inject.frame.getFrameWindow = function(element) {
   return webdriver.atoms.inject.executeScript(bot.frame.getFrameWindow,
       [element]);
 };
+// Copyright 2012 WebDriver committers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Ready to inject atoms for handling application cache.
+ */
+
+goog.provide('webdriver.atoms.inject.storage.appcache');
+
+goog.require('bot.inject');
+goog.require('webdriver.atoms.storage.appcache');
+
+
+/**
+ * Gets the status of the application cache.
+ *
+ * @return {string} The status of the application cache.
+ */
+webdriver.atoms.inject.storage.appcache.getStatus = function() {
+  return /**@type {string}*/(bot.inject.executeScript(
+      webdriver.atoms.storage.appcache.getStatus, [], true));
+};
 // Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Ready to inject atoms for handling frames.
+ */
+
+goog.provide('phantomjs.atoms.inject.frame');
+
+goog.require('bot.frame');
+goog.require('bot.inject.cache');
+goog.require('phantomjs.atoms.inject');
+
+
+
+/**
+ * Gets the index of a frame in the given window. Note that the element must
+ * be a frame or an iframe.
+ *
+ * @param {!(HTMLIFrameElement|HTMLFrameElement)} element The iframe or frame
+ *     element.
+ * @return {string} The result wrapped
+ */
+phantomjs.atoms.inject.frame.getFrameIndex = function(element) {
+  return phantomjs.atoms.inject.executeScript(bot.frame.getFrameIndex, [element]);
+};
+
+
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Ready to inject atoms for manipulating the DOM.
+ */
+
+goog.provide('phantomjs.atoms.inject.action');
+
+goog.require('bot.action');
+goog.require('bot.events');
+goog.require('goog.dom.selection');
+goog.require('webdriver.atoms.element');
+goog.require('phantomjs.atoms.inject');
+
+/**
+ * Submits the form containing the given element.
+ *
+ * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
+ * @return {string} A stringified {@link bot.response.ResponseObject}.
+ */
+phantomjs.atoms.inject.action.submit = function(element) {
+  return phantomjs.atoms.inject.executeScript(bot.action.submit, [element]);
+};
+
+/**
+ * Clear an element.
+ *
+ * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to clear.
+ * @return {string} A stringified {@link bot.response.ResponseObject}.
+ * @see bot.action.clear
+ */
+phantomjs.atoms.inject.action.clear = function(element) {
+  return phantomjs.atoms.inject.executeScript(bot.action.clear, [element]);
+};
+
+/**
+ * Focuses on the given element if it is not already the active element.
+ *
+ * @param {!Element} element The element to focus on.
+ */
+phantomjs.atoms.inject.action.focusOnElement = function(element) {
+  return phantomjs.atoms.inject.executeScript(
+    bot.action.focusOnElement, [element]
+  );
+};
+
+/**
+ * Click an element.
+ *
+ * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to click.
+ * @return {string} A stringified {@link bot.response.ResponseObject}.
+ * @see bot.action.click
+ */
+phantomjs.atoms.inject.action.click = function(element) {
+  return phantomjs.atoms.inject.executeScript(bot.action.click, [element]);
+};
+
+/**
+ * Clicks on the given {@code element} with a virtual mouse.
+ *
+ * @param {!Element} element The element to click.
+ * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
+ *   element.
+ * @throws {bot.Error} If the element cannot be interacted with.
+ */
+phantomjs.atoms.inject.action.prepareClick = function (element, opt_coords) {
+
+  function prepare_(element, opt_coords) {
+    if (!bot.dom.isShown(element, /*ignoreOpacity=*/true)) {
+      throw new bot.Error(bot.ErrorCode.ELEMENT_NOT_VISIBLE,
+          'Element is not currently visible and may not be manipulated');
+    }
+    // Unlike element.scrollIntoView(), this scrolls the minimal amount
+    // necessary, not scrolling at all if the element is already in view.
+    var doc = goog.dom.getOwnerDocument(element),
+        coords = {};
+    goog.style.scrollIntoContainerView(element, doc.body);
+
+    // NOTE(user): Ideally, we would check that any provided coordinates fall
+    // within the bounds of the element, but this has proven difficult, because:
+    // (1) Browsers sometimes lie about the true size of elements, e.g. when text
+    // overflows the bounding box of an element, browsers report the size of the
+    // box even though the true area that can be interacted with is larger; and
+    // (2) Elements with children styled as position:absolute will often not have
+    // a bounding box that surrounds all of their children, but it is useful for
+    // the user to be able to interact with this parent element as if it does.
+    if (opt_coords) {
+      coords = goog.math.Vec2.fromCoordinate(opt_coords);
+    } else {
+      var size = bot.action.getInteractableSize(element);
+      coords = new goog.math.Vec2(size.width / 2, size.height / 2);
+    }
+    var position = goog.style.getClientPosition(element);
+    coords.x += position.x;
+    coords.y += position.y;
+    // bug in webkit for select elements.
+    if (bot.dom.isElement(element, goog.dom.TagName.OPTION) ||
+       bot.dom.isElement(element, goog.dom.TagName.SELECT)) {
+      // On some browsers, a mouse down event on an OPTION or SELECT element cause
+      // the SELECT to open, blocking further JS execution. This is undesirable,
+      // and so needs to be detected. We always focus in this case.
+      // TODO(simon): This is a nasty way to avoid locking the browser
+
+      bot.action.focusOnElement(element);
+
+      // When an element is toggled as the result of a click, the toggling and the
+      // change event happens before the click event. However, on radio buttons and
+      // checkboxes, the click handler can prevent the toggle from happening, so
+      // for those we need to fire a click before toggling to see if the click was
+      // cancelled. For option elements, we toggle unconditionally before the click.
+      if (bot.dom.isSelectable(element) && !bot.dom.isSelected(element)) {
+        var select = /** @type {!Element} */ (goog.dom.getAncestor(element,
+            function(node) {
+              return bot.dom.isElement(node, goog.dom.TagName.SELECT);
+            }
+        ));
+        if (!select.multiple) {
+          bot.events.fire(select, bot.events.EventType.CHANGE);
+        }
+      }
+    }
+    return coords;
+  }
+
+  return phantomjs.atoms.inject.executeScript(
+    prepare_,
+    [element, opt_coords]
+  );
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Wrapping execute script to use a serialized window object.
+ *
+ */
+
+goog.provide('phantomjs.atoms.inject');
+
+goog.require('bot.inject');
+goog.require('bot.inject.cache');
+
+
+/**
+ * Wrapper to allow passing a seliazed window object to executeScript.
+ *
+ * @param {!(string|Function)} fn The function to execute.
+ * @param {Array.<*>} args Array of arguments to pass to fn.
+ * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
+ *     object to be read from the cache.
+ * @return {string} The response object
+ */
+phantomjs.atoms.inject.executeScript = function(fn, args, opt_window) {
+   return /**@type {string}*/(bot.inject.executeScript(fn, args, true,/* NOT CHANGE THIS PHANTOMJS BUG https://github.com/ariya/phantomjs/issues/10434*/
+      phantomjs.atoms.inject.getWindow_(opt_window)));
+};
+
+
+/**
+ *
+ * @param {!(string|Function)} fn The function to execute.
+ * @param {Array.<*>} args Array of arguments to pass to fn.
+ * @param {number} timeout The timeout to wait up to in millis.
+ * @param {function(string)|function(!bot.response.ResponseObject)} onDone
+ *     The function to call when the given {@code fn} invokes its callback,
+ *     or when an exception or timeout occurs. This will always be called.
+ * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
+ *     object to be read from the cache.
+ */
+phantomjs.atoms.inject.executeAsyncScript =
+    function(fn, args, timeout, onDone, opt_window) {
+  return bot.inject.executeAsyncScript(
+      fn, args, timeout, onDone, true,/* NOT CHANGE THIS PHANTOMJS BUG https://github.com/ariya/phantomjs/issues/10434*/
+      phantomjs.atoms.inject.getWindow_(opt_window));
+};
+
+
+/**
+ * Get the window to use.
+ *
+ * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
+ *     object to be read from the cache.
+ * @return {!Window} A reference to a window.
+ * @private
+ */
+phantomjs.atoms.inject.getWindow_ = function(opt_window) {
+  var win;
+  if (opt_window) {
+    win = bot.inject.cache.getElement(opt_window[bot.inject.WINDOW_KEY]);
+  } else {
+    win = window;
+  }
+  return /**@type {!Window}*/(win);
+};
+// Copyright 2011 WebDriver committers
+// Copyright 2011 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+ * @fileoverview Ready to inject atoms to find elements in the page.
+ */
+
+goog.provide('phantomjs.atoms.inject.locators');
+
+goog.require('bot.locators');
+goog.require('phantomjs.atoms.inject');
+
+/**
+ * Finds an element by using the given lookup strategy.
+ * @param {string} strategy The strategy to use to locate the element.
+ * @param {string} using The locator to use.
+ * @param {(Document|Element)=} opt_root The document or element to perform
+ *     the search under. If not specified, will use {@code document}
+ *     as the root.
+ * @return {string} The result wrapped
+ */
+phantomjs.atoms.inject.locators.findElement =
+    function(strategy, using, opt_root) {
+  var locator = {};
+  locator[strategy] = using;
+  var result = phantomjs.atoms.inject.executeScript(bot.locators.findElement,
+      [locator, opt_root]);
+  result = JSON.parse(result);
+  if (result.status === 0 && result.value === null) {
+      var error = new bot.Error(
+        bot.ErrorCode.NO_SUCH_ELEMENT,
+        'No Such Element found'
+      );
+      result = bot.inject.wrapError(error);
+  } else if (result.status === bot.ErrorCode.INVALID_ELEMENT_STATE &&
+    result.value.message.indexOf('SYNTAX_ERR: DOM Exception 12') !== -1) {
+    result.status = bot.ErrorCode.INVALID_SELECTOR_ERROR;
+  }
+  return JSON.stringify(result);
+};
+
+
+/**
+ * Finds all elements by using the given lookup strategy.
+ * @param {string} strategy The strategy to use to locate the element.
+ * @param {string} using The locator to use.
+ * @param {(Document|Element)=} opt_root The document or element to perform
+ *     the search under. If not specified, will use {@code document}
+ *     as the root.
+ * @return {string} The result wrapped
+  */
+phantomjs.atoms.inject.locators.findElements =
+    function(strategy, using, opt_root) {
+  var locator = {};
+  locator[strategy] = using;
+  var result = phantomjs.atoms.inject.executeScript(bot.locators.findElements,
+      [locator, opt_root]);
+  result = JSON.parse(result);
+  if (result.status === bot.ErrorCode.INVALID_ELEMENT_STATE &&
+    result.value.message.indexOf('SYNTAX_ERR: DOM Exception 12') !== -1) {
+    result.status = bot.ErrorCode.INVALID_SELECTOR_ERROR;
+  }
+  return JSON.stringify(result);
+};// Copyright 2011 WebDriver committers
 // Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16731,337 +18031,4 @@ phantomjs.atoms.inject.dom.isSameNode = function (element, other) {
     'return arguments[0].isSameNode(arguments[1]);',
     [element, other]
   );
-};// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Ready to inject atoms to find elements in the page.
- */
-
-goog.provide('phantomjs.atoms.inject.locators');
-
-goog.require('bot.locators');
-goog.require('phantomjs.atoms.inject');
-
-/**
- * Finds an element by using the given lookup strategy.
- * @param {string} strategy The strategy to use to locate the element.
- * @param {string} using The locator to use.
- * @param {(Document|Element)=} opt_root The document or element to perform
- *     the search under. If not specified, will use {@code document}
- *     as the root.
- * @return {string} The result wrapped
- */
-phantomjs.atoms.inject.locators.findElement =
-    function(strategy, using, opt_root) {
-  var locator = {};
-  locator[strategy] = using;
-  var result = phantomjs.atoms.inject.executeScript(bot.locators.findElement,
-      [locator, opt_root]);
-  result = JSON.parse(result);
-  if (result.status === 0 && result.value === null) {
-      var error = new bot.Error(
-        bot.ErrorCode.NO_SUCH_ELEMENT,
-        'No Such Element found'
-      );
-      result = bot.inject.wrapError(error);
-  } else if (result.status === bot.ErrorCode.INVALID_ELEMENT_STATE &&
-    result.value.message.indexOf('SYNTAX_ERR: DOM Exception 12') !== -1) {
-    result.status = bot.ErrorCode.INVALID_SELECTOR_ERROR;
-  }
-  return JSON.stringify(result);
 };
-
-
-/**
- * Finds all elements by using the given lookup strategy.
- * @param {string} strategy The strategy to use to locate the element.
- * @param {string} using The locator to use.
- * @param {(Document|Element)=} opt_root The document or element to perform
- *     the search under. If not specified, will use {@code document}
- *     as the root.
- * @return {string} The result wrapped
-  */
-phantomjs.atoms.inject.locators.findElements =
-    function(strategy, using, opt_root) {
-  var locator = {};
-  locator[strategy] = using;
-  var result = phantomjs.atoms.inject.executeScript(bot.locators.findElements,
-      [locator, opt_root]);
-  result = JSON.parse(result);
-  if (result.status === bot.ErrorCode.INVALID_ELEMENT_STATE &&
-    result.value.message.indexOf('SYNTAX_ERR: DOM Exception 12') !== -1) {
-    result.status = bot.ErrorCode.INVALID_SELECTOR_ERROR;
-  }
-  return JSON.stringify(result);
-};// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Wrapping execute script to use a serialized window object.
- *
- */
-
-goog.provide('phantomjs.atoms.inject');
-
-goog.require('bot.inject');
-goog.require('bot.inject.cache');
-
-
-/**
- * Wrapper to allow passing a seliazed window object to executeScript.
- *
- * @param {!(string|Function)} fn The function to execute.
- * @param {Array.<*>} args Array of arguments to pass to fn.
- * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
- *     object to be read from the cache.
- * @return {string} The response object
- */
-phantomjs.atoms.inject.executeScript = function(fn, args, opt_window) {
-   return /**@type {string}*/(bot.inject.executeScript(fn, args, true,/* NOT CHANGE THIS PHANTOMJS BUG https://github.com/ariya/phantomjs/issues/10434*/
-      phantomjs.atoms.inject.getWindow_(opt_window)));
-};
-
-
-/**
- *
- * @param {!(string|Function)} fn The function to execute.
- * @param {Array.<*>} args Array of arguments to pass to fn.
- * @param {number} timeout The timeout to wait up to in millis.
- * @param {function(string)|function(!bot.response.ResponseObject)} onDone
- *     The function to call when the given {@code fn} invokes its callback,
- *     or when an exception or timeout occurs. This will always be called.
- * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
- *     object to be read from the cache.
- */
-phantomjs.atoms.inject.executeAsyncScript =
-    function(fn, args, timeout, onDone, opt_window) {
-  return bot.inject.executeAsyncScript(
-      fn, args, timeout, onDone, true,/* NOT CHANGE THIS PHANTOMJS BUG https://github.com/ariya/phantomjs/issues/10434*/
-      phantomjs.atoms.inject.getWindow_(opt_window));
-};
-
-
-/**
- * Get the window to use.
- *
- * @param {{bot.inject.WINDOW_KEY:string}=} opt_window The serialized window
- *     object to be read from the cache.
- * @return {!Window} A reference to a window.
- * @private
- */
-phantomjs.atoms.inject.getWindow_ = function(opt_window) {
-  var win;
-  if (opt_window) {
-    win = bot.inject.cache.getElement(opt_window[bot.inject.WINDOW_KEY]);
-  } else {
-    win = window;
-  }
-  return /**@type {!Window}*/(win);
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Ready to inject atoms for manipulating the DOM.
- */
-
-goog.provide('phantomjs.atoms.inject.action');
-
-goog.require('bot.action');
-goog.require('bot.events');
-goog.require('goog.dom.selection');
-goog.require('webdriver.atoms.element');
-goog.require('phantomjs.atoms.inject');
-
-/**
- * Submits the form containing the given element.
- *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to submit.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
- */
-phantomjs.atoms.inject.action.submit = function(element) {
-  return phantomjs.atoms.inject.executeScript(bot.action.submit, [element]);
-};
-
-/**
- * Clear an element.
- *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to clear.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
- * @see bot.action.clear
- */
-phantomjs.atoms.inject.action.clear = function(element) {
-  return phantomjs.atoms.inject.executeScript(bot.action.clear, [element]);
-};
-
-/**
- * Focuses on the given element if it is not already the active element.
- *
- * @param {!Element} element The element to focus on.
- */
-phantomjs.atoms.inject.action.focusOnElement = function(element) {
-  return phantomjs.atoms.inject.executeScript(
-    bot.action.focusOnElement, [element]
-  );
-};
-
-/**
- * Click an element.
- *
- * @param {!{bot.inject.ELEMENT_KEY:string}} element The element to click.
- * @return {string} A stringified {@link bot.response.ResponseObject}.
- * @see bot.action.click
- */
-phantomjs.atoms.inject.action.click = function(element) {
-  return phantomjs.atoms.inject.executeScript(bot.action.click, [element]);
-};
-
-/**
- * Clicks on the given {@code element} with a virtual mouse.
- *
- * @param {!Element} element The element to click.
- * @param {goog.math.Coordinate=} opt_coords Mouse position relative to the
- *   element.
- * @throws {bot.Error} If the element cannot be interacted with.
- */
-phantomjs.atoms.inject.action.prepareClick = function (element, opt_coords) {
-
-  function prepare_(element, opt_coords) {
-    if (!bot.dom.isShown(element, /*ignoreOpacity=*/true)) {
-      throw new bot.Error(bot.ErrorCode.ELEMENT_NOT_VISIBLE,
-          'Element is not currently visible and may not be manipulated');
-    }
-    // Unlike element.scrollIntoView(), this scrolls the minimal amount
-    // necessary, not scrolling at all if the element is already in view.
-    var doc = goog.dom.getOwnerDocument(element),
-        coords = {};
-    goog.style.scrollIntoContainerView(element, doc.body);
-
-    // NOTE(user): Ideally, we would check that any provided coordinates fall
-    // within the bounds of the element, but this has proven difficult, because:
-    // (1) Browsers sometimes lie about the true size of elements, e.g. when text
-    // overflows the bounding box of an element, browsers report the size of the
-    // box even though the true area that can be interacted with is larger; and
-    // (2) Elements with children styled as position:absolute will often not have
-    // a bounding box that surrounds all of their children, but it is useful for
-    // the user to be able to interact with this parent element as if it does.
-    if (opt_coords) {
-      coords = goog.math.Vec2.fromCoordinate(opt_coords);
-    } else {
-      var size = bot.action.getInteractableSize(element);
-      coords = new goog.math.Vec2(size.width / 2, size.height / 2);
-    }
-    var position = goog.style.getClientPosition(element);
-    coords.x += position.x;
-    coords.y += position.y;
-    // bug in webkit for select elements.
-    if (bot.dom.isElement(element, goog.dom.TagName.OPTION) ||
-       bot.dom.isElement(element, goog.dom.TagName.SELECT)) {
-      // On some browsers, a mouse down event on an OPTION or SELECT element cause
-      // the SELECT to open, blocking further JS execution. This is undesirable,
-      // and so needs to be detected. We always focus in this case.
-      // TODO(simon): This is a nasty way to avoid locking the browser
-
-      bot.action.focusOnElement(element);
-
-      // When an element is toggled as the result of a click, the toggling and the
-      // change event happens before the click event. However, on radio buttons and
-      // checkboxes, the click handler can prevent the toggle from happening, so
-      // for those we need to fire a click before toggling to see if the click was
-      // cancelled. For option elements, we toggle unconditionally before the click.
-      if (bot.dom.isSelectable(element) && !bot.dom.isSelected(element)) {
-        var select = /** @type {!Element} */ (goog.dom.getAncestor(element,
-            function(node) {
-              return bot.dom.isElement(node, goog.dom.TagName.SELECT);
-            }
-        ));
-        if (!select.multiple) {
-          bot.events.fire(select, bot.events.EventType.CHANGE);
-        }
-      }
-    }
-    return coords;
-  }
-
-  return phantomjs.atoms.inject.executeScript(
-    prepare_,
-    [element, opt_coords]
-  );
-};
-// Copyright 2011 WebDriver committers
-// Copyright 2011 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/**
- * @fileoverview Ready to inject atoms for handling frames.
- */
-
-goog.provide('phantomjs.atoms.inject.frame');
-
-goog.require('bot.frame');
-goog.require('bot.inject.cache');
-goog.require('phantomjs.atoms.inject');
-
-
-
-/**
- * Gets the index of a frame in the given window. Note that the element must
- * be a frame or an iframe.
- *
- * @param {!(HTMLIFrameElement|HTMLFrameElement)} element The iframe or frame
- *     element.
- * @return {string} The result wrapped
- */
-phantomjs.atoms.inject.frame.getFrameIndex = function(element) {
-  return phantomjs.atoms.inject.executeScript(bot.frame.getFrameIndex, [element]);
-};
-
-

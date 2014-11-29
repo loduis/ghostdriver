@@ -50,7 +50,7 @@ fi
 ################################################################################
 
 SELENIUM_REPO_PATH=$1
-DESTINATION_DIRECTORY="$PWD/../src/webdriver-atoms/"
+DESTINATION_DIRECTORY="$PWD/../src/webdriver-atoms"
 LASTUPDATE_FILE="$DESTINATION_DIRECTORY/lastupdate"
 ATOMS_BUILD_DIR="$PWD/atoms_build_dir"
 TEMP_BUILD_DIR_NAME="phantomjs-driver"

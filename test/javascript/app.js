@@ -3,19 +3,42 @@ var express = require('express'),
     path    = require('path');
 
 var app = express();
+var favicon = require('serve-favicon');
+var morgan  = require('morgan');
+var bodyParser = require('body-parser')
+var errorhandler = require('errorhandler')
+
+// parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded({ extended: false }))
+
+// parse application/json
+app.use(bodyParser.json())
+
+// parse application/vnd.api+json as json
+app.use(bodyParser.json({ type: 'application/vnd.api+json' }))
+
 
 // all environments
 app.set('port', process.env.PORT || 3000);
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
-app.use(express.favicon());
-app.use(express.logger('dev'));
-app.use(express.bodyParser());
+
+// a pre-defined name
+morgan('combined');
+
+// a format string
+morgan(':remote-addr :method :url');
+
+// a custom function
+morgan(function (tokens, req, res) {
+  return req.method + ' ' + req.url
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // development only
 if ('development' == app.get('env')) {
-  app.use(express.errorHandler());
+  app.use(errorhandler())
   app.locals.pretty = true;
 }
 

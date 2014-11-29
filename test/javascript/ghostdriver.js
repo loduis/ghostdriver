@@ -147,7 +147,7 @@ describe('Ghostdriver', function () {
 
     it('should get the current page source', function(done) {
       driver.getPageSource().then(function(source) {
-        source.should.include('</html>');
+        source.trim().should.endWith('</html>');
         done();
       });
     });
@@ -793,7 +793,7 @@ describe('Ghostdriver', function () {
       });
     });
 
-    /* this createa and crash
+    // this createa and crash
 
     it('should set a input file value', function(done){
       var element = driver.findElement(By.id('file'));
@@ -802,7 +802,7 @@ describe('Ghostdriver', function () {
         value.should.equal('C:\\fakepath\\local.jpg');
         done();
       });
-    });*/
+    });
 
     it('should retrieve the value of the invalid attribute of an element',
       function (done) {

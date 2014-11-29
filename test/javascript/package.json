@@ -12,7 +12,11 @@
     "selenium-webdriver": "latest",
     "mocha": "latest",
     "express": "latest",
-    "jade": "latest"
+    "serve-favicon": "latest",
+    "morgan": "latest",
+    "jade": "latest",
+    "body-parser": "latest",
+    "errorhandler": "latest"
   },
   "scripts": {
     "test": "make test"

@@ -8,6 +8,7 @@ var webdriver = require('selenium-webdriver'),
     Executor    = http.Executor,
     promise     = webdriver.promise;
 
+http.util   = require('selenium-webdriver/http/util');
 
 CommandName.DESCRIBE_ELEMENT = 'describeElement';
 

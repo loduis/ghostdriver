@@ -82,7 +82,7 @@ router.parse = function(request) {
 
   var command = _getCommand(request);
 
-  console.log(method + ' ' + command);
+  // console.log(method + ' ' + command);
 
   var callback = _routes[method][command];
 
@@ -98,6 +98,7 @@ router.dispatch = function (request, response) {
   // extends the response object method
   _Response.extend(response);
   // format url al request for callback
+  //console.log(request.url);
   var
     callback = router.parse(request),
     args = [];

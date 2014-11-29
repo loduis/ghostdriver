@@ -1,7 +1,7 @@
-2014-01-16 06:14:43
+2014-11-29 11:46:44
 
-commit 14fa800511cc5d66d426e08b0b2ab926c7ed7398 (HEAD, tag: refs/tags/selenium-2.39.0)
-Author: Jim Evans <james.h.evans.jr@gmail.com>
-Date:   Mon Dec 16 11:26:02 2013 -0500
+commit 76d78cf323ce037c5f92db6c1bba601c2ac43ad8 (HEAD, tag: refs/tags/selenium-2.44.0)
+Author: Luke Inman-Semerau <luke.semerau@gmail.com>
+Date:   Thu Oct 23 12:57:17 2014 -0700
 
-    Updating .NET CHANGELOG for 2.39.0 release
+    updating javadoc, changelog for java, bumping version numbers to 2.44.0

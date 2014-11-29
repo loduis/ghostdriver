@@ -32,6 +32,7 @@ function Wait(window) {
 
   function _resourceRequested(req, controller) {
     // carga sin imagenes
+/*
     if (
       req.url.indexOf('.gif') !== -1 ||
       req.url.indexOf('.png') !== -1 ||
@@ -41,6 +42,7 @@ function Wait(window) {
       controller.abort();
       return;
     }
+*/
     this._loading = true;
     this._resources[req.id] = {
       url: req.url,
@@ -57,7 +59,7 @@ function Wait(window) {
 
   function _resourceReceived(res) {
     if (res.stage === 'end') {
-      console.log(res.id + ': /' + res.status + ' ' + res.url);
+      // console.log(res.id + ': /' + res.status + ' ' + res.url);
       // inline image status is null
       if (res.url.indexOf('data:image/') === 0) {
         res.status = 200;
@@ -86,12 +88,12 @@ function Wait(window) {
         304,
         408, // Request timeout
         504, // Gateway timeout
-        401 // AUTH
+        401 // AUTH,
       ];
       // inline images has status null
       if (res.status && validStatus.indexOf(res.status) === -1) {
         console.log('REVIEW STATUS: ' + res.status);
-        throw new Error('STATUS PROBLEM: ' + JSON.stringify(res, undefined, 4));
+        console.log('STATUS PROBLEM: ' + JSON.stringify(res, undefined, 4));
         phantom.exit(1);
       }
     } else if (res.stage === 'start') {
